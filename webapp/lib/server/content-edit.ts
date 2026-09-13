@@ -2,7 +2,12 @@
 
 import { CopyObjectCommand } from "@aws-sdk/client-s3";
 import { prisma } from "@yasshi2525/persist-schema";
-import { ContentErrorResponse, ContentResponse } from "../types";
+import {
+    ContentErrorResponse,
+    ContentResponse,
+    GAME_FILE_MAX_BYTES,
+    ICON_FILE_MAX_BYTES,
+} from "../types";
 import {
     createContentRecord,
     deleteContentRecord,
@@ -31,11 +36,25 @@ async function validateParam({
     gameId,
     contentId,
     publisherId,
+    gameFile,
+    iconFile,
 }: EditGameForm): Promise<ContentErrorResponse | undefined> {
     if (gameId == null || contentId == null || !publisherId) {
         return {
             ok: false,
             reason: "InvalidParams",
+        };
+    }
+    if (gameFile && gameFile.size > GAME_FILE_MAX_BYTES) {
+        return {
+            ok: false,
+            reason: "GameFileTooLarge",
+        };
+    }
+    if (iconFile && iconFile.size > ICON_FILE_MAX_BYTES) {
+        return {
+            ok: false,
+            reason: "IconFileTooLarge",
         };
     }
     try {
