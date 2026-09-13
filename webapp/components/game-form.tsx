@@ -29,6 +29,7 @@ import {
 import { styled } from "@mui/material/styles";
 import {
     ContentErrorResponse,
+    GAME_FILE_MAX_BYTES,
     GAME_FILE_MAX_MB,
     messageKey,
     messages,
@@ -97,7 +98,7 @@ export function GameForm({
             const file = event.target.files[0];
             // 上限超過のまま送信すると Next.js 側でボディが切り詰められ、
             // 原因の分からない失敗になるため選択時点で弾く
-            if (file.size > GAME_FILE_MAX_MB * 1024 * 1024) {
+            if (file.size > GAME_FILE_MAX_BYTES) {
                 setGameFile(undefined);
                 setLicense(undefined);
                 setGameFileError(
@@ -192,6 +193,11 @@ export function GameForm({
                         `(サポート: ${supportedAkashicModes.map((m) => `"${m}"`).join()})`,
                 );
                 break;
+            case "FileTooLarge":
+                setServerError(
+                    `ゲームデータファイルは ${GAME_FILE_MAX_MB}MB 以下にしてください。`,
+                );
+                break;
             case "Drain":
                 setServerError(
                     "現在臨時メンテナンス中のため、コンテンツの投稿・更新ができません。1時間ほど時間をおいてください。",
@@ -220,6 +226,11 @@ export function GameForm({
             if (!description) {
                 setDescriptionError("ゲーム説明を入力してください。");
             }
+        }
+        // 更新時は gameFile 未選択がメタデータのみの更新として成功してしまうため、
+        // 選択を弾いたままの状態で送信させない
+        if (gameFileError) {
+            return;
         }
         if (!user) {
             setServerError("サインインしてください。");

@@ -1,7 +1,11 @@
 "use server";
 
 import { prisma } from "@yasshi2525/persist-schema";
-import { ContentErrorResponse, ContentResponse } from "../types";
+import {
+    ContentErrorResponse,
+    ContentResponse,
+    GAME_FILE_MAX_BYTES,
+} from "../types";
 import {
     createContentRecord,
     deleteContentRecord,
@@ -31,6 +35,12 @@ function validateParam(param: NewGameForm): ContentErrorResponse | undefined {
         return {
             ok: false,
             reason: "InvalidParams",
+        };
+    }
+    if (param.gameFile.size > GAME_FILE_MAX_BYTES) {
+        return {
+            ok: false,
+            reason: "FileTooLarge",
         };
     }
 }

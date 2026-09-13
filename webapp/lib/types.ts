@@ -376,6 +376,7 @@ export type UserHandleFormState = {
 
 // next.config.ts の serverActions.bodySizeLimit / proxyClientMaxBodySize と揃えること
 export const GAME_FILE_MAX_MB = 30;
+export const GAME_FILE_MAX_BYTES = GAME_FILE_MAX_MB * 1024 * 1024;
 
 export const supportedExternalPlugins = ["send", "coe", "coeLimited"];
 export const supportedAkashicVersions = ["3"];
@@ -390,6 +391,7 @@ const contentErrReasons = [
     "InvalidGameJson",
     "UnsupportedVersion",
     "UnsupportedMode",
+    "FileTooLarge",
     "Drain",
     "InternalError",
 ] as const;
