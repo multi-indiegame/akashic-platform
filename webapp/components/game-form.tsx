@@ -29,6 +29,7 @@ import {
 import { styled } from "@mui/material/styles";
 import {
     ContentErrorResponse,
+    GAME_FILE_MAX_MB,
     messageKey,
     messages,
     supportedAkashicModes,
@@ -94,6 +95,17 @@ export function GameForm({
             setGameFileError(undefined);
             setUnsupportedExternals(undefined);
             const file = event.target.files[0];
+            // 上限超過のまま送信すると Next.js 側でボディが切り詰められ、
+            // 原因の分からない失敗になるため選択時点で弾く
+            if (file.size > GAME_FILE_MAX_MB * 1024 * 1024) {
+                setGameFile(undefined);
+                setLicense(undefined);
+                setGameFileError(
+                    `ゲームデータファイルは ${GAME_FILE_MAX_MB}MB 以下にしてください。`,
+                );
+                event.target.value = "";
+                return;
+            }
             setGameFile(file);
             try {
                 const zip = await JSZip.loadAsync(await file.arrayBuffer());
@@ -321,7 +333,8 @@ export function GameForm({
                             </Box>
                             <Box>
                                 <Typography variant="h6" gutterBottom>
-                                    ゲームデータファイル (zip形式){" "}
+                                    ゲームデータファイル (zip形式・
+                                    {GAME_FILE_MAX_MB}MBまで){" "}
                                     <Typography component="span" color="error">
                                         *
                                     </Typography>
