@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
     output: "standalone",
     experimental: {
-        // アプリ内では GAME_FILE_MAX_MB (クライアントに提示)
-        // 少し多めに許可
+        // ゲーム (GAME_FILE_MAX_MB) とアイコン (ICON_FILE_MAX_MB) を同一リクエストで
+        // 受けるため、合計にエンコードのオーバーヘッド分を足して許可
         serverActions: {
             bodySizeLimit: "32mb",
         },

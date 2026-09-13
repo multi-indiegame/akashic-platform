@@ -5,6 +5,7 @@ import {
     ContentErrorResponse,
     ContentResponse,
     GAME_FILE_MAX_BYTES,
+    ICON_FILE_MAX_BYTES,
 } from "../types";
 import {
     createContentRecord,
@@ -40,7 +41,13 @@ function validateParam(param: NewGameForm): ContentErrorResponse | undefined {
     if (param.gameFile.size > GAME_FILE_MAX_BYTES) {
         return {
             ok: false,
-            reason: "FileTooLarge",
+            reason: "GameFileTooLarge",
+        };
+    }
+    if (param.iconFile.size > ICON_FILE_MAX_BYTES) {
+        return {
+            ok: false,
+            reason: "IconFileTooLarge",
         };
     }
 }

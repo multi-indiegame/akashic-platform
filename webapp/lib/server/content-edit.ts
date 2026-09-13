@@ -6,6 +6,7 @@ import {
     ContentErrorResponse,
     ContentResponse,
     GAME_FILE_MAX_BYTES,
+    ICON_FILE_MAX_BYTES,
 } from "../types";
 import {
     createContentRecord,
@@ -36,6 +37,7 @@ async function validateParam({
     contentId,
     publisherId,
     gameFile,
+    iconFile,
 }: EditGameForm): Promise<ContentErrorResponse | undefined> {
     if (gameId == null || contentId == null || !publisherId) {
         return {
@@ -46,7 +48,13 @@ async function validateParam({
     if (gameFile && gameFile.size > GAME_FILE_MAX_BYTES) {
         return {
             ok: false,
-            reason: "FileTooLarge",
+            reason: "GameFileTooLarge",
+        };
+    }
+    if (iconFile && iconFile.size > ICON_FILE_MAX_BYTES) {
+        return {
+            ok: false,
+            reason: "IconFileTooLarge",
         };
     }
     try {

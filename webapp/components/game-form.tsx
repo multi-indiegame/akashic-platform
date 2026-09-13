@@ -29,8 +29,11 @@ import {
 import { styled } from "@mui/material/styles";
 import {
     ContentErrorResponse,
+    ContentResponse,
     GAME_FILE_MAX_BYTES,
     GAME_FILE_MAX_MB,
+    ICON_FILE_MAX_BYTES,
+    ICON_FILE_MAX_MB,
     messageKey,
     messages,
     supportedAkashicModes,
@@ -146,8 +149,18 @@ export function GameForm({
     function handleUploadIconFile(event: ChangeEvent<HTMLInputElement>) {
         if (event.target.files && event.target.files[0]) {
             setIconFileError(undefined);
-            setIconFile(event.target.files[0]);
-            setIconPreview(URL.createObjectURL(event.target.files[0]));
+            const file = event.target.files[0];
+            if (file.size > ICON_FILE_MAX_BYTES) {
+                setIconFile(undefined);
+                setIconPreview(iconUrl);
+                setIconFileError(
+                    `ゲームアイコンは ${ICON_FILE_MAX_MB}MB 以下にしてください。`,
+                );
+                event.target.value = "";
+                return;
+            }
+            setIconFile(file);
+            setIconPreview(URL.createObjectURL(file));
         }
     }
 
@@ -193,9 +206,14 @@ export function GameForm({
                         `(サポート: ${supportedAkashicModes.map((m) => `"${m}"`).join()})`,
                 );
                 break;
-            case "FileTooLarge":
+            case "GameFileTooLarge":
                 setServerError(
                     `ゲームデータファイルは ${GAME_FILE_MAX_MB}MB 以下にしてください。`,
+                );
+                break;
+            case "IconFileTooLarge":
+                setServerError(
+                    `ゲームアイコンは ${ICON_FILE_MAX_MB}MB 以下にしてください。`,
                 );
                 break;
             case "Drain":
@@ -210,6 +228,13 @@ export function GameForm({
                 );
                 break;
         }
+    }
+
+    // Server Action 到達前に Next.js のボディ上限等で失敗すると、ContentResponse ではなく
+    // 例外になる。redirect() も例外で遷移するため、try で囲むのは Action 呼び出しだけにする
+    function handleActionThrown(err: unknown) {
+        console.warn("failed to call content action", err);
+        handleServerErr({ ok: false, reason: "InternalError" });
     }
 
     function handleSubmit() {
@@ -227,9 +252,9 @@ export function GameForm({
                 setDescriptionError("ゲーム説明を入力してください。");
             }
         }
-        // 更新時は gameFile 未選択がメタデータのみの更新として成功してしまうため、
+        // 更新時はファイル未選択がメタデータのみの更新として成功してしまうため、
         // 選択を弾いたままの状態で送信させない
-        if (gameFileError) {
+        if (gameFileError || iconFileError) {
             return;
         }
         if (!user) {
@@ -239,15 +264,21 @@ export function GameForm({
             startTransition(async () => {
                 if (gameId == null || contentId == null) {
                     if (title && gameFile && iconFile && description) {
-                        const res = await registerContent({
-                            publisherId: user.id,
-                            title,
-                            gameFile,
-                            iconFile,
-                            description,
-                            credit,
-                            streaming,
-                        });
+                        let res: ContentResponse;
+                        try {
+                            res = await registerContent({
+                                publisherId: user.id,
+                                title,
+                                gameFile,
+                                iconFile,
+                                description,
+                                credit,
+                                streaming,
+                            });
+                        } catch (err) {
+                            handleActionThrown(err);
+                            return;
+                        }
                         if (res.ok) {
                             redirect(
                                 `/?${messageKey}=${messages.content.registerSuccessful}`,
@@ -257,17 +288,23 @@ export function GameForm({
                         }
                     }
                 } else {
-                    const res = await editContent({
-                        gameId,
-                        contentId,
-                        publisherId: user.id,
-                        title,
-                        gameFile,
-                        iconFile,
-                        description,
-                        credit,
-                        streaming,
-                    });
+                    let res: ContentResponse;
+                    try {
+                        res = await editContent({
+                            gameId,
+                            contentId,
+                            publisherId: user.id,
+                            title,
+                            gameFile,
+                            iconFile,
+                            description,
+                            credit,
+                            streaming,
+                        });
+                    } catch (err) {
+                        handleActionThrown(err);
+                        return;
+                    }
                     if (res.ok) {
                         redirect(
                             `/?${messageKey}=${messages.content.editSuccessful}`,
@@ -436,7 +473,7 @@ export function GameForm({
                             </Box>
                             <Box>
                                 <Typography variant="h6" gutterBottom>
-                                    ゲームアイコン{" "}
+                                    ゲームアイコン ({ICON_FILE_MAX_MB}MBまで){" "}
                                     <Typography component="span" color="error">
                                         *
                                     </Typography>
