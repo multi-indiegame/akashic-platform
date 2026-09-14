@@ -14,20 +14,14 @@ import {
 import { deleteGame } from "@/lib/server/content-delete";
 import { messageKey, messages } from "@/lib/types";
 
-export function GameDeleteDialog({
-    gameId,
-    publisherId,
-}: {
-    gameId: number;
-    publisherId: string;
-}) {
+export function GameDeleteDialog({ gameId }: { gameId: number }) {
     const [open, setOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string>();
 
     function handleSubmit() {
         startTransition(async () => {
-            const res = await deleteGame({ gameId, publisherId });
+            const res = await deleteGame({ gameId });
             if (res.ok) {
                 redirect(
                     `/?${messageKey}=${messages.content.deleteSuccessful}`,
@@ -37,6 +31,11 @@ export function GameDeleteDialog({
                     case "InvalidParams":
                         setError(
                             "内部エラーが発生しました。入力内容を確認してもう一度実行してください。",
+                        );
+                        break;
+                    case "Unauthorized":
+                        setError(
+                            "サインインの有効期限が切れました。ページを更新してサインインし直してください。",
                         );
                         break;
                     case "NotFound":

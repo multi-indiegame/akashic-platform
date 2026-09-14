@@ -1,7 +1,12 @@
 "use server";
 
 import { prisma } from "@yasshi2525/persist-schema";
-import { ContentErrorResponse, ContentResponse } from "../types";
+import {
+    ContentErrorResponse,
+    ContentResponse,
+    GAME_FILE_MAX_BYTES,
+    ICON_FILE_MAX_BYTES,
+} from "../types";
 import {
     createContentRecord,
     deleteContentRecord,
@@ -15,6 +20,7 @@ import {
     throwIfInvalidContentDir,
 } from "./content-utils";
 import { isWriteBlocked } from "./drain-state";
+import { getSignedInUser } from "./auth";
 
 interface NewGameForm extends GameForm {
     publisherId: string;
@@ -31,6 +37,18 @@ function validateParam(param: NewGameForm): ContentErrorResponse | undefined {
         return {
             ok: false,
             reason: "InvalidParams",
+        };
+    }
+    if (param.gameFile.size > GAME_FILE_MAX_BYTES) {
+        return {
+            ok: false,
+            reason: "GameFileTooLarge",
+        };
+    }
+    if (param.iconFile.size > ICON_FILE_MAX_BYTES) {
+        return {
+            ok: false,
+            reason: "IconFileTooLarge",
         };
     }
 }
@@ -58,7 +76,7 @@ async function deleteGameRecord(gameId: number) {
 }
 
 export async function registerContent(
-    param: NewGameForm,
+    form: GameForm,
 ): Promise<ContentResponse> {
     if (isWriteBlocked()) {
         return {
@@ -66,6 +84,16 @@ export async function registerContent(
             reason: "Drain",
         };
     }
+    // Server Action はブラウザ外から任意の引数で呼べるため、投稿者はクライアントから
+    // 受け取らずセッションから決める
+    const auth = await getSignedInUser();
+    if (!auth.ok) {
+        return {
+            ok: false,
+            reason: auth.reason,
+        };
+    }
+    const param: NewGameForm = { ...form, publisherId: auth.user.id };
     const validationErrParam = validateParam(param);
     if (validationErrParam) {
         return validationErrParam;

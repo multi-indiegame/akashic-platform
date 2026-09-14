@@ -377,6 +377,13 @@ export type UserHandleFormState = {
     submittedAt?: number;
 };
 
+// next.config.ts の serverActions.bodySizeLimit / proxyClientMaxBodySize は
+// ゲームとアイコンを同一リクエストで送るため、両者の合計より多めにすること
+export const GAME_FILE_MAX_MB = 30;
+export const GAME_FILE_MAX_BYTES = GAME_FILE_MAX_MB * 1024 * 1024;
+export const ICON_FILE_MAX_MB = 1;
+export const ICON_FILE_MAX_BYTES = ICON_FILE_MAX_MB * 1024 * 1024;
+
 export const supportedExternalPlugins = [
     "send",
     "coe",
@@ -395,6 +402,9 @@ const contentErrReasons = [
     "InvalidGameJson",
     "UnsupportedVersion",
     "UnsupportedMode",
+    "GameFileTooLarge",
+    "IconFileTooLarge",
+    "Unauthorized",
     "Drain",
     "InternalError",
 ] as const;
@@ -408,6 +418,7 @@ export type ContentResponse =
 
 const deleteGameErrReasons = [
     "InvalidParams",
+    "Unauthorized",
     "NotFound",
     "Drain",
     "InternalError",

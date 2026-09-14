@@ -673,6 +673,10 @@ export function PlayView({
                 setExpiresAt(json.expiresAt);
                 setRemainingMs(json.remainingMs);
                 setExtendError("延長は残り10分以下から可能です。");
+            } else if (json.reason === "Forbidden") {
+                setExtendError(
+                    "延長する権限がありません。画面を更新して入室し直してください。",
+                );
             } else if (json.reason === "Drain") {
                 setExtendError(
                     "現在臨時メンテナンス中のため、延長できません。残り時間をもって終了します。",

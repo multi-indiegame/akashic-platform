@@ -2,7 +2,12 @@
 
 import { CopyObjectCommand } from "@aws-sdk/client-s3";
 import { prisma } from "@yasshi2525/persist-schema";
-import { ContentErrorResponse, ContentResponse } from "../types";
+import {
+    ContentErrorResponse,
+    ContentResponse,
+    GAME_FILE_MAX_BYTES,
+    ICON_FILE_MAX_BYTES,
+} from "../types";
 import {
     createContentRecord,
     deleteContentRecord,
@@ -20,10 +25,14 @@ import {
     contentTypeFromName,
 } from "./content-utils";
 import { isWriteBlocked } from "./drain-state";
+import { getSignedInUser } from "./auth";
 
-interface EditGameForm extends Partial<GameForm> {
+interface EditGameRequest extends Partial<GameForm> {
     gameId: number;
     contentId: number;
+}
+
+interface EditGameForm extends EditGameRequest {
     publisherId: string;
 }
 
@@ -31,11 +40,25 @@ async function validateParam({
     gameId,
     contentId,
     publisherId,
+    gameFile,
+    iconFile,
 }: EditGameForm): Promise<ContentErrorResponse | undefined> {
     if (gameId == null || contentId == null || !publisherId) {
         return {
             ok: false,
             reason: "InvalidParams",
+        };
+    }
+    if (gameFile && gameFile.size > GAME_FILE_MAX_BYTES) {
+        return {
+            ok: false,
+            reason: "GameFileTooLarge",
+        };
+    }
+    if (iconFile && iconFile.size > ICON_FILE_MAX_BYTES) {
+        return {
+            ok: false,
+            reason: "IconFileTooLarge",
         };
     }
     try {
@@ -53,14 +76,22 @@ async function validateParam({
                 reason: "InvalidParams",
             };
         }
-        await prisma.content.findUniqueOrThrow({
+        const content = await prisma.content.findUniqueOrThrow({
             select: {
-                id: true,
+                gameId: true,
             },
             where: {
                 id: contentId,
             },
         });
+        // contentId はアイコンの上書き先・コピー元になるため、他人のゲームの
+        // バージョンを指定されないよう所有者確認済みの gameId に属するか確かめる
+        if (content.gameId !== gameId) {
+            return {
+                ok: false,
+                reason: "InvalidParams",
+            };
+        }
     } catch (err) {
         console.warn(
             'failed to register content (pulisherId = "%s", gameId = "%s")',
@@ -150,7 +181,7 @@ export async function copyIconFile(
 }
 
 export async function editContent(
-    param: EditGameForm,
+    request: EditGameRequest,
 ): Promise<ContentResponse> {
     if (isWriteBlocked()) {
         return {
@@ -158,6 +189,16 @@ export async function editContent(
             reason: "Drain",
         };
     }
+    // 所有者判定に使う id はクライアントから受け取らずセッションから決める
+    // (理由は registerContent と同じ)
+    const auth = await getSignedInUser();
+    if (!auth.ok) {
+        return {
+            ok: false,
+            reason: auth.reason,
+        };
+    }
+    const param: EditGameForm = { ...request, publisherId: auth.user.id };
     const validationErrParam = await validateParam(param);
     if (validationErrParam) {
         return validationErrParam;

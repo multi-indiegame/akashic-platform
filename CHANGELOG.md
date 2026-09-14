@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 2.3.1
+## 2.3.3
 
 - Feature
   - ゲーム内BANプラグイン（`@multi-indiegame/akashic-player-ban`）に対応
@@ -9,6 +9,22 @@
       - ゲームから行えるのは BAN まで。解除はモデレーション設定から
     - `./akashic-server`
     - `./akashic-storage`
+
+## 2.3.2
+
+- Improve
+  - `./webapp`
+    - ゲーム投稿/更新/削除・部屋を閉じる/延長する・お気に入りの堅牢性を向上
+
+## 2.3.1
+
+- Fix
+  - `./webapp`
+    - ゲーム投稿サイズ制限が効いていなかった問題を修正
+
+- Improve
+  - `./webapp`
+    - ゲーム投稿サイズ上限、アイコン画像サイズ上限を表示
 
 ## 2.3.0
 

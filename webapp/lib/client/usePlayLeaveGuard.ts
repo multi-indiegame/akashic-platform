@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { PlayParticipantsResponse } from "@/lib/types";
-import { endPlay } from "@/lib/server/play-end";
+import { endPlayAction } from "@/lib/server/play-end-action";
 
 const fetcher = async (url: string): Promise<number> => {
     const res = (await (await fetch(url)).json()) as PlayParticipantsResponse;
@@ -157,7 +157,7 @@ export function usePlayLeaveGuard({
         }
         setIsClosing(true);
         setCloseError(undefined);
-        const res = await endPlay({ playId, reason: "GAMEMASTER" });
+        const res = await endPlayAction({ playId });
         setIsClosing(false);
         if (res.ok) {
             const href = pendingHref;
