@@ -12,7 +12,7 @@ import {
     DialogTitle,
 } from "@mui/material";
 import { GameInfo, messageKey, messages, User } from "@/lib/types";
-import { endPlayAction } from "@/lib/server/play-end-action";
+import { EndPlayResponse, endPlayAction } from "@/lib/server/play-end-action";
 import { PlayCreateDialog } from "./play-create-dialog";
 
 export function PlayCloseDialog({
@@ -72,29 +72,36 @@ export function PlayCloseDialog({
             if (res.ok) {
                 doAfterClose();
             } else {
-                switch (res.reason) {
-                    case "InvalidParams":
-                        setError(
-                            "内部エラーが発生しました。入力内容を確認してもう一度投稿してください。",
-                        );
-                        break;
-                    case "NotFound":
-                        setError("部屋が見つかりませんでした。");
-                        break;
-                    case "Forbidden":
-                        setError(
-                            "部屋主のみが部屋を閉じられます。サインインの有効期限が切れた場合はページを更新してください。",
-                        );
-                        break;
-                    case "InternalError":
-                    default:
-                        setError(
-                            "予期しないエラーが発生しました。時間をおいてリトライしてください。",
-                        );
-                        break;
-                }
+                setError(toEndErrorMessage(res));
             }
         });
+    }
+
+    async function handleRecreated(newPlayId: number) {
+        const res = await endPlayAction({ playId });
+        // NotFound は旧部屋が既に存在しないので、二重に残る心配はなく作り直しを続けてよい
+        if (!res.ok && res.reason !== "NotFound") {
+            // 旧部屋を閉じられないまま新部屋へ進むと部屋が二重に残るため、作り直しを取り消す。
+            // 新部屋は現在の身元で作成直後なので部屋主として閉じられる
+            const rollback = await endPlayAction({ playId: `${newPlayId}` });
+            setRecreateOpen(false);
+            setError(
+                toEndErrorMessage(res) +
+                    (rollback.ok
+                        ? "作り直しは取り消しました。"
+                        : "作り直した部屋も閉じられなかったため、2つの部屋が残っています。"),
+            );
+            setOpen(true);
+            return;
+        }
+        if (recreate.afterCreate.action === "stay") {
+            setRecreateOpen(false);
+            recreate.afterCreate.cb();
+        } else {
+            router.push(
+                `/play/${newPlayId}?${messageKey}=${messages.play.registerSuccessful}`,
+            );
+        }
     }
 
     function handleClick() {
@@ -175,19 +182,23 @@ export function PlayCloseDialog({
                 initialValues={recreate.initialValues}
                 afterCreate={{
                     action: "stay",
-                    cb: async ({ playId: newPlayId }) => {
-                        await endPlayAction({ playId });
-                        if (recreate.afterCreate.action === "stay") {
-                            setRecreateOpen(false);
-                            recreate.afterCreate.cb();
-                        } else {
-                            router.push(
-                                `/play/${newPlayId}?${messageKey}=${messages.play.registerSuccessful}`,
-                            );
-                        }
-                    },
+                    cb: ({ playId: newPlayId }) => handleRecreated(newPlayId),
                 }}
             />
         </>
     );
+}
+
+function toEndErrorMessage(res: Extract<EndPlayResponse, { ok: false }>) {
+    switch (res.reason) {
+        case "InvalidParams":
+            return "内部エラーが発生しました。入力内容を確認してもう一度投稿してください。";
+        case "NotFound":
+            return "部屋が見つかりませんでした。";
+        case "Forbidden":
+            return "部屋主のみが部屋を閉じられます。サインインの有効期限が切れた場合はページを更新してください。";
+        case "InternalError":
+        default:
+            return "予期しないエラーが発生しました。時間をおいてリトライしてください。";
+    }
 }
