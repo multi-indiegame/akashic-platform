@@ -5,9 +5,13 @@ import { DeleteGameResponse } from "../types";
 import { deleteContentDir } from "./content-utils";
 import { endPlay } from "./play-end";
 import { isWriteBlocked } from "./drain-state";
+import { getSignedInUser } from "./auth";
 
-interface DeleteGameForm {
+interface DeleteGameRequest {
     gameId: number;
+}
+
+interface DeleteGameForm extends DeleteGameRequest {
     publisherId: string;
 }
 
@@ -85,7 +89,7 @@ async function endCurrentPlays(contentIds: number[]) {
 }
 
 export async function deleteGame(
-    param: DeleteGameForm,
+    request: DeleteGameRequest,
 ): Promise<DeleteGameResponse> {
     if (isWriteBlocked()) {
         return {
@@ -93,6 +97,16 @@ export async function deleteGame(
             reason: "Drain",
         };
     }
+    // 所有者判定に使う id はクライアントから受け取らずセッションから決める
+    // (理由は registerContent と同じ)
+    const auth = await getSignedInUser();
+    if (!auth.ok) {
+        return {
+            ok: false,
+            reason: auth.reason,
+        };
+    }
+    const param: DeleteGameForm = { ...request, publisherId: auth.user.id };
     const validation = await validateParam(param);
     if ("ok" in validation) {
         return validation;

@@ -216,6 +216,11 @@ export function GameForm({
                     `ゲームアイコンは ${ICON_FILE_MAX_MB}MB 以下にしてください。`,
                 );
                 break;
+            case "Unauthorized":
+                setServerError(
+                    "サインインの有効期限が切れました。ページを更新してサインインし直してください。",
+                );
+                break;
             case "Drain":
                 setServerError(
                     "現在臨時メンテナンス中のため、コンテンツの投稿・更新ができません。1時間ほど時間をおいてください。",
@@ -267,7 +272,6 @@ export function GameForm({
                         let res: ContentResponse;
                         try {
                             res = await registerContent({
-                                publisherId: user.id,
                                 title,
                                 gameFile,
                                 iconFile,
@@ -293,7 +297,6 @@ export function GameForm({
                         res = await editContent({
                             gameId,
                             contentId,
-                            publisherId: user.id,
                             title,
                             gameFile,
                             iconFile,
@@ -693,10 +696,7 @@ export function GameForm({
                                         justifyContent: "center",
                                     }}
                                 >
-                                    <GameDeleteDialog
-                                        gameId={gameId}
-                                        publisherId={user.id}
-                                    />
+                                    <GameDeleteDialog gameId={gameId} />
                                 </Box>
                             )}
                         </Stack>

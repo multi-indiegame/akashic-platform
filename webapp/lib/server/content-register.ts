@@ -20,6 +20,7 @@ import {
     throwIfInvalidContentDir,
 } from "./content-utils";
 import { isWriteBlocked } from "./drain-state";
+import { getSignedInUser } from "./auth";
 
 interface NewGameForm extends GameForm {
     publisherId: string;
@@ -75,7 +76,7 @@ async function deleteGameRecord(gameId: number) {
 }
 
 export async function registerContent(
-    param: NewGameForm,
+    form: GameForm,
 ): Promise<ContentResponse> {
     if (isWriteBlocked()) {
         return {
@@ -83,6 +84,16 @@ export async function registerContent(
             reason: "Drain",
         };
     }
+    // Server Action はブラウザ外から任意の引数で呼べるため、投稿者はクライアントから
+    // 受け取らずセッションから決める
+    const auth = await getSignedInUser();
+    if (!auth.ok) {
+        return {
+            ok: false,
+            reason: auth.reason,
+        };
+    }
+    const param: NewGameForm = { ...form, publisherId: auth.user.id };
     const validationErrParam = validateParam(param);
     if (validationErrParam) {
         return validationErrParam;

@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import { Star, StarBorder } from "@mui/icons-material";
 import { useAuth } from "@/lib/client/useAuth";
-import { addFavorite, deleteFavorite } from "@/lib/server/favorite";
+import { addFavorite, deleteFavorite } from "@/lib/server/favorite-action";
 
 export function FavoriteButton({
     gameId,
@@ -38,36 +38,50 @@ export function FavoriteButton({
             return;
         }
         setIsUpdating(true);
-        const res = isFavorited
-            ? await deleteFavorite(user!.id, gameId)
-            : await addFavorite(user!.id, gameId);
-        if (res.ok) {
-            setFavorited((prev) => !prev);
-        } else {
-            switch (res.reason) {
-                case "AlreadyExists":
-                    setFavorited(true);
-                    setError("すでにお気に入りに追加されています。");
-                    break;
-                case "NotFound":
-                    setError(
-                        "お気に入りに追加するゲームが見つかりません。画面を更新してください。",
-                    );
-                    break;
-                case "Drain":
-                    setError(
-                        "現在臨時メンテナンス中のため、お気に入り操作ができません。1時間ほど時間をおいてください。",
-                    );
-                    break;
-                case "InternalError":
-                default:
-                    setError(
-                        "予期しないエラーが発生しました。時間をおいてリトライしてください。",
-                    );
-                    break;
+        try {
+            const res = isFavorited
+                ? await deleteFavorite(gameId)
+                : await addFavorite(gameId);
+            if (res.ok) {
+                setFavorited((prev) => !prev);
+            } else {
+                switch (res.reason) {
+                    case "AlreadyExists":
+                        setFavorited(true);
+                        setError("すでにお気に入りに追加されています。");
+                        break;
+                    case "NotFound":
+                        setError(
+                            "お気に入りに追加するゲームが見つかりません。画面を更新してください。",
+                        );
+                        break;
+                    case "Unauthorized":
+                        setError(
+                            "サインインの有効期限が切れました。ページを更新してサインインし直してください。",
+                        );
+                        break;
+                    case "Drain":
+                        setError(
+                            "現在臨時メンテナンス中のため、お気に入り操作ができません。1時間ほど時間をおいてください。",
+                        );
+                        break;
+                    case "InternalError":
+                    default:
+                        setError(
+                            "予期しないエラーが発生しました。時間をおいてリトライしてください。",
+                        );
+                        break;
+                }
             }
+        } catch (err) {
+            // 通信断などで Action 自体が失敗しても、ボタンが無効のまま固まらないようにする
+            console.warn("failed to toggle favorite", err);
+            setError(
+                "予期しないエラーが発生しました。時間をおいてリトライしてください。",
+            );
+        } finally {
+            setIsUpdating(false);
         }
-        setIsUpdating(false);
     }
     return (
         <>
