@@ -12,7 +12,7 @@ import {
     DialogTitle,
 } from "@mui/material";
 import { GameInfo, messageKey, messages, User } from "@/lib/types";
-import { endPlay } from "@/lib/server/play-end";
+import { endPlayAction } from "@/lib/server/play-end-action";
 import { PlayCreateDialog } from "./play-create-dialog";
 
 export function PlayCloseDialog({
@@ -68,7 +68,7 @@ export function PlayCloseDialog({
 
     function handleEnd() {
         startTransition(async () => {
-            const res = await endPlay({ playId, reason: "GAMEMASTER" });
+            const res = await endPlayAction({ playId });
             if (res.ok) {
                 doAfterClose();
             } else {
@@ -76,6 +76,14 @@ export function PlayCloseDialog({
                     case "InvalidParams":
                         setError(
                             "内部エラーが発生しました。入力内容を確認してもう一度投稿してください。",
+                        );
+                        break;
+                    case "NotFound":
+                        setError("部屋が見つかりませんでした。");
+                        break;
+                    case "Forbidden":
+                        setError(
+                            "部屋主のみが部屋を閉じられます。サインインの有効期限が切れた場合はページを更新してください。",
                         );
                         break;
                     case "InternalError":
@@ -168,7 +176,7 @@ export function PlayCloseDialog({
                 afterCreate={{
                     action: "stay",
                     cb: async ({ playId: newPlayId }) => {
-                        await endPlay({ playId, reason: "GAMEMASTER" });
+                        await endPlayAction({ playId });
                         if (recreate.afterCreate.action === "stay") {
                             setRecreateOpen(false);
                             recreate.afterCreate.cb();

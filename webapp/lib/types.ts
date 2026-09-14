@@ -396,6 +396,7 @@ const contentErrReasons = [
     "UnsupportedMode",
     "GameFileTooLarge",
     "IconFileTooLarge",
+    "Unauthorized",
     "Drain",
     "InternalError",
 ] as const;
@@ -409,6 +410,7 @@ export type ContentResponse =
 
 const deleteGameErrReasons = [
     "InvalidParams",
+    "Unauthorized",
     "NotFound",
     "Drain",
     "InternalError",

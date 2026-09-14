@@ -20,6 +20,7 @@ import {
     throwIfInvalidContentDir,
 } from "./content-utils";
 import { isWriteBlocked } from "./drain-state";
+import { getAuth } from "./auth";
 
 interface NewGameForm extends GameForm {
     publisherId: string;
@@ -75,7 +76,7 @@ async function deleteGameRecord(gameId: number) {
 }
 
 export async function registerContent(
-    param: NewGameForm,
+    form: GameForm,
 ): Promise<ContentResponse> {
     if (isWriteBlocked()) {
         return {
@@ -83,6 +84,17 @@ export async function registerContent(
             reason: "Drain",
         };
     }
+    // Server Action はブラウザ外から任意の引数で呼べるため、投稿者はクライアントから
+    // 受け取らずセッションから決める。ゲストは guest_id cookie を他人の OAuth id に
+    // 偽装できるので OAuth セッションに限る
+    const user = await getAuth();
+    if (user?.authType !== "oauth") {
+        return {
+            ok: false,
+            reason: "Unauthorized",
+        };
+    }
+    const param: NewGameForm = { ...form, publisherId: user.id };
     const validationErrParam = validateParam(param);
     if (validationErrParam) {
         return validationErrParam;

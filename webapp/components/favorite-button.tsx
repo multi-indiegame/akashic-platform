@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import { Star, StarBorder } from "@mui/icons-material";
 import { useAuth } from "@/lib/client/useAuth";
-import { addFavorite, deleteFavorite } from "@/lib/server/favorite";
+import { addFavorite, deleteFavorite } from "@/lib/server/favorite-action";
 
 export function FavoriteButton({
     gameId,
@@ -39,8 +39,8 @@ export function FavoriteButton({
         }
         setIsUpdating(true);
         const res = isFavorited
-            ? await deleteFavorite(user!.id, gameId)
-            : await addFavorite(user!.id, gameId);
+            ? await deleteFavorite(gameId)
+            : await addFavorite(gameId);
         if (res.ok) {
             setFavorited((prev) => !prev);
         } else {
@@ -52,6 +52,11 @@ export function FavoriteButton({
                 case "NotFound":
                     setError(
                         "お気に入りに追加するゲームが見つかりません。画面を更新してください。",
+                    );
+                    break;
+                case "Unauthorized":
+                    setError(
+                        "サインインの有効期限が切れました。ページを更新してサインインし直してください。",
                     );
                     break;
                 case "Drain":
