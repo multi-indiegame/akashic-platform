@@ -8,6 +8,10 @@ import {
     ExecutionMode,
     GameContent,
 } from "@yasshi2525/agvw-like";
+import {
+    type PlayerBanBackend,
+    PlayerBanPlugin,
+} from "@multi-indiegame/akashic-player-ban-plugin";
 import { User } from "../types";
 import { destroyAkashicGameView } from "./akashic-gameview-destroyer";
 import { LogStore } from "./log-store";
@@ -39,6 +43,7 @@ interface AkashicContainerCreateParameterObject {
     onRequestPlayerInfo: (
         param: ResolvingPlayerInfoRequest | undefined,
     ) => void;
+    playerBanBackend: PlayerBanBackend;
 }
 
 export class AkashicContainer {
@@ -79,6 +84,9 @@ export class AkashicContainer {
                 new CoeLimitedPlugin({
                     onRequest: param.onRequestPlayerInfo,
                 }),
+            );
+            view.registerExternalPlugin(
+                new PlayerBanPlugin(param.playerBanBackend),
             );
             const logStore = new LogStore(this._clientLogMaxEntries);
             const logHandler = new LogHandler(logStore);

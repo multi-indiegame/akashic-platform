@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 2.3.3
+
+- Feature
+  - ゲーム内BANプラグイン（`@multi-indiegame/akashic-player-ban`）に対応
+    - `./webapp`
+      - BAN/解除の確定をその部屋主の全 active 部屋のコンテンツへ通知
+      - ゲームから行えるのは BAN まで。解除はモデレーション設定から
+    - `./akashic-server`
+    - `./akashic-storage`
+
 ## 2.3.2
 
 - Improve

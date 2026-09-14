@@ -124,6 +124,217 @@ export const openapi = {
                 },
             },
         },
+        "/join": {
+            get: {
+                summary: "Issue a passive viewer token via storage admin",
+                parameters: [
+                    {
+                        name: "playId",
+                        in: "query",
+                        required: true,
+                        schema: { type: "integer", format: "int32" },
+                    },
+                ],
+                responses: {
+                    "200": {
+                        description: "OK",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/PlayTokenResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Bad Request",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "401": {
+                        description: "Unauthorized",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "500": {
+                        description: "Internal Server Error",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "502": {
+                        description: "Bad Gateway",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "/kick": {
+            get: {
+                summary: "Revoke a play token and disconnect its sockets",
+                parameters: [
+                    {
+                        name: "playId",
+                        in: "query",
+                        required: true,
+                        schema: { type: "integer", format: "int32" },
+                    },
+                    {
+                        name: "playToken",
+                        in: "query",
+                        required: true,
+                        schema: { type: "string" },
+                    },
+                ],
+                responses: {
+                    "200": {
+                        description: "OK",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/OkResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Bad Request",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "401": {
+                        description: "Unauthorized",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "500": {
+                        description: "Internal Server Error",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "502": {
+                        description: "Bad Gateway",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "/send-event": {
+            post: {
+                summary: "Relay an extension notification event to the playlog",
+                parameters: [
+                    {
+                        name: "playId",
+                        in: "query",
+                        required: true,
+                        schema: { type: "integer", format: "int32" },
+                    },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                $ref: "#/components/schemas/SendEventRequest",
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "200": {
+                        description: "OK",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/OkResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Bad Request",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "401": {
+                        description: "Unauthorized",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "500": {
+                        description: "Internal Server Error",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "502": {
+                        description: "Bad Gateway",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
         "/remaining": {
             get: {
                 summary: "Get remaining time of a play session",
@@ -535,6 +746,21 @@ export const openapi = {
                     reason: { type: "string" },
                     remainingMs: { type: "integer", format: "int64" },
                     expiresAt: { type: "integer", format: "int64" },
+                },
+            },
+            PlayTokenResponse: {
+                type: "object",
+                required: ["playToken"],
+                properties: {
+                    playToken: { type: "string" },
+                },
+            },
+            SendEventRequest: {
+                type: "object",
+                required: ["event"],
+                properties: {
+                    // playlog.Event。要素の型が位置ごとに異なるため items は指定しない
+                    event: { type: "array", items: {} },
                 },
             },
             ErrorResponse: {

@@ -209,6 +209,9 @@ export const BOARD_MESSAGE_NAME_MAX = 20;
 export const MUTE_LIMIT_DEFAULT = 200;
 export const MUTE_LABEL_BODY_MAX = 40;
 export const BAN_LIMIT_DEFAULT = 200;
+/** ゲーム内BANの連打上限。コンテンツから自動で叩けるため部屋単位で押さえる */
+export const BAN_IN_GAME_RATE_WINDOW_SECONDS_DEFAULT = 10;
+export const BAN_IN_GAME_RATE_MAX_DEFAULT = 3;
 
 export const REPORT_DETAIL_MAX = 1000;
 export const CONTACT_BODY_MAX = 2000;
@@ -381,7 +384,12 @@ export const GAME_FILE_MAX_BYTES = GAME_FILE_MAX_MB * 1024 * 1024;
 export const ICON_FILE_MAX_MB = 1;
 export const ICON_FILE_MAX_BYTES = ICON_FILE_MAX_MB * 1024 * 1024;
 
-export const supportedExternalPlugins = ["send", "coe", "coeLimited"];
+export const supportedExternalPlugins = [
+    "send",
+    "coe",
+    "coeLimited",
+    "playerBan",
+];
 export const supportedAkashicVersions = ["3"];
 export const supportedAkashicModes: NicoliveSupportedModes[] = [
     "multi",

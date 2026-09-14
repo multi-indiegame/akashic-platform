@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2.1.1
+
+- Misc
+  - `@multi-indiegame/akashic-player-ban` プラグイン対応のためにプレイヤーID検証処理追加
+
 ## 2.1.0
 
 - Feature

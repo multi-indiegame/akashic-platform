@@ -1,5 +1,7 @@
 import { createHmac } from "node:crypto";
+import { prisma } from "@yasshi2525/persist-schema";
 import { User } from "../types";
+import { parseSessionViewerId } from "./viewer-identity";
 
 /**
  * ゲーム（Akashic）に申告する in-game playerId。ゲストの guest_id は認証 Cookie の
@@ -32,4 +34,29 @@ export function gamePlayerId(user: Pick<User, "authType" | "id">): string {
         .update(user.id)
         .digest("base64url")
         .slice(0, KEY_LENGTH);
+}
+
+/**
+ * ゲームから渡された in-game playerId を、この部屋の視聴者へ戻す。
+ *
+ * WHY: 派生は非可逆なので逆算できない。この部屋の在籍者の側から派生値を組んで
+ * 突き合わせる。候補をこの部屋の PlaySession に限るのが要点で、発行者の BAN 一覧
+ * まで広げると、この部屋に来たことのない相手（他の部屋で BAN した相手）まで
+ * 解決でき、コンテンツが無関係な相手を BAN できてしまう。
+ */
+export async function resolveGamePlayer(
+    playerId: string,
+    playId: number,
+): Promise<Pick<User, "authType" | "id"> | null> {
+    const sessions = await prisma.playSession.findMany({
+        where: { playId },
+        select: { viewerId: true },
+    });
+    for (const session of sessions) {
+        const viewer = parseSessionViewerId(session.viewerId);
+        if (viewer && gamePlayerId(viewer) === playerId) {
+            return viewer;
+        }
+    }
+    return null;
 }

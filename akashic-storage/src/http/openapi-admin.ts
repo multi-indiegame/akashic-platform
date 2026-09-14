@@ -170,6 +170,127 @@ export const openapi = {
                 },
             },
         },
+        "/kick": {
+            get: {
+                summary: "Revoke a play token and disconnect its sockets",
+                security: [{ InternalToken: [] }],
+                parameters: [
+                    {
+                        name: "playId",
+                        in: "query",
+                        required: true,
+                        schema: { type: "string" },
+                    },
+                    {
+                        name: "playToken",
+                        in: "query",
+                        required: true,
+                        schema: { type: "string" },
+                    },
+                ],
+                responses: {
+                    "200": {
+                        description:
+                            "OK. skipped is true when the play has already ended",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/OkSkippedResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Bad Request",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "401": {
+                        description: "Unauthorized",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "502": {
+                        description: "Bad Gateway",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "/send-event": {
+            post: {
+                summary:
+                    "Inject an extension notification event into the playlog",
+                security: [{ InternalToken: [] }],
+                parameters: [
+                    {
+                        name: "playId",
+                        in: "query",
+                        required: true,
+                        schema: { type: "string" },
+                    },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                $ref: "#/components/schemas/SendEventRequest",
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "200": {
+                        description:
+                            "OK. skipped is true when the play has already ended",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/OkSkippedResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Bad Request",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "401": {
+                        description: "Unauthorized",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     },
     components: {
         securitySchemes: {
@@ -192,6 +313,22 @@ export const openapi = {
                 required: ["ok"],
                 properties: {
                     ok: { type: "boolean" },
+                },
+            },
+            OkSkippedResponse: {
+                type: "object",
+                required: ["ok"],
+                properties: {
+                    ok: { type: "boolean", enum: [true] },
+                    skipped: { type: "boolean" },
+                },
+            },
+            SendEventRequest: {
+                type: "object",
+                required: ["event"],
+                properties: {
+                    // playlog.Event。要素の型が位置ごとに異なるため items は指定しない
+                    event: { type: "array", items: {} },
                 },
             },
             ErrorResponse: {

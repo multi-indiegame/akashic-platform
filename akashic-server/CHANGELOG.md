@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2.2.1
+
+- Misc
+  - `@multi-indiegame/akashic-player-ban` プラグイン対応のために `akashic-storage` への中継APIを追加
+
 ## 2.2.0
 
 - Feature

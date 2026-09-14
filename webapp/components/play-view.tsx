@@ -1,6 +1,13 @@
 "use client";
 
-import { RefObject, useEffect, useMemo, useRef, useState } from "react";
+import {
+    RefObject,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
@@ -44,9 +51,16 @@ import { usePlayLeaveGuard } from "@/lib/client/usePlayLeaveGuard";
 import { STORAGE_KEYS, useLocalStorage } from "@/lib/client/useLocalStorage";
 import { ResolvingPlayerInfoRequest } from "@/lib/client/akashic-plugins/coe-limited-plugin";
 import { AkashicContainer } from "@/lib/client/akashic-container";
+import type {
+    BanResult,
+    BanResultReason,
+    PlayerBanBackend,
+} from "@multi-indiegame/akashic-player-ban-plugin";
 import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
 import { extendPlay } from "@/lib/server/play-extend";
+import { banPlayerInGameAction } from "@/lib/server/ban-in-game-action";
 import { uploadPlayShareScreenshot } from "@/lib/server/play-share";
+import { PlayBanConsentDialog } from "./play-ban-consent-dialog";
 import { PlayCloseDialog } from "./play-close-dialog";
 import { PlayLeaveDialog } from "./play-leave-dialog";
 import { PlayEndNotification } from "./play-end-notification";
@@ -83,6 +97,21 @@ const toMessage = (typ?: WarningType) => {
     switch (typ) {
         case "EVENT_ON_SKIPPING":
             return "同期中です。しばらくお待ち下さい。";
+        default:
+            return "予期しないエラーが発生しました。時間をおいてリトライしてください。";
+    }
+};
+
+const toBanErrorMessage = (reason: BanResultReason) => {
+    switch (reason) {
+        case "PlayerNotFound":
+            return "対象がこの部屋にいないためBANできませんでした。";
+        case "SelfBan":
+            return "自分自身はBANできません。";
+        case "LimitExceeded":
+            return "BANの要求が多すぎます。しばらく待ってから再度お試しください。";
+        case "Unauthorized":
+            return "この部屋の部屋主のみがBANできます。";
         default:
             return "予期しないエラーが発生しました。時間をおいてリトライしてください。";
     }
@@ -224,6 +253,87 @@ export function PlayView({
         height: number;
     } | null>(null);
     const [fullscreenGuideOpen, setFullscreenGuideOpen] = useState(false);
+
+    // ゲーム内BANの許可は部屋単位で覚える。コンテンツは同一オリジンなので
+    // このダイアログ自体は迂回できるが、事故防止と可視化のために置く
+    const [banAllowed, setBanAllowed] = useLocalStorage(
+        `${STORAGE_KEYS.PLAY_BAN_ALLOWED}:${playId}`,
+        false,
+    );
+    const banAllowedRef = useRef(banAllowed);
+    const [banConsentOpen, setBanConsentOpen] = useState(false);
+    // 確認中に次の要求が来ても取りこぼさないよう、待たせている callback を溜める
+    const banConsentResolvers = useRef<((accepted: boolean) => void)[]>([]);
+    const [banNotice, setBanNotice] = useState<string>();
+    const [banError, setBanError] = useState<string>();
+
+    const requestBanConsent = useCallback(() => {
+        if (banAllowedRef.current) {
+            return Promise.resolve(true);
+        }
+        return new Promise<boolean>((resolve) => {
+            banConsentResolvers.current.push(resolve);
+            setBanConsentOpen(true);
+        });
+    }, []);
+
+    const resolveBanConsent = useCallback(
+        (accepted: boolean) => {
+            setBanConsentOpen(false);
+            if (accepted) {
+                banAllowedRef.current = true;
+                setBanAllowed(true);
+            }
+            const pending = banConsentResolvers.current;
+            banConsentResolvers.current = [];
+            for (const resolve of pending) {
+                resolve(accepted);
+            }
+        },
+        [setBanAllowed],
+    );
+
+    const sendBanRequest = useCallback(
+        async (targetPlayerId: string): Promise<BanResult> => {
+            setBanError(undefined);
+            // 部屋主でないインスタンスはサーバーへ投げない。ただしこれは通信を
+            // 減らすためで、発行元の判定はサーバー側でも必ず行う
+            if (!isGameMaster) {
+                return {
+                    ok: false,
+                    playerId: targetPlayerId,
+                    reason: "Unauthorized",
+                };
+            }
+            if (!(await requestBanConsent())) {
+                return {
+                    ok: false,
+                    playerId: targetPlayerId,
+                    reason: "UserCancel",
+                };
+            }
+            const res = await banPlayerInGameAction(
+                parseInt(playId),
+                targetPlayerId,
+            );
+            if (!res.ok) {
+                setBanError(toBanErrorMessage(res.reason));
+                return {
+                    ok: false,
+                    playerId: targetPlayerId,
+                    reason: res.reason,
+                };
+            }
+            setBanNotice(`${res.label} さんをBANしました。`);
+            return { ok: true, playerId: targetPlayerId };
+        },
+        [playId, isGameMaster, requestBanConsent],
+    );
+
+    const playerBanBackend = useMemo<PlayerBanBackend>(
+        () => ({ ban: sendBanRequest }),
+        [sendBanRequest],
+    );
 
     function formatRemaining(ms: number | undefined) {
         if (ms == null) {
@@ -488,6 +598,7 @@ export function PlayView({
                 setRemainingMs(payload.remainingMs);
             },
             onRequestPlayerInfo: handleRequestPlayerInfo,
+            playerBanBackend,
         });
         return () => {
             // Promiseだが、遅延終了しても影響なし
@@ -954,6 +1065,45 @@ export function PlayView({
                     requireSignIn={requireSignIn}
                 />
             )}
+            <PlayBanConsentDialog
+                open={banConsentOpen}
+                allRooms={user.authType === "oauth"}
+                onAllow={() => resolveBanConsent(true)}
+                onReject={() => resolveBanConsent(false)}
+            />
+            {banNotice && (
+                <Snackbar
+                    open={!!banNotice}
+                    anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+                    autoHideDuration={4000}
+                    onClose={() => setBanNotice(undefined)}
+                >
+                    <Alert
+                        variant="filled"
+                        severity="info"
+                        onClose={() => setBanNotice(undefined)}
+                        sx={{ color: "inherit" }}
+                    >
+                        {banNotice}
+                    </Alert>
+                </Snackbar>
+            )}
+            {banError && (
+                <Snackbar
+                    open={!!banError}
+                    anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+                    autoHideDuration={5000}
+                    onClose={() => setBanError(undefined)}
+                >
+                    <Alert
+                        variant="filled"
+                        severity="error"
+                        onClose={() => setBanError(undefined)}
+                    >
+                        {banError}
+                    </Alert>
+                </Snackbar>
+            )}
             {playEndReason && <PlayEndNotification reason={playEndReason} />}
             <PlayLeaveDialog
                 open={leaveGuard.leaveDialogOpen}
@@ -978,7 +1128,9 @@ export function PlayView({
                     }}
                     onClose={handleClose}
                 >
-                    <Alert severity="warning">{toMessage(warning)}</Alert>
+                    <Alert variant="outlined" severity="warning">
+                        {toMessage(warning)}
+                    </Alert>
                 </Snackbar>
             )}
             <CopyStatusSnackbar
@@ -994,6 +1146,7 @@ export function PlayView({
                     onClose={() => setScreenshotStatus(undefined)}
                 >
                     <Alert
+                        variant="outlined"
                         severity={
                             screenshotStatus === "error"
                                 ? "error"
@@ -1020,6 +1173,7 @@ export function PlayView({
                     onClose={() => setXShareStatus(undefined)}
                 >
                     <Alert
+                        variant="outlined"
                         severity={
                             xShareStatus === "error" ? "error" : "success"
                         }

@@ -334,6 +334,47 @@ export class HttpServer {
             }
         });
 
+        // webapp からの拡張向け通知イベントを storage admin へ転送する。
+        // storage admin (3033) へは akashic-server のみ到達可能としたいため。
+        app.post("/send-event", async (req, res) => {
+            const playId = req.query.playId;
+            const { event } = req.body as { event?: unknown };
+            if (!playId?.toString() || !Array.isArray(event)) {
+                res.status(400).json({ ok: false, reason: "InvalidParams" });
+                return;
+            }
+            try {
+                const upstream = await fetch(
+                    `${this._storageAdminUrl}/send-event?playId=${encodeURIComponent(
+                        playId.toString(),
+                    )}`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "x-akashic-internal-token": this._storageAdminToken,
+                        },
+                        body: JSON.stringify({ event }),
+                    },
+                );
+                if (!upstream.ok) {
+                    res.status(502).json({
+                        ok: false,
+                        reason: "InternalError",
+                        message: `storage send-event responded ${upstream.status}`,
+                    });
+                    return;
+                }
+                res.json({ ok: true });
+            } catch (err) {
+                res.status(500).json({
+                    ok: false,
+                    reason: "InternalError",
+                    message: (err as Error).message,
+                });
+            }
+        });
+
         app.get("/remaining", (req, res) => {
             const playId = req.query.playId;
             if (!playId?.toString()) {

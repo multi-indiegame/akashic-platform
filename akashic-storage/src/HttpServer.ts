@@ -1,6 +1,7 @@
 import { Server, createServer } from "node:http";
 import express from "express";
 import cors from "cors";
+import type { Event } from "@akashic/playlog";
 import type {
     PlayEndReason,
     PlayExtendPayload,
@@ -215,6 +216,31 @@ export class HttpServer {
                     reason: "KickFailed",
                     message: `failed to kick. (playId = "${playId}", cause = "${(err as Error).message}")`,
                 });
+            }
+        });
+
+        // 拡張向けの通知イベントを playlog へ注入する。active インスタンス
+        // (runner) が受けて tick に載せるため、全インスタンスが同一 tick で
+        // 同一内容を受け取る。詳細は akashic-external-protocol の PROTOCOL.md
+        adminRouter.post("/send-event", (req, res) => {
+            const playId = req.query.playId;
+            const { event } = req.body as { event?: Event };
+            if (!playId?.toString() || !Array.isArray(event)) {
+                res.status(400).json({ ok: false, reason: "InvalidParams" });
+                return;
+            }
+            try {
+                this._amfManager
+                    .getServer(playId.toString())
+                    .sendEvent(event as Event);
+                res.json({ ok: true });
+            } catch (err) {
+                // 部屋が既に終了していれば届ける相手がいない。通知は best-effort
+                // なので、kick と同じく skip 応答にする
+                console.warn(
+                    `send-event skipped (playId = "${playId}", cause = "${(err as Error).message}")`,
+                );
+                res.json({ ok: true, skipped: true });
             }
         });
 

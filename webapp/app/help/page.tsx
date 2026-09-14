@@ -253,13 +253,45 @@ export default function HelpPage() {
                             <code>"multi"</code>
                         </ListItem>
                         <ListItem disableGutters sx={{ display: "list-item" }}>
-                            <code>environment.external</code>: "coe" および
-                            "coeLimited" に対応。
+                            <code>environment.external</code>: "coe"、
+                            "coeLimited" および "playerBan" に対応。
                             <br />
                             <code>
                                 @akashic-extension/instance-storage
                             </code>{" "}
                             は機能しない点に注意してください。
+                        </ListItem>
+                        <ListItem disableGutters sx={{ display: "list-item" }}>
+                            "playerBan"
+                            は、部屋主が進行中のゲームから参加者を即時退室(BAN)させるための拡張です。
+                            コンテンツに{" "}
+                            <code>@multi-indiegame/akashic-player-ban</code>{" "}
+                            を組み込むと利用できます。BANの成立は全インスタンスへ同一
+                            tick
+                            で届くため、ターン順から外すといったゲーム状態の変更に使えます。
+                            <br />
+                            本サイトでは、ゲームからBANを要求できるのは部屋主だけです。部屋主以外からの要求は
+                            "Unauthorized" で、自分自身（部屋主）へのBANは
+                            "SelfBan" で拒否されます。
+                            <br />
+                            ゲームから行えるのはBANの要求までで、解除はモデレーション設定から行います。チャットからのBANや設定画面での解除もゲームへ通知されるため、
+                            <code>onPlayerBanned</code> と{" "}
+                            <code>onPlayerUnbanned</code>{" "}
+                            の両方を用意してください。
+                            <br />
+                            <Button
+                                component={Link}
+                                endIcon={<OpenInNew />}
+                                href="https://github.com/multi-indiegame/akashic-player-ban"
+                                target="_blank"
+                                rel="noreferrer"
+                                sx={{
+                                    textTransform: "none",
+                                    color: theme.palette.primary.light,
+                                }}
+                            >
+                                @multi-indiegame/akashic-player-ban
+                            </Button>
                         </ListItem>
                     </List>
                 </Box>

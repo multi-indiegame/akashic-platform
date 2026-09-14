@@ -12,6 +12,8 @@ export const STORAGE_KEYS = {
     PLAYER_PREV_VOLUME: "akashic-platform:player:prevVolume",
     BOARD_AUTHOR_NAME: "akashic-platform:board:authorName",
     LOCAL_MUTES: "akashic-platform:moderation:mutes",
+    /** 部屋ごとに playId を付けて使う。ゲーム内BANを許可したかの記憶 */
+    PLAY_BAN_ALLOWED: "akashic-platform:play:banAllowed",
 } as const;
 
 export function useLocalStorage<T>(key: string, defaultValue: T) {
