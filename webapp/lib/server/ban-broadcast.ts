@@ -1,9 +1,10 @@
+import type { Event } from "@akashic/playlog";
 import { prisma } from "@yasshi2525/persist-schema";
-import { User } from "../types";
 import {
-    PlayerBanAction,
+    type PlayerBanAction,
     buildBanNotificationEvent,
-} from "../player-ban-protocol";
+} from "@multi-indiegame/akashic-player-ban-plugin";
+import { User } from "../types";
 import { akashicServerUrl, withAkashicServerAuth } from "./akashic";
 import { BanScope } from "./ban";
 import { gamePlayerId } from "./game-player-id";
@@ -25,7 +26,7 @@ const SEND_EVENT_TIMEOUT_MS = parseInt(
  * 拡張向けの通知イベントを 1 部屋へ注入する。best-effort とし、失敗しても
  * BAN 自体は入室ガードで担保される（kick と同じ方針）。
  */
-async function sendPlayEvent(playId: number, event: unknown) {
+async function sendPlayEvent(playId: number, event: Event) {
     try {
         const res = await fetch(
             `${akashicServerUrl}/send-event?playId=${playId}`,
@@ -85,7 +86,7 @@ export async function applyBanChange(param: {
     const event = buildBanNotificationEvent(
         param.action,
         gamePlayerId(param.target),
-    );
+    ) as Event;
     await Promise.all(playIds.map((playId) => sendPlayEvent(playId, event)));
     if (param.action === "banned") {
         await kickViewerFromPlays(playIds, sessionViewerId(param.target));

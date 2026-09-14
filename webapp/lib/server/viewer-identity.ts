@@ -47,6 +47,22 @@ export function verifyRoomOwner(
 }
 
 /**
+ * 部屋主の視聴者としての identity。BAN の対象判定に使う。
+ *
+ * WHY: verifyRoomOwner は資格（ゲストは署名 Cookie）で本人確認するため、要求者の
+ * guest_id が gameMasterId と一致するとは限らない。「部屋主を BAN できない」を
+ * 要求者との一致で代用すると、その食い違いで部屋主本人を対象にできてしまう。
+ */
+export function roomOwnerViewer(play: {
+    gameMasterId: string;
+    gmUserId: string | null;
+}): Pick<User, "authType" | "id"> {
+    return play.gmUserId
+        ? { authType: "oauth", id: play.gmUserId }
+        : { authType: "guest", id: play.gameMasterId };
+}
+
+/**
  * PlaySession に記録する視聴者識別子。認証種別を接頭辞にして名前空間を分け、
  * ゲストが他人の id を騙っても別ユーザーの session と衝突しないようにする。
  */

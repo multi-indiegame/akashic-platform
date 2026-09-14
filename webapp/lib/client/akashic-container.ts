@@ -8,6 +8,10 @@ import {
     ExecutionMode,
     GameContent,
 } from "@yasshi2525/agvw-like";
+import {
+    type PlayerBanBackend,
+    PlayerBanPlugin,
+} from "@multi-indiegame/akashic-player-ban-plugin";
 import { User } from "../types";
 import { destroyAkashicGameView } from "./akashic-gameview-destroyer";
 import { LogStore } from "./log-store";
@@ -17,10 +21,6 @@ import {
     ResolvingPlayerInfoRequest,
 } from "./akashic-plugins/coe-limited-plugin";
 import { CoePlugin } from "./akashic-plugins/coe-plugin";
-import {
-    PlayerBanBackend,
-    PlayerBanPlugin,
-} from "./akashic-plugins/player-ban-plugin";
 import { SendPlugin } from "./akashic-plugins/send-plugin";
 
 interface AkashicContainerCreateParameterObject {

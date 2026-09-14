@@ -2,20 +2,20 @@
 
 import { cookies, headers } from "next/headers";
 import { prisma } from "@yasshi2525/persist-schema";
+import type { BanResultReason } from "@multi-indiegame/akashic-player-ban-plugin";
 import {
     BAN_IN_GAME_RATE_MAX_DEFAULT,
     BAN_IN_GAME_RATE_WINDOW_SECONDS_DEFAULT,
     GUEST_NAME,
     User,
 } from "../types";
-import { BanResultReason } from "../player-ban-protocol";
 import { getAuth } from "./auth";
 import { BAN_LIMIT, BanScope, buildBanLabel, countGmBans } from "./ban";
 import { archiveBanRequest } from "./ban-audit";
 import { applyBanChange } from "./ban-broadcast";
 import { gamePlayerId, resolveGamePlayer } from "./game-player-id";
 import { playOwnerCookieName } from "./play-owner-token";
-import { verifyRoomOwner } from "./viewer-identity";
+import { roomOwnerViewer, verifyRoomOwner } from "./viewer-identity";
 
 const RATE_WINDOW_SECONDS = parseInt(
     process.env.BAN_IN_GAME_RATE_WINDOW_SECONDS ??
@@ -67,7 +67,7 @@ function banTargetOf(target: Pick<User, "authType" | "id">) {
 
 async function authorize(playId: number, targetPlayerId: string) {
     if (!Number.isSafeInteger(playId) || !targetPlayerId) {
-        return { ok: false, reason: "InternalError" } as const;
+        return { ok: false, reason: "Unknown" } as const;
     }
     const user = await getAuth();
     if (!user) {
@@ -83,7 +83,7 @@ async function authorize(playId: number, targetPlayerId: string) {
         },
     });
     if (!play || !play.isActive) {
-        return { ok: false, reason: "InternalError" } as const;
+        return { ok: false, reason: "Unknown" } as const;
     }
     // コンテンツは webapp と同一オリジンで動きプラグインを経由せずここを叩ける。
     // 発行元はクライアントから受け取らず、必ずサーバー側で判定し直す
@@ -95,7 +95,12 @@ async function authorize(playId: number, targetPlayerId: string) {
     if (!verifyRoomOwner(play, user, ownerToken)) {
         return { ok: false, reason: "Unauthorized" } as const;
     }
-    if (gamePlayerId(user) === targetPlayerId) {
+    // 本サイトの決めごととして部屋主は BAN の対象にしない。発行できるのも部屋主
+    // だけなので、利用者から見れば自分自身への BAN にあたり SelfBan で返す
+    if (
+        gamePlayerId(user) === targetPlayerId ||
+        gamePlayerId(roomOwnerViewer(play)) === targetPlayerId
+    ) {
         return { ok: false, reason: "SelfBan" } as const;
     }
     if (!consumeRateLimit(play.id)) {
@@ -104,7 +109,7 @@ async function authorize(playId: number, targetPlayerId: string) {
     const scope = banScopeOf(user, play.id);
     const target = await resolveGamePlayer(targetPlayerId, play.id);
     if (!target) {
-        return { ok: false, reason: "NotInRoom" } as const;
+        return { ok: false, reason: "PlayerNotFound" } as const;
     }
     return { ok: true, user, play, scope, target } as const;
 }
@@ -196,7 +201,7 @@ export async function banPlayerInGameAction(
         });
     } catch (err) {
         console.warn("failed to archive in-game ban request to S3", err);
-        return { ok: false, reason: "InternalError" };
+        return { ok: false, reason: "Unknown" };
     }
 
     if (!existing) {
@@ -214,7 +219,7 @@ export async function banPlayerInGameAction(
                 err.code === "P2002";
             if (!isDuplicate) {
                 console.warn("failed to create ban", err);
-                return { ok: false, reason: "InternalError" };
+                return { ok: false, reason: "Unknown" };
             }
         }
     }

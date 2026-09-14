@@ -50,9 +50,12 @@ import { useCustomData } from "@/lib/client/useCustomData";
 import { usePlayLeaveGuard } from "@/lib/client/usePlayLeaveGuard";
 import { STORAGE_KEYS, useLocalStorage } from "@/lib/client/useLocalStorage";
 import { ResolvingPlayerInfoRequest } from "@/lib/client/akashic-plugins/coe-limited-plugin";
-import { PlayerBanBackend } from "@/lib/client/akashic-plugins/player-ban-plugin";
 import { AkashicContainer } from "@/lib/client/akashic-container";
-import { BanResult, BanResultReason } from "@/lib/player-ban-protocol";
+import type {
+    BanResult,
+    BanResultReason,
+    PlayerBanBackend,
+} from "@multi-indiegame/akashic-player-ban-plugin";
 import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
 import { extendPlay } from "@/lib/server/play-extend";
 import { banPlayerInGameAction } from "@/lib/server/ban-in-game-action";
@@ -101,7 +104,7 @@ const toMessage = (typ?: WarningType) => {
 
 const toBanErrorMessage = (reason: BanResultReason) => {
     switch (reason) {
-        case "NotInRoom":
+        case "PlayerNotFound":
             return "対象がこの部屋にいないためBANできませんでした。";
         case "SelfBan":
             return "自分自身はBANできません。";
@@ -306,7 +309,7 @@ export function PlayView({
                 return {
                     ok: false,
                     playerId: targetPlayerId,
-                    reason: "Rejected",
+                    reason: "UserCancel",
                 };
             }
             const res = await banPlayerInGameAction(
@@ -321,7 +324,7 @@ export function PlayView({
                     reason: res.reason,
                 };
             }
-            setBanNotice(`ゲームが ${res.label} さんをBANしました。`);
+            setBanNotice(`${res.label} さんをBANしました。`);
             return { ok: true, playerId: targetPlayerId };
         },
         [playId, isGameMaster, requestBanConsent],
@@ -1068,7 +1071,7 @@ export function PlayView({
                 <Snackbar
                     open={!!banNotice}
                     anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-                    autoHideDuration={8000}
+                    autoHideDuration={4000}
                     onClose={() => setBanNotice(undefined)}
                 >
                     <Alert

@@ -270,7 +270,14 @@ export default function HelpPage() {
                             tick
                             で届くため、ターン順から外すといったゲーム状態の変更に使えます。
                             <br />
-                            ゲームから行えるのはBANまでで、解除はその部屋にまだいる相手にしか行えません。BANの解除はモデレーション設定から行ってください。
+                            本サイトでは、ゲームからBANを要求できるのは部屋主だけです。部屋主以外からの要求は
+                            "Unauthorized" で、自分自身（部屋主）へのBANは
+                            "SelfBan" で拒否されます。
+                            <br />
+                            ゲームから行えるのはBANの要求までで、解除はモデレーション設定から行います。チャットからのBANや設定画面での解除もゲームへ通知されるため、
+                            <code>onPlayerBanned</code> と{" "}
+                            <code>onPlayerUnbanned</code>{" "}
+                            の両方を用意してください。
                             <br />
                             <Button
                                 component={Link}
@@ -283,7 +290,7 @@ export default function HelpPage() {
                                     color: theme.palette.primary.light,
                                 }}
                             >
-                                akashic-player-ban
+                                @multi-indiegame/akashic-player-ban
                             </Button>
                         </ListItem>
                     </List>

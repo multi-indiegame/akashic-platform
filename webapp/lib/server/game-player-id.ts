@@ -42,10 +42,7 @@ export function gamePlayerId(user: Pick<User, "authType" | "id">): string {
  * WHY: 派生は非可逆なので逆算できない。この部屋の在籍者の側から派生値を組んで
  * 突き合わせる。候補をこの部屋の PlaySession に限るのが要点で、発行者の BAN 一覧
  * まで広げると、この部屋に来たことのない相手（他の部屋で BAN した相手）まで
- * 解決でき、コンテンツが無関係な BAN を操作できてしまう。
- *
- * kick 後は PlaySession が消えるため在籍者としては引けなくなる。BAN 直後の
- * 取り消しは [ban-undo-token] の署名で対象を指す。
+ * 解決でき、コンテンツが無関係な相手を BAN できてしまう。
  */
 export async function resolveGamePlayer(
     playerId: string,

@@ -6,7 +6,12 @@ import { BAN_LIMIT, BanScope, buildBanLabel, countGmBans } from "./ban";
 import { archiveBanRequest } from "./ban-audit";
 import { applyBanChange } from "./ban-broadcast";
 import { cookies, headers } from "next/headers";
-import { isSameViewer, targetViewer, verifyRoomOwner } from "./viewer-identity";
+import {
+    isSameViewer,
+    roomOwnerViewer,
+    targetViewer,
+    verifyRoomOwner,
+} from "./viewer-identity";
 import { playOwnerCookieName } from "./play-owner-token";
 
 export type BanFormState = {
@@ -80,7 +85,12 @@ export async function banFromChatAction(
         ? { targetUserId: message.authorId }
         : { targetGuestId: message.guestId };
     const viewer = targetViewer(message);
-    if (isSameViewer(message, user)) {
+    // 部屋主は BAN の対象にしない。発行できるのも部屋主だけなので、自分自身への
+    // BAN として案内する
+    if (
+        isSameViewer(message, user) ||
+        isSameViewer(message, roomOwnerViewer(play))
+    ) {
         return failure("自分自身はBANできません。");
     }
     const requestHeaders = await headers();
