@@ -2,7 +2,7 @@
 
 import { prisma } from "@yasshi2525/persist-schema";
 import { isWriteBlocked } from "./drain-state";
-import { getAuth } from "./auth";
+import { getSignedInUser } from "./auth";
 
 const favoriteToggleErrReasons = [
     "AlreadyExists",
@@ -16,14 +16,6 @@ type FavoriteToggleErrorType = (typeof favoriteToggleErrReasons)[number];
 type FavoriteToggleResponse =
     { ok: true } | { ok: false; reason: FavoriteToggleErrorType };
 
-// Server Action はブラウザ外から任意の引数で呼べるため、userId はクライアントから
-// 受け取らずセッションから決める。ゲストは guest_id cookie を他人の OAuth id に
-// 偽装できるので OAuth セッションに限る
-async function getSignedInUserId() {
-    const user = await getAuth();
-    return user?.authType === "oauth" ? user.id : undefined;
-}
-
 export async function addFavorite(
     gameId: number,
 ): Promise<FavoriteToggleResponse> {
@@ -33,13 +25,16 @@ export async function addFavorite(
             reason: "Drain",
         };
     }
-    const userId = await getSignedInUserId();
-    if (!userId) {
+    // Server Action はブラウザ外から任意の引数で呼べるため、userId はクライアントから
+    // 受け取らずセッションから決める
+    const auth = await getSignedInUser();
+    if (!auth.ok) {
         return {
             ok: false,
-            reason: "Unauthorized",
+            reason: auth.reason,
         };
     }
+    const userId = auth.user.id;
     try {
         const existing = await prisma.favorite.findUnique({
             where: {
@@ -88,13 +83,16 @@ export async function deleteFavorite(
             reason: "Drain",
         };
     }
-    const userId = await getSignedInUserId();
-    if (!userId) {
+    // Server Action はブラウザ外から任意の引数で呼べるため、userId はクライアントから
+    // 受け取らずセッションから決める
+    const auth = await getSignedInUser();
+    if (!auth.ok) {
         return {
             ok: false,
-            reason: "Unauthorized",
+            reason: auth.reason,
         };
     }
+    const userId = auth.user.id;
     try {
         const deleted = await prisma.favorite.delete({
             where: {

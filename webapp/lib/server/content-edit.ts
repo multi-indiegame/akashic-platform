@@ -25,7 +25,7 @@ import {
     contentTypeFromName,
 } from "./content-utils";
 import { isWriteBlocked } from "./drain-state";
-import { getAuth } from "./auth";
+import { getSignedInUser } from "./auth";
 
 interface EditGameRequest extends Partial<GameForm> {
     gameId: number;
@@ -191,14 +191,14 @@ export async function editContent(
     }
     // 所有者判定に使う id はクライアントから受け取らずセッションから決める
     // (理由は registerContent と同じ)
-    const user = await getAuth();
-    if (user?.authType !== "oauth") {
+    const auth = await getSignedInUser();
+    if (!auth.ok) {
         return {
             ok: false,
-            reason: "Unauthorized",
+            reason: auth.reason,
         };
     }
-    const param: EditGameForm = { ...request, publisherId: user.id };
+    const param: EditGameForm = { ...request, publisherId: auth.user.id };
     const validationErrParam = await validateParam(param);
     if (validationErrParam) {
         return validationErrParam;

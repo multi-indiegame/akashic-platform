@@ -20,7 +20,7 @@ import {
     throwIfInvalidContentDir,
 } from "./content-utils";
 import { isWriteBlocked } from "./drain-state";
-import { getAuth } from "./auth";
+import { getSignedInUser } from "./auth";
 
 interface NewGameForm extends GameForm {
     publisherId: string;
@@ -85,16 +85,15 @@ export async function registerContent(
         };
     }
     // Server Action はブラウザ外から任意の引数で呼べるため、投稿者はクライアントから
-    // 受け取らずセッションから決める。ゲストは guest_id cookie を他人の OAuth id に
-    // 偽装できるので OAuth セッションに限る
-    const user = await getAuth();
-    if (user?.authType !== "oauth") {
+    // 受け取らずセッションから決める
+    const auth = await getSignedInUser();
+    if (!auth.ok) {
         return {
             ok: false,
-            reason: "Unauthorized",
+            reason: auth.reason,
         };
     }
-    const param: NewGameForm = { ...form, publisherId: user.id };
+    const param: NewGameForm = { ...form, publisherId: auth.user.id };
     const validationErrParam = validateParam(param);
     if (validationErrParam) {
         return validationErrParam;
