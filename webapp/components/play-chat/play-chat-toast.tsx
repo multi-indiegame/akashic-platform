@@ -2,9 +2,9 @@
 
 import { RefObject, useEffect, useRef, useState } from "react";
 import {
-    alpha,
     Alert,
     Avatar,
+    ButtonBase,
     Snackbar,
     Stack,
     Typography,
@@ -51,8 +51,13 @@ export function PlayChatToast({
         } else if (lastId == null) {
             lastIdRef.current = 0;
         }
+        if (fullscreen) {
+            // 全画面中はティッカーで読めるため、全画面前の通知を解除後に出し直さない
+            setToast(undefined);
+            return;
+        }
         // 初回取得分は入室前の投稿なので通知しない
-        if (lastId == null || fullscreen || isVisible(anchorRef.current)) {
+        if (lastId == null || isVisible(anchorRef.current)) {
             return;
         }
         const notifiable = messages.filter(
@@ -94,44 +99,55 @@ export function PlayChatToast({
         <Snackbar
             // 続けて届いたときに表示時間をリセットするため、投稿ごとに作り直す
             key={toast.id}
-            open={!fullscreen}
+            open
             anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
             autoHideDuration={5000}
             onClose={() => setToast(undefined)}
         >
-            <Alert
-                variant="filled"
-                severity="info"
-                icon={
-                    toast.author.iconURL ? (
-                        <Avatar
-                            src={toast.author.iconURL}
-                            sx={{ width: 32, height: 32 }}
-                        />
-                    ) : (
-                        <ChatBubble fontSize="inherit" />
-                    )
-                }
-                role="button"
-                aria-label="部屋チャットを表示"
+            <ButtonBase
+                component="div"
+                focusRipple
                 onClick={handleClick}
                 sx={{
-                    color: "inherit",
-                    cursor: "pointer",
-                    alignItems: "center",
+                    display: "block",
                     width: { xs: "100%", sm: 360 },
-                    "& .MuiAlert-message": { minWidth: 0, flexGrow: 1 },
+                    textAlign: "left",
+                    borderRadius: theme.shape.borderRadius,
+                    "&.Mui-focusVisible": {
+                        outline: `2px solid ${theme.palette.text.primary}`,
+                        outlineOffset: 2,
+                    },
                 }}
             >
-                <Stack spacing={0.25}>
-                    <Typography variant="subtitle2" noWrap>
-                        {toast.author.name}
-                    </Typography>
-                    <Typography variant="body2" noWrap>
-                        {toast.body}
-                    </Typography>
-                </Stack>
-            </Alert>
+                <Alert
+                    variant="filled"
+                    severity="info"
+                    icon={
+                        toast.author.iconURL ? (
+                            <Avatar
+                                src={toast.author.iconURL}
+                                sx={{ width: 32, height: 32 }}
+                            />
+                        ) : (
+                            <ChatBubble fontSize="inherit" />
+                        )
+                    }
+                    sx={{
+                        color: "inherit",
+                        alignItems: "center",
+                        "& .MuiAlert-message": { minWidth: 0, flexGrow: 1 },
+                    }}
+                >
+                    <Stack spacing={0.25}>
+                        <Typography variant="subtitle2" noWrap>
+                            {toast.author.name}
+                        </Typography>
+                        <Typography variant="body2" noWrap>
+                            {toast.body}
+                        </Typography>
+                    </Stack>
+                </Alert>
+            </ButtonBase>
         </Snackbar>
     );
 }
