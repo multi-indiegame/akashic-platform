@@ -65,11 +65,7 @@ function banTargetOf(target: Pick<User, "authType" | "id">) {
         : { targetGuestId: target.id };
 }
 
-async function authorize(
-    playId: number,
-    targetPlayerId: string,
-    { consumeRate }: { consumeRate: boolean },
-) {
+async function authorize(playId: number, targetPlayerId: string) {
     if (!Number.isSafeInteger(playId) || !targetPlayerId) {
         return { ok: false, reason: "Unknown" } as const;
     }
@@ -107,7 +103,7 @@ async function authorize(
     ) {
         return { ok: false, reason: "SelfBan" } as const;
     }
-    if (consumeRate && !consumeRateLimit(play.id)) {
+    if (!consumeRateLimit(play.id)) {
         return { ok: false, reason: "LimitExceeded" } as const;
     }
     const scope = banScopeOf(user, play.id);
@@ -168,24 +164,6 @@ async function archive(param: {
 }
 
 /**
- * 部屋主の確認ダイアログで BAN の対象を示すための表示名を返す。BAN はしない。
- * 連打窓は BAN の発行を数えるためのもので、確認前の照会まで数えると確認後の
- * BAN が窓を使い切って弾かれるため消費しない。
- */
-export async function previewInGameBanTargetAction(
-    playId: number,
-    targetPlayerId: string,
-): Promise<InGameBanResponse> {
-    const auth = await authorize(playId, targetPlayerId, {
-        consumeRate: false,
-    });
-    if (!auth.ok) {
-        return { ok: false, reason: auth.reason };
-    }
-    return { ok: true, label: await buildLabel(playId, auth.target) };
-}
-
-/**
  * コンテンツからの要求で、部屋主がプレイヤーを BAN する。
  * スコープはサイトの既存仕様と同じ（サインイン部屋主は全部屋、ゲスト部屋主は
  * その部屋のみ）で、チャットからの BAN と同じ `origin: MANUAL` の行を作る。
@@ -194,9 +172,7 @@ export async function banPlayerInGameAction(
     playId: number,
     targetPlayerId: string,
 ): Promise<InGameBanResponse> {
-    const auth = await authorize(playId, targetPlayerId, {
-        consumeRate: true,
-    });
+    const auth = await authorize(playId, targetPlayerId);
     if (!auth.ok) {
         return { ok: false, reason: auth.reason };
     }

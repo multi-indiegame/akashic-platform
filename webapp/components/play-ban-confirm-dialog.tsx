@@ -20,8 +20,6 @@ const ARM_DELAY_MS = 500;
 
 export interface BanConfirmRequest {
     id: number;
-    /** サーバーが解決した表示名。コンテンツから渡された名前は使わない */
-    label: string;
 }
 
 /**
@@ -44,11 +42,6 @@ export function PlayBanConfirmDialog({
     onConfirm: (id: number) => void;
     onCancel: (id: number) => void;
 }) {
-    // 閉じるアニメーションの間も直前の相手を表示し続ける
-    const [shown, setShown] = useState(request);
-    if (request && request !== shown) {
-        setShown(request);
-    }
     const [armedId, setArmedId] = useState<number>();
     useEffect(() => {
         if (!request) {
@@ -72,11 +65,8 @@ export function PlayBanConfirmDialog({
             aria-labelledby="ban-confirm-dialog-title"
             aria-describedby="ban-confirm-dialog-description"
         >
-            <DialogTitle
-                id="ban-confirm-dialog-title"
-                sx={{ overflowWrap: "anywhere" }}
-            >
-                {shown?.label} さんをBANしますか？
+            <DialogTitle id="ban-confirm-dialog-title">
+                このユーザーをBANしますか？
             </DialogTitle>
             <DialogContent>
                 <DialogContentText id="ban-confirm-dialog-description">
