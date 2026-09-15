@@ -44,7 +44,7 @@ import {
     X,
 } from "@mui/icons-material";
 import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
-import { GameInfo, User } from "@/lib/types";
+import { BAN_IN_GAME_CONFIRM_PENDING_MAX, GameInfo, User } from "@/lib/types";
 import { useAkashic } from "@/lib/client/useAkashic";
 import { useCustomData } from "@/lib/client/useCustomData";
 import { usePlayLeaveGuard } from "@/lib/client/usePlayLeaveGuard";
@@ -258,17 +258,23 @@ export function PlayView({
     // 可視化のために BAN 要求ごとに必ず出す
     const banConfirmQueue = useRef<((accepted: boolean) => void)[]>([]);
     const [banConfirmPending, setBanConfirmPending] = useState(0);
+    // 同じ相手への要求を毎 tick 投げるようなゲームで、確認もサーバー呼び出しも
+    // 相手ごとに 1 回に保つ
+    const inFlightBans = useRef(new Map<string, Promise<BanResult>>());
     const [banNotice, setBanNotice] = useState<string>();
     const [banError, setBanError] = useState<string>();
 
-    const confirmBan = useCallback(
-        () =>
-            new Promise<boolean>((resolve) => {
-                banConfirmQueue.current.push(resolve);
-                setBanConfirmPending(banConfirmQueue.current.length);
-            }),
-        [],
-    );
+    const confirmBan = useCallback(() => {
+        const queue = banConfirmQueue.current;
+        // サーバーの連打窓は確認の後にしか効かないため、確認待ちはここで押さえる
+        if (queue.length >= BAN_IN_GAME_CONFIRM_PENDING_MAX) {
+            return undefined;
+        }
+        return new Promise<boolean>((resolve) => {
+            queue.push(resolve);
+            setBanConfirmPending(queue.length);
+        });
+    }, []);
 
     const resolveBanConfirm = useCallback((accepted: boolean) => {
         const resolve = banConfirmQueue.current.shift();
@@ -276,7 +282,7 @@ export function PlayView({
         resolve?.(accepted);
     }, []);
 
-    const sendBanRequest = useCallback(
+    const executeBanRequest = useCallback(
         async (targetPlayerId: string): Promise<BanResult> => {
             setBanError(undefined);
             // 部屋主でないインスタンスはサーバーへ投げない。ただしこれは通信を
@@ -288,7 +294,16 @@ export function PlayView({
                     reason: "Unauthorized",
                 };
             }
-            if (!(await confirmBan())) {
+            const confirmation = confirmBan();
+            if (!confirmation) {
+                setBanError(toBanErrorMessage("LimitExceeded"));
+                return {
+                    ok: false,
+                    playerId: targetPlayerId,
+                    reason: "LimitExceeded",
+                };
+            }
+            if (!(await confirmation)) {
                 return {
                     ok: false,
                     playerId: targetPlayerId,
@@ -311,6 +326,21 @@ export function PlayView({
             return { ok: true, playerId: targetPlayerId };
         },
         [playId, isGameMaster, confirmBan],
+    );
+
+    const sendBanRequest = useCallback(
+        (targetPlayerId: string): Promise<BanResult> => {
+            const inFlight = inFlightBans.current.get(targetPlayerId);
+            if (inFlight) {
+                return inFlight;
+            }
+            const request = executeBanRequest(targetPlayerId).finally(() => {
+                inFlightBans.current.delete(targetPlayerId);
+            });
+            inFlightBans.current.set(targetPlayerId, request);
+            return request;
+        },
+        [executeBanRequest],
     );
 
     const playerBanBackend = useMemo<PlayerBanBackend>(

@@ -5,13 +5,13 @@ const fetcher = async (url: string) => {
     const res = (await (await fetch(url)).json()) as BansGetResponse;
     if (!res.ok) {
         if (res.reason === "Unauthorized") {
-            return [];
+            return undefined;
         }
         throw new Error(
             "予期しないエラーが発生しました。時間をおいてリトライしてください。",
         );
     }
-    return res.data;
+    return { list: res.data, limit: res.limit };
 };
 
 export function useBans(enabled: boolean) {
@@ -21,7 +21,8 @@ export function useBans(enabled: boolean) {
     );
     return {
         isLoading,
-        list: data,
+        list: data?.list,
+        limit: data?.limit,
         error: error ? (error as Error).message : undefined,
         mutate,
     };

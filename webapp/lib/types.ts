@@ -212,6 +212,11 @@ export const BAN_LIMIT_DEFAULT = 200;
 /** ゲーム内BANの連打上限。コンテンツから自動で叩けるため部屋単位で押さえる */
 export const BAN_IN_GAME_RATE_WINDOW_SECONDS_DEFAULT = 10;
 export const BAN_IN_GAME_RATE_MAX_DEFAULT = 3;
+/**
+ * 部屋主の確認を待たせておけるゲーム内BAN要求の件数。
+ * サーバーの連打窓は確認後にしか効かないため、確認待ちはクライアントで押さえる
+ */
+export const BAN_IN_GAME_CONFIRM_PENDING_MAX = 3;
 
 export const REPORT_DETAIL_MAX = 1000;
 export const CONTACT_BODY_MAX = 2000;
@@ -282,7 +287,8 @@ export interface BanInfo {
 const bansGetErrReasons = ["Unauthorized", "InternalError"] as const;
 export type BansGetErrorType = (typeof bansGetErrReasons)[number];
 export type BansGetResponse =
-    { ok: true; data: BanInfo[] } | { ok: false; reason: BansGetErrorType };
+    | { ok: true; data: BanInfo[]; limit: number }
+    | { ok: false; reason: BansGetErrorType };
 
 export interface MessageAuthorInfo {
     id?: string;

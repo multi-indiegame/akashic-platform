@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import { formatDistance } from "date-fns";
 import { ja } from "date-fns/locale";
-import { BAN_LIMIT_DEFAULT, MUTE_LIMIT_DEFAULT } from "@/lib/types";
+import { MUTE_LIMIT_DEFAULT } from "@/lib/types";
 import { useAuth } from "@/lib/client/useAuth";
 import { useMutes } from "@/lib/client/useMutes";
 import { useBans } from "@/lib/client/useBans";
@@ -186,7 +186,7 @@ function BanList() {
     const [user] = useAuth();
     // ゲスト部屋主の BAN は部屋単位で、部屋を閉じると無意味になるため管理 UI は
     // 設けない。サインイン部屋主 (全部屋 BAN) のみ一覧・解除できる
-    const { isLoading, list, error, mutate } = useBans(
+    const { isLoading, list, limit, error, mutate } = useBans(
         user?.authType === "oauth",
     );
     const [pending, startTransition] = useTransition();
@@ -226,9 +226,11 @@ function BanList() {
     const bans = list ?? [];
     return (
         <Stack spacing={1}>
-            <Typography variant="body2" color="textSecondary">
-                {bans.length} / {BAN_LIMIT_DEFAULT} 件
-            </Typography>
+            {limit != null && (
+                <Typography variant="body2" color="textSecondary">
+                    {bans.length} / {limit} 件
+                </Typography>
+            )}
             {actionError && (
                 <Alert variant="outlined" severity="warning">
                     {actionError}
