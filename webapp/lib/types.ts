@@ -274,7 +274,8 @@ export interface MuteInfo {
 const mutesGetErrReasons = ["Unauthorized", "InternalError"] as const;
 export type MutesGetErrorType = (typeof mutesGetErrReasons)[number];
 export type MutesGetResponse =
-    { ok: true; data: MuteInfo[] } | { ok: false; reason: MutesGetErrorType };
+    | { ok: true; data: MuteInfo[]; limit: number }
+    | { ok: false; reason: MutesGetErrorType };
 
 export interface BanInfo {
     id: number;

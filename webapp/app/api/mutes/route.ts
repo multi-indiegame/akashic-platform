@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@yasshi2525/persist-schema";
 import { MutesGetResponse } from "@/lib/types";
 import { getAuth } from "@/lib/server/auth";
+import { MUTE_LIMIT } from "@/lib/server/mute";
 
 export async function GET(): Promise<NextResponse<MutesGetResponse>> {
     try {
@@ -22,6 +23,7 @@ export async function GET(): Promise<NextResponse<MutesGetResponse>> {
                 label: mute.labelSnapshot,
                 createdAt: mute.createdAt,
             })),
+            limit: MUTE_LIMIT,
         });
     } catch (err) {
         console.warn("failed to fetch mutes", err);

@@ -42,7 +42,7 @@ function EmptyNote() {
 }
 
 function PersistedMutes() {
-    const { isLoading, list, error, mutate } = useMutes(true);
+    const { isLoading, list, limit, error, mutate } = useMutes(true);
     const [pending, startTransition] = useTransition();
     const [actionError, setActionError] = useState<string | undefined>();
 
@@ -80,8 +80,8 @@ function PersistedMutes() {
     return (
         <Stack spacing={1}>
             <Typography variant="body2" color="textSecondary">
-                サインインしているため、ミュートはアカウントに保存され、他の端末にも反映されます（
-                {mutes.length} / {MUTE_LIMIT_DEFAULT} 件）。
+                サインインしているため、ミュートはアカウントに保存され、他の端末にも反映されます
+                {limit != null && `（${mutes.length} / ${limit} 件）`}。
             </Typography>
             {actionError && (
                 <Alert variant="outlined" severity="warning">
