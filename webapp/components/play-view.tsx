@@ -58,9 +58,15 @@ import type {
 } from "@multi-indiegame/akashic-player-ban-plugin";
 import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
 import { extendPlay } from "@/lib/server/play-extend";
-import { banPlayerInGameAction } from "@/lib/server/ban-in-game-action";
+import {
+    banPlayerInGameAction,
+    previewInGameBanTargetAction,
+} from "@/lib/server/ban-in-game-action";
 import { uploadPlayShareScreenshot } from "@/lib/server/play-share";
-import { PlayBanConfirmDialog } from "./play-ban-confirm-dialog";
+import {
+    BanConfirmRequest,
+    PlayBanConfirmDialog,
+} from "./play-ban-confirm-dialog";
 import { PlayCloseDialog } from "./play-close-dialog";
 import { PlayLeaveDialog } from "./play-leave-dialog";
 import { PlayEndNotification } from "./play-end-notification";
@@ -256,30 +262,66 @@ export function PlayView({
 
     // コンテンツは同一オリジンなのでこの確認自体は迂回できるが、事故防止と
     // 可視化のために BAN 要求ごとに必ず出す
-    const banConfirmQueue = useRef<((accepted: boolean) => void)[]>([]);
-    const [banConfirmPending, setBanConfirmPending] = useState(0);
+    // 確認待ちの枠。対象の照会中も数えないと、照会が返る前の要求が上限を素通りする
+    const banConfirmSlots = useRef(0);
+    const banConfirmResolvers = useRef(
+        new Map<number, (accepted: boolean) => void>(),
+    );
+    const nextBanConfirmId = useRef(0);
+    const [banConfirmRequests, setBanConfirmRequests] = useState<
+        BanConfirmRequest[]
+    >([]);
     // 同じ相手への要求を毎 tick 投げるようなゲームで、確認もサーバー呼び出しも
     // 相手ごとに 1 回に保つ
     const inFlightBans = useRef(new Map<string, Promise<BanResult>>());
     const [banNotice, setBanNotice] = useState<string>();
     const [banError, setBanError] = useState<string>();
 
-    const confirmBan = useCallback(() => {
-        const queue = banConfirmQueue.current;
-        // サーバーの連打窓は確認の後にしか効かないため、確認待ちはここで押さえる
-        if (queue.length >= BAN_IN_GAME_CONFIRM_PENDING_MAX) {
-            return undefined;
-        }
-        return new Promise<boolean>((resolve) => {
-            queue.push(resolve);
-            setBanConfirmPending(queue.length);
-        });
-    }, []);
+    const confirmBan = useCallback(
+        async (
+            targetPlayerId: string,
+        ): Promise<{ ok: true } | { ok: false; reason: BanResultReason }> => {
+            // サーバーの連打窓は確認の後にしか効かないため、確認待ちはここで押さえる
+            if (banConfirmSlots.current >= BAN_IN_GAME_CONFIRM_PENDING_MAX) {
+                return { ok: false, reason: "LimitExceeded" };
+            }
+            banConfirmSlots.current++;
+            try {
+                const target = await previewInGameBanTargetAction(
+                    parseInt(playId),
+                    targetPlayerId,
+                );
+                if (!target.ok) {
+                    return { ok: false, reason: target.reason };
+                }
+                const accepted = await new Promise<boolean>((resolve) => {
+                    const id = nextBanConfirmId.current++;
+                    banConfirmResolvers.current.set(id, resolve);
+                    setBanConfirmRequests((current) => [
+                        ...current,
+                        { id, label: target.label },
+                    ]);
+                });
+                return accepted
+                    ? { ok: true }
+                    : { ok: false, reason: "UserCancel" };
+            } finally {
+                banConfirmSlots.current--;
+            }
+        },
+        [playId],
+    );
 
-    const resolveBanConfirm = useCallback((accepted: boolean) => {
-        const resolve = banConfirmQueue.current.shift();
-        setBanConfirmPending(banConfirmQueue.current.length);
-        resolve?.(accepted);
+    const resolveBanConfirm = useCallback((id: number, accepted: boolean) => {
+        const resolve = banConfirmResolvers.current.get(id);
+        if (!resolve) {
+            return;
+        }
+        banConfirmResolvers.current.delete(id);
+        setBanConfirmRequests((current) =>
+            current.filter((request) => request.id !== id),
+        );
+        resolve(accepted);
     }, []);
 
     const executeBanRequest = useCallback(
@@ -294,20 +336,15 @@ export function PlayView({
                     reason: "Unauthorized",
                 };
             }
-            const confirmation = confirmBan();
-            if (!confirmation) {
-                setBanError(toBanErrorMessage("LimitExceeded"));
+            const confirmation = await confirmBan(targetPlayerId);
+            if (!confirmation.ok) {
+                if (confirmation.reason !== "UserCancel") {
+                    setBanError(toBanErrorMessage(confirmation.reason));
+                }
                 return {
                     ok: false,
                     playerId: targetPlayerId,
-                    reason: "LimitExceeded",
-                };
-            }
-            if (!(await confirmation)) {
-                return {
-                    ok: false,
-                    playerId: targetPlayerId,
-                    reason: "UserCancel",
+                    reason: confirmation.reason,
                 };
             }
             const res = await banPlayerInGameAction(
@@ -1079,11 +1116,11 @@ export function PlayView({
                 />
             )}
             <PlayBanConfirmDialog
-                open={banConfirmPending > 0}
+                request={banConfirmRequests[0]}
                 allRooms={user.authType === "oauth"}
-                queued={banConfirmPending - 1}
-                onConfirm={() => resolveBanConfirm(true)}
-                onCancel={() => resolveBanConfirm(false)}
+                queued={Math.max(banConfirmRequests.length - 1, 0)}
+                onConfirm={(id) => resolveBanConfirm(id, true)}
+                onCancel={(id) => resolveBanConfirm(id, false)}
             />
             {banNotice && (
                 <Snackbar
