@@ -11,6 +11,8 @@ export const PlayChatContext = createContext<{
     incoming: PlayChatMessageInfo[];
     consumeIncoming: (upTo: number) => void;
     isLoading: boolean;
+    /** 初回取得に成功したか。isLoading は失敗時も解除されるため区別する */
+    isPrimed: boolean;
     error?: string;
     refresh: () => Promise<void>;
 } | null>(null);

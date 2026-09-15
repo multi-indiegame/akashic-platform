@@ -15,6 +15,7 @@ export function usePlayChat(playId: string, enabled: boolean) {
     const inFlightRef = useRef(false);
     // 初回取得分は既に流れ終わったものとして扱い、ティッカーには流さない
     const primedRef = useRef(false);
+    const [isPrimed, setIsPrimed] = useState(false);
     const [incoming, setIncoming] = useState<PlayChatMessageInfo[]>([]);
 
     const fetchMessages = useCallback(async () => {
@@ -52,6 +53,7 @@ export function usePlayChat(playId: string, enabled: boolean) {
                 }
             }
             primedRef.current = true;
+            setIsPrimed(true);
         } catch (err) {
             console.warn("failed to fetch play chat", err);
         } finally {
@@ -80,6 +82,7 @@ export function usePlayChat(playId: string, enabled: boolean) {
         incoming,
         consumeIncoming,
         isLoading,
+        isPrimed,
         error,
         refresh: fetchMessages,
     };
