@@ -35,14 +35,15 @@ export function PlayChatToast({
 }: {
     anchorRef: RefObject<HTMLElement | null>;
 }) {
-    const { messages, isLoading, fullscreen } = usePlayChatContext();
+    const { messages, isPrimed, fullscreen } = usePlayChatContext();
     const theme = useTheme();
     const mute = useMute("chat");
     const lastIdRef = useRef<number | undefined>(undefined);
     const [toast, setToast] = useState<PlayChatMessageInfo>();
 
     useEffect(() => {
-        if (isLoading) {
+        // 初回取得が失敗したまま基準を決めると、後で取れた入室前の投稿を新着とみなしてしまう
+        if (!isPrimed) {
             return;
         }
         const lastId = lastIdRef.current;
@@ -66,7 +67,7 @@ export function PlayChatToast({
         if (notifiable.length > 0) {
             setToast(notifiable[notifiable.length - 1]);
         }
-    }, [messages, isLoading, fullscreen, anchorRef, mute]);
+    }, [messages, isPrimed, fullscreen, anchorRef, mute]);
 
     useEffect(() => {
         if (!toast) {
