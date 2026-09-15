@@ -86,7 +86,7 @@ export async function applyBanChange(param: {
     const event = buildBanNotificationEvent(
         param.action,
         gamePlayerId(param.target),
-    ) as Event;
+    );
     await Promise.all(playIds.map((playId) => sendPlayEvent(playId, event)));
     if (param.action === "banned") {
         await kickViewerFromPlays(playIds, sessionViewerId(param.target));
