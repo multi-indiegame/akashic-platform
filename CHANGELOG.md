@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2.3.6
+
+- Improve
+  - `./webapp`
+    - `@multi-indiegame/akashic-player-ban` で BAN するとき、確認ダイアログとしてキャンセルできるよう修正
+    - モデレート設定 BAN 件数表示 (#125)
+
 ## 2.3.5
 
 - Improve

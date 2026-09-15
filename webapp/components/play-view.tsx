@@ -44,7 +44,7 @@ import {
     X,
 } from "@mui/icons-material";
 import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
-import { GameInfo, User } from "@/lib/types";
+import { BAN_IN_GAME_CONFIRM_PENDING_MAX, GameInfo, User } from "@/lib/types";
 import { useAkashic } from "@/lib/client/useAkashic";
 import { useCustomData } from "@/lib/client/useCustomData";
 import { usePlayLeaveGuard } from "@/lib/client/usePlayLeaveGuard";
@@ -60,7 +60,10 @@ import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
 import { extendPlay } from "@/lib/server/play-extend";
 import { banPlayerInGameAction } from "@/lib/server/ban-in-game-action";
 import { uploadPlayShareScreenshot } from "@/lib/server/play-share";
-import { PlayBanConsentDialog } from "./play-ban-consent-dialog";
+import {
+    BanConfirmRequest,
+    PlayBanConfirmDialog,
+} from "./play-ban-confirm-dialog";
 import { PlayCloseDialog } from "./play-close-dialog";
 import { PlayLeaveDialog } from "./play-leave-dialog";
 import { PlayEndNotification } from "./play-end-notification";
@@ -254,46 +257,48 @@ export function PlayView({
     } | null>(null);
     const [fullscreenGuideOpen, setFullscreenGuideOpen] = useState(false);
 
-    // ゲーム内BANの許可は部屋単位で覚える。コンテンツは同一オリジンなので
-    // このダイアログ自体は迂回できるが、事故防止と可視化のために置く
-    const [banAllowed, setBanAllowed] = useLocalStorage(
-        `${STORAGE_KEYS.PLAY_BAN_ALLOWED}:${playId}`,
-        false,
+    // コンテンツは同一オリジンなのでこの確認自体は迂回できるが、事故防止と
+    // 可視化のために BAN 要求ごとに必ず出す
+    const banConfirmResolvers = useRef(
+        new Map<number, (accepted: boolean) => void>(),
     );
-    const banAllowedRef = useRef(banAllowed);
-    const [banConsentOpen, setBanConsentOpen] = useState(false);
-    // 確認中に次の要求が来ても取りこぼさないよう、待たせている callback を溜める
-    const banConsentResolvers = useRef<((accepted: boolean) => void)[]>([]);
+    const nextBanConfirmId = useRef(0);
+    const [banConfirmRequests, setBanConfirmRequests] = useState<
+        BanConfirmRequest[]
+    >([]);
+    // 同じ相手への要求を毎 tick 投げるようなゲームで、確認もサーバー呼び出しも
+    // 相手ごとに 1 回に保つ
+    const inFlightBans = useRef(new Map<string, Promise<BanResult>>());
     const [banNotice, setBanNotice] = useState<string>();
     const [banError, setBanError] = useState<string>();
 
-    const requestBanConsent = useCallback(() => {
-        if (banAllowedRef.current) {
-            return Promise.resolve(true);
+    const confirmBan = useCallback(() => {
+        // サーバーの連打窓は確認の後にしか効かないため、確認待ちはここで押さえる
+        if (
+            banConfirmResolvers.current.size >= BAN_IN_GAME_CONFIRM_PENDING_MAX
+        ) {
+            return undefined;
         }
         return new Promise<boolean>((resolve) => {
-            banConsentResolvers.current.push(resolve);
-            setBanConsentOpen(true);
+            const id = nextBanConfirmId.current++;
+            banConfirmResolvers.current.set(id, resolve);
+            setBanConfirmRequests((current) => [...current, { id }]);
         });
     }, []);
 
-    const resolveBanConsent = useCallback(
-        (accepted: boolean) => {
-            setBanConsentOpen(false);
-            if (accepted) {
-                banAllowedRef.current = true;
-                setBanAllowed(true);
-            }
-            const pending = banConsentResolvers.current;
-            banConsentResolvers.current = [];
-            for (const resolve of pending) {
-                resolve(accepted);
-            }
-        },
-        [setBanAllowed],
-    );
+    const resolveBanConfirm = useCallback((id: number, accepted: boolean) => {
+        const resolve = banConfirmResolvers.current.get(id);
+        if (!resolve) {
+            return;
+        }
+        banConfirmResolvers.current.delete(id);
+        setBanConfirmRequests((current) =>
+            current.filter((request) => request.id !== id),
+        );
+        resolve(accepted);
+    }, []);
 
-    const sendBanRequest = useCallback(
+    const executeBanRequest = useCallback(
         async (targetPlayerId: string): Promise<BanResult> => {
             setBanError(undefined);
             // 部屋主でないインスタンスはサーバーへ投げない。ただしこれは通信を
@@ -305,7 +310,26 @@ export function PlayView({
                     reason: "Unauthorized",
                 };
             }
-            if (!(await requestBanConsent())) {
+            // 確認を出してから弾かれるより先に、自分の playerId だけは手元で弾く。
+            // 最終的な判定はサーバー側で行う
+            if (targetPlayerId === playerId) {
+                setBanError(toBanErrorMessage("SelfBan"));
+                return {
+                    ok: false,
+                    playerId: targetPlayerId,
+                    reason: "SelfBan",
+                };
+            }
+            const confirmation = confirmBan();
+            if (!confirmation) {
+                setBanError(toBanErrorMessage("LimitExceeded"));
+                return {
+                    ok: false,
+                    playerId: targetPlayerId,
+                    reason: "LimitExceeded",
+                };
+            }
+            if (!(await confirmation)) {
                 return {
                     ok: false,
                     playerId: targetPlayerId,
@@ -327,7 +351,22 @@ export function PlayView({
             setBanNotice(`${res.label} さんをBANしました。`);
             return { ok: true, playerId: targetPlayerId };
         },
-        [playId, isGameMaster, requestBanConsent],
+        [playId, playerId, isGameMaster, confirmBan],
+    );
+
+    const sendBanRequest = useCallback(
+        (targetPlayerId: string): Promise<BanResult> => {
+            const inFlight = inFlightBans.current.get(targetPlayerId);
+            if (inFlight) {
+                return inFlight;
+            }
+            const request = executeBanRequest(targetPlayerId).finally(() => {
+                inFlightBans.current.delete(targetPlayerId);
+            });
+            inFlightBans.current.set(targetPlayerId, request);
+            return request;
+        },
+        [executeBanRequest],
     );
 
     const playerBanBackend = useMemo<PlayerBanBackend>(
@@ -1065,11 +1104,12 @@ export function PlayView({
                     requireSignIn={requireSignIn}
                 />
             )}
-            <PlayBanConsentDialog
-                open={banConsentOpen}
+            <PlayBanConfirmDialog
+                request={banConfirmRequests[0]}
                 allRooms={user.authType === "oauth"}
-                onAllow={() => resolveBanConsent(true)}
-                onReject={() => resolveBanConsent(false)}
+                queued={Math.max(banConfirmRequests.length - 1, 0)}
+                onConfirm={(id) => resolveBanConfirm(id, true)}
+                onCancel={(id) => resolveBanConfirm(id, false)}
             />
             {banNotice && (
                 <Snackbar

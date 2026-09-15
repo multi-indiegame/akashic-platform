@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.2.6
+
+- Improve
+  - `@multi-indiegame/akashic-player-ban` で BAN するとき、確認ダイアログとしてキャンセルできるよう修正
+  - モデレート設定 BAN 件数表示
+
 ## 2.2.5
 
 - Improve

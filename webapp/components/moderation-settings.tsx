@@ -42,7 +42,7 @@ function EmptyNote() {
 }
 
 function PersistedMutes() {
-    const { isLoading, list, error, mutate } = useMutes(true);
+    const { isLoading, list, limit, error, mutate } = useMutes(true);
     const [pending, startTransition] = useTransition();
     const [actionError, setActionError] = useState<string | undefined>();
 
@@ -80,8 +80,8 @@ function PersistedMutes() {
     return (
         <Stack spacing={1}>
             <Typography variant="body2" color="textSecondary">
-                サインインしているため、ミュートはアカウントに保存され、他の端末にも反映されます（
-                {mutes.length} / {MUTE_LIMIT_DEFAULT} 件）。
+                サインインしているため、ミュートはアカウントに保存され、他の端末にも反映されます
+                {limit != null && `（${mutes.length} / ${limit} 件）`}。
             </Typography>
             {actionError && (
                 <Alert variant="outlined" severity="warning">
@@ -186,7 +186,7 @@ function BanList() {
     const [user] = useAuth();
     // ゲスト部屋主の BAN は部屋単位で、部屋を閉じると無意味になるため管理 UI は
     // 設けない。サインイン部屋主 (全部屋 BAN) のみ一覧・解除できる
-    const { isLoading, list, error, mutate } = useBans(
+    const { isLoading, list, limit, error, mutate } = useBans(
         user?.authType === "oauth",
     );
     const [pending, startTransition] = useTransition();
@@ -226,6 +226,11 @@ function BanList() {
     const bans = list ?? [];
     return (
         <Stack spacing={1}>
+            {limit != null && (
+                <Typography variant="body2" color="textSecondary">
+                    {bans.length} / {limit} 件
+                </Typography>
+            )}
             {actionError && (
                 <Alert variant="outlined" severity="warning">
                     {actionError}
