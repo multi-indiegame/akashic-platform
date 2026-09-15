@@ -3,7 +3,7 @@
 import { JSX, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import { useFormState, useFormStatus } from "react-dom";
 import {
     Alert,
@@ -26,6 +26,7 @@ import {
     Google,
     Logout,
     OpenInNew,
+    Refresh,
     Twitter,
 } from "@mui/icons-material";
 import { GameInfo, UserNameFormState, UserHandleFormState } from "@/lib/types";
@@ -33,7 +34,11 @@ import { useAuth } from "@/lib/client/useAuth";
 import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
 import { useUserFeedback } from "@/lib/client/useUserFeedback";
 import { useUserProfile } from "@/lib/client/useUserProfile";
-import { AuthProvider, authProviderNames } from "@/lib/client/auth-providers";
+import {
+    AuthProvider,
+    authProviderNames,
+    authProviders,
+} from "@/lib/client/auth-providers";
 import {
     updateUserHandleAction,
     updateUserNameAction,
@@ -63,6 +68,51 @@ function UserAuthProvider({ provider }: { provider?: string }) {
     }
     return (
         <Chip icon={icon} label={`${label}でサインイン中`} variant="outlined" />
+    );
+}
+
+function isAuthProvider(provider?: string): provider is AuthProvider {
+    return authProviders.some((p) => p === provider);
+}
+
+function UserImageRefresh({ provider }: { provider?: string }) {
+    const theme = useTheme();
+    const [sending, setSending] = useState(false);
+
+    if (!isAuthProvider(provider)) {
+        return null;
+    }
+
+    function handleClick() {
+        if (sending) {
+            return;
+        }
+        setSending(true);
+        // 取得済みトークンは失効していることが多いため、再認証して最新のプロフィールを受け取る
+        signIn(provider);
+    }
+
+    return (
+        <Stack spacing={1} sx={{ alignItems: "flex-start" }}>
+            <Typography variant="body2" color="textSecondary">
+                {authProviderNames[provider]}
+                で変更したアイコン画像が反映されていない場合は、再取得してください。
+                {authProviderNames[provider]}
+                の認証画面に移動し、完了するとこのページに戻ります。
+            </Typography>
+            <Button
+                variant="outlined"
+                startIcon={<Refresh />}
+                onClick={handleClick}
+                disabled={sending}
+                sx={{
+                    borderColor: theme.palette.primary.light,
+                    color: theme.palette.primary.light,
+                }}
+            >
+                アイコン画像を再取得
+            </Button>
+        </Stack>
     );
 }
 
@@ -383,6 +433,12 @@ export default function UserPage() {
                                             userId={profile.id}
                                             currentName={profile.name}
                                             onUpdated={handleProfileUpdated}
+                                        />
+                                        <Typography variant="h6">
+                                            アイコン画像
+                                        </Typography>
+                                        <UserImageRefresh
+                                            provider={profile.provider}
                                         />
                                         <Typography variant="h6">
                                             あなたの部屋ID
