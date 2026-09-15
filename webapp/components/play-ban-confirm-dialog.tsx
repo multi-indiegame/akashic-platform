@@ -11,51 +11,63 @@ import {
 } from "@mui/material";
 
 /**
- * ゲームが視聴者のBANを要求したときに、部屋主へ最初の 1 回だけ出す確認。
+ * ゲームが視聴者のBANを要求するたびに、部屋主へ出す確認。
  * コンテンツは webapp と同一オリジンで動くためこのダイアログは迂回できる。
  * 事故防止と可視化のためのもので、実効的な制限はサーバー側に置いている。
  */
-export function PlayBanConsentDialog({
+export function PlayBanConfirmDialog({
     open,
     allRooms,
-    onAllow,
-    onReject,
+    queued,
+    onConfirm,
+    onCancel,
 }: {
     open: boolean;
     /** サインイン部屋主の BAN は自分の全部屋に効く */
     allRooms: boolean;
-    onAllow: () => void;
-    onReject: () => void;
+    /** 表示中の要求の後ろで確認を待っている件数 */
+    queued: number;
+    onConfirm: () => void;
+    onCancel: () => void;
 }) {
     return (
         <Dialog
             open={open}
-            onClose={onReject}
-            aria-labelledby="ban-consent-dialog-title"
-            aria-describedby="ban-consent-dialog-description"
+            onClose={onCancel}
+            aria-labelledby="ban-confirm-dialog-title"
+            aria-describedby="ban-confirm-dialog-description"
         >
-            <DialogTitle id="ban-consent-dialog-title">
+            <DialogTitle id="ban-confirm-dialog-title">
                 本当に参加者をBANしますか？
             </DialogTitle>
             <DialogContent>
-                <DialogContentText id="ban-consent-dialog-description">
-                    このゲームは、視聴者をゲームの進行からBANする操作を行います。許可すると、この部屋では以後のBAN操作を確認なしで実行します。
+                <DialogContentText id="ban-confirm-dialog-description">
+                    ゲームが、参加者をBANする操作を要求しています。BANした相手はこの部屋から退室させられ、再び入室できなくなります。
                 </DialogContentText>
                 {allRooms && (
                     <Alert variant="outlined" severity="warning" sx={{ mt: 1 }}>
                         BANした相手は、この部屋だけでなくあなたの全ての部屋に入室できなくなります。解除はモデレーション設定から行えます。
                     </Alert>
                 )}
+                {queued > 0 && (
+                    <DialogContentText variant="body2" sx={{ mt: 1 }}>
+                        ほかに {queued} 件のBAN要求が確認を待っています。
+                    </DialogContentText>
+                )}
                 <DialogActions sx={{ flexWrap: "wrap", gap: 1 }}>
-                    <Button variant="contained" onClick={onAllow}>
-                        許可する
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={onConfirm}
+                    >
+                        BANする
                     </Button>
                     <Button
                         variant="outlined"
                         color="inherit"
-                        onClick={onReject}
+                        onClick={onCancel}
                     >
-                        許可しない
+                        キャンセル
                     </Button>
                 </DialogActions>
             </DialogContent>

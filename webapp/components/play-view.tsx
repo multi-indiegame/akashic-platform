@@ -60,7 +60,7 @@ import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
 import { extendPlay } from "@/lib/server/play-extend";
 import { banPlayerInGameAction } from "@/lib/server/ban-in-game-action";
 import { uploadPlayShareScreenshot } from "@/lib/server/play-share";
-import { PlayBanConsentDialog } from "./play-ban-consent-dialog";
+import { PlayBanConfirmDialog } from "./play-ban-confirm-dialog";
 import { PlayCloseDialog } from "./play-close-dialog";
 import { PlayLeaveDialog } from "./play-leave-dialog";
 import { PlayEndNotification } from "./play-end-notification";
@@ -254,44 +254,27 @@ export function PlayView({
     } | null>(null);
     const [fullscreenGuideOpen, setFullscreenGuideOpen] = useState(false);
 
-    // ゲーム内BANの許可は部屋単位で覚える。コンテンツは同一オリジンなので
-    // このダイアログ自体は迂回できるが、事故防止と可視化のために置く
-    const [banAllowed, setBanAllowed] = useLocalStorage(
-        `${STORAGE_KEYS.PLAY_BAN_ALLOWED}:${playId}`,
-        false,
-    );
-    const banAllowedRef = useRef(banAllowed);
-    const [banConsentOpen, setBanConsentOpen] = useState(false);
-    // 確認中に次の要求が来ても取りこぼさないよう、待たせている callback を溜める
-    const banConsentResolvers = useRef<((accepted: boolean) => void)[]>([]);
+    // コンテンツは同一オリジンなのでこの確認自体は迂回できるが、事故防止と
+    // 可視化のために BAN 要求ごとに必ず出す
+    const banConfirmQueue = useRef<((accepted: boolean) => void)[]>([]);
+    const [banConfirmPending, setBanConfirmPending] = useState(0);
     const [banNotice, setBanNotice] = useState<string>();
     const [banError, setBanError] = useState<string>();
 
-    const requestBanConsent = useCallback(() => {
-        if (banAllowedRef.current) {
-            return Promise.resolve(true);
-        }
-        return new Promise<boolean>((resolve) => {
-            banConsentResolvers.current.push(resolve);
-            setBanConsentOpen(true);
-        });
-    }, []);
-
-    const resolveBanConsent = useCallback(
-        (accepted: boolean) => {
-            setBanConsentOpen(false);
-            if (accepted) {
-                banAllowedRef.current = true;
-                setBanAllowed(true);
-            }
-            const pending = banConsentResolvers.current;
-            banConsentResolvers.current = [];
-            for (const resolve of pending) {
-                resolve(accepted);
-            }
-        },
-        [setBanAllowed],
+    const confirmBan = useCallback(
+        () =>
+            new Promise<boolean>((resolve) => {
+                banConfirmQueue.current.push(resolve);
+                setBanConfirmPending(banConfirmQueue.current.length);
+            }),
+        [],
     );
+
+    const resolveBanConfirm = useCallback((accepted: boolean) => {
+        const resolve = banConfirmQueue.current.shift();
+        setBanConfirmPending(banConfirmQueue.current.length);
+        resolve?.(accepted);
+    }, []);
 
     const sendBanRequest = useCallback(
         async (targetPlayerId: string): Promise<BanResult> => {
@@ -305,7 +288,7 @@ export function PlayView({
                     reason: "Unauthorized",
                 };
             }
-            if (!(await requestBanConsent())) {
+            if (!(await confirmBan())) {
                 return {
                     ok: false,
                     playerId: targetPlayerId,
@@ -327,7 +310,7 @@ export function PlayView({
             setBanNotice(`${res.label} さんをBANしました。`);
             return { ok: true, playerId: targetPlayerId };
         },
-        [playId, isGameMaster, requestBanConsent],
+        [playId, isGameMaster, confirmBan],
     );
 
     const playerBanBackend = useMemo<PlayerBanBackend>(
@@ -1065,11 +1048,12 @@ export function PlayView({
                     requireSignIn={requireSignIn}
                 />
             )}
-            <PlayBanConsentDialog
-                open={banConsentOpen}
+            <PlayBanConfirmDialog
+                open={banConfirmPending > 0}
                 allRooms={user.authType === "oauth"}
-                onAllow={() => resolveBanConsent(true)}
-                onReject={() => resolveBanConsent(false)}
+                queued={banConfirmPending - 1}
+                onConfirm={() => resolveBanConfirm(true)}
+                onCancel={() => resolveBanConfirm(false)}
             />
             {banNotice && (
                 <Snackbar

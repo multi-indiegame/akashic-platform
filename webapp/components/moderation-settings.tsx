@@ -15,7 +15,7 @@ import {
 } from "@mui/material";
 import { formatDistance } from "date-fns";
 import { ja } from "date-fns/locale";
-import { MUTE_LIMIT_DEFAULT } from "@/lib/types";
+import { BAN_LIMIT_DEFAULT, MUTE_LIMIT_DEFAULT } from "@/lib/types";
 import { useAuth } from "@/lib/client/useAuth";
 import { useMutes } from "@/lib/client/useMutes";
 import { useBans } from "@/lib/client/useBans";
@@ -226,6 +226,9 @@ function BanList() {
     const bans = list ?? [];
     return (
         <Stack spacing={1}>
+            <Typography variant="body2" color="textSecondary">
+                {bans.length} / {BAN_LIMIT_DEFAULT} 件
+            </Typography>
             {actionError && (
                 <Alert variant="outlined" severity="warning">
                     {actionError}
