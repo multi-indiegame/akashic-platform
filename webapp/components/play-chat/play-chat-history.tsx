@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
     alpha,
     Alert,
     Box,
+    Button,
     CircularProgress,
     Stack,
     Typography,
 } from "@mui/material";
+import { ArrowDownward } from "@mui/icons-material";
 import { formatDistance } from "date-fns";
 import { ja } from "date-fns/locale";
 import { PlayChatMessageInfo } from "@/lib/types";
@@ -17,6 +19,8 @@ import { useMute } from "@/lib/client/useMute";
 import { UserInline } from "../user-inline";
 import { MutedMessage } from "../muted-message";
 import { ModerationMenu, BanContext } from "../moderation-menu";
+
+const BOTTOM_THRESHOLD_PX = 24;
 
 function HistoryBody({ message }: { message: PlayChatMessageInfo }) {
     return (
@@ -111,48 +115,108 @@ export function PlayChatHistory({
         ? { playId: parseInt(playId), onDone: refresh }
         : undefined;
     const listRef = useRef<HTMLDivElement>(null);
+    // 追記で scrollHeight が伸びた後では最下部にいたか判定できないため、
+    // スクロール時点の状態を覚えておく
+    const atBottomRef = useRef(true);
+    const renderedCountRef = useRef(0);
+    const [hasUnseen, setHasUnseen] = useState(false);
 
-    useEffect(() => {
-        if (listRef.current) {
-            listRef.current.scrollTop = listRef.current.scrollHeight;
+    useLayoutEffect(() => {
+        const list = listRef.current;
+        if (!list || isLoading) {
+            return;
         }
-    }, [messages.length]);
+        const added = messages.slice(renderedCountRef.current);
+        renderedCountRef.current = messages.length;
+        if (added.length === 0) {
+            return;
+        }
+        // 自分の投稿は送信結果を確認したいはずなので、遡っていても最新へ移る
+        if (atBottomRef.current || added.some((m) => m.author.isSelf)) {
+            list.scrollTop = list.scrollHeight;
+            atBottomRef.current = true;
+            setHasUnseen(false);
+        } else {
+            setHasUnseen(true);
+        }
+    }, [messages, isLoading]);
+
+    function handleScroll() {
+        const list = listRef.current;
+        if (!list) {
+            return;
+        }
+        atBottomRef.current =
+            list.scrollHeight - list.scrollTop - list.clientHeight <=
+            BOTTOM_THRESHOLD_PX;
+        if (atBottomRef.current) {
+            setHasUnseen(false);
+        }
+    }
+
+    function scrollToLatest() {
+        listRef.current?.scrollTo({
+            top: listRef.current.scrollHeight,
+            behavior: "smooth",
+        });
+    }
 
     return (
-        <Box
-            ref={listRef}
-            sx={{
-                overflowY: "auto",
-                maxHeight: { xs: "30vh", sm: "35vh" },
-                px: { xs: 1.5, sm: 2 },
-                py: 1,
-                backgroundColor: (theme) =>
-                    alpha(theme.palette.background.paper, 0.96),
-            }}
-        >
-            {isLoading ? (
-                <Stack sx={{ alignItems: "center", py: 2 }}>
-                    <CircularProgress size={24} />
-                </Stack>
-            ) : error ? (
-                <Alert variant="outlined" severity="error">
-                    {error}
-                </Alert>
-            ) : messages.length === 0 ? (
-                <Typography variant="body2" color="textSecondary">
-                    まだコメントはありません。
-                </Typography>
-            ) : (
-                <Stack spacing={1.5}>
-                    {messages.map((message) => (
-                        <HistoryItem
-                            key={message.id}
-                            message={message}
-                            mute={mute}
-                            banContext={banContext}
-                        />
-                    ))}
-                </Stack>
+        <Box sx={{ position: "relative" }}>
+            <Box
+                ref={listRef}
+                onScroll={handleScroll}
+                sx={{
+                    overflowY: "auto",
+                    maxHeight: { xs: "30vh", sm: "35vh" },
+                    px: { xs: 1.5, sm: 2 },
+                    py: 1,
+                    backgroundColor: (theme) =>
+                        alpha(theme.palette.background.paper, 0.96),
+                }}
+            >
+                {isLoading ? (
+                    <Stack sx={{ alignItems: "center", py: 2 }}>
+                        <CircularProgress size={24} />
+                    </Stack>
+                ) : error ? (
+                    <Alert variant="outlined" severity="error">
+                        {error}
+                    </Alert>
+                ) : messages.length === 0 ? (
+                    <Typography variant="body2" color="textSecondary">
+                        まだコメントはありません。
+                    </Typography>
+                ) : (
+                    <Stack spacing={1.5}>
+                        {messages.map((message) => (
+                            <HistoryItem
+                                key={message.id}
+                                message={message}
+                                mute={mute}
+                                banContext={banContext}
+                            />
+                        ))}
+                    </Stack>
+                )}
+            </Box>
+            {hasUnseen && (
+                <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<ArrowDownward />}
+                    onClick={scrollToLatest}
+                    sx={{
+                        position: "absolute",
+                        bottom: 8,
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        borderRadius: 4,
+                        whiteSpace: "nowrap",
+                    }}
+                >
+                    最新の投稿へ
+                </Button>
             )}
         </Box>
     );

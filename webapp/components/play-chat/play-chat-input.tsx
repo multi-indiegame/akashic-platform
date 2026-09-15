@@ -6,17 +6,20 @@ import {
     alpha,
     Alert,
     Box,
+    ButtonBase,
     CircularProgress,
     Container,
     IconButton,
     Stack,
     TextField,
     Tooltip,
+    Typography,
     useTheme,
 } from "@mui/material";
-import { Send } from "@mui/icons-material";
+import { KeyboardArrowDown, KeyboardArrowUp, Send } from "@mui/icons-material";
 import { PLAY_CHAT_BODY_MAX, PLAY_CHAT_NAME_MAX } from "@/lib/types";
 import { useAuth } from "@/lib/client/useAuth";
+import { STORAGE_KEYS, useLocalStorage } from "@/lib/client/useLocalStorage";
 import { usePlayChatContext } from "@/lib/client/usePlayChatContext";
 import {
     PlayChatFormState,
@@ -51,12 +54,63 @@ function SendButton({ disabled }: { disabled: boolean }) {
     );
 }
 
+function CollapseTab({
+    collapsed,
+    onToggle,
+}: {
+    collapsed: boolean;
+    onToggle: () => void;
+}) {
+    const theme = useTheme();
+    const label = collapsed ? "コメント入力欄を開く" : "コメント入力欄を閉じる";
+    return (
+        <Box
+            sx={{
+                // 入力欄の高さを増やさないよう、ゲーム画面の下端に重ねる
+                position: "absolute",
+                bottom: "100%",
+                left: "50%",
+                transform: "translateX(-50%)",
+                zIndex: 1,
+            }}
+        >
+            <ButtonBase
+                onClick={onToggle}
+                aria-expanded={!collapsed}
+                aria-controls="play-chat-input-panel"
+                aria-label={label}
+                sx={{
+                    height: 20,
+                    px: 1.5,
+                    gap: 0.25,
+                    color: "#fff",
+                    backgroundColor: alpha("#000", 0.55),
+                    borderTopLeftRadius: theme.shape.borderRadius,
+                    borderTopRightRadius: theme.shape.borderRadius,
+                    "&:hover": { backgroundColor: alpha("#000", 0.75) },
+                }}
+            >
+                {collapsed ? (
+                    <KeyboardArrowUp fontSize="small" />
+                ) : (
+                    <KeyboardArrowDown fontSize="small" />
+                )}
+                <Typography variant="caption">コメント</Typography>
+            </ButtonBase>
+        </Box>
+    );
+}
+
 export function PlayChatInput() {
     const theme = useTheme();
     const [user] = useAuth();
     const { playId, fullscreen, refresh, playerName, setPlayerName } =
         usePlayChatContext();
     const [body, setBody] = useState("");
+    const [collapsed, setCollapsed] = useLocalStorage(
+        STORAGE_KEYS.PLAY_CHAT_INPUT_COLLAPSED,
+        false,
+    );
     const [state, formAction] = useFormState(
         postPlayChatAction,
         initialFormState,
@@ -75,11 +129,23 @@ export function PlayChatInput() {
         <Container
             component="div"
             disableGutters
-            sx={{ maxWidth: fullscreen ? "none" : undefined, flexShrink: 0 }}
+            sx={{
+                maxWidth: fullscreen ? "none" : undefined,
+                flexShrink: 0,
+                position: "relative",
+            }}
         >
+            {fullscreen && (
+                <CollapseTab
+                    collapsed={collapsed}
+                    onToggle={() => setCollapsed(!collapsed)}
+                />
+            )}
             <Stack
+                id="play-chat-input-panel"
                 spacing={0.5}
                 sx={{
+                    display: fullscreen && collapsed ? "none" : undefined,
                     backgroundColor: fullscreen
                         ? alpha("#000", 0.55)
                         : theme.palette.background.paper,
