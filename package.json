@@ -1,6 +1,6 @@
 {
   "name": "@yasshi2525/akashic-platform",
-  "version": "2.3.4",
+  "version": "2.3.5",
   "private": true,
   "author": "yasshi2525",
   "license": "MIT",
@@ -27,7 +27,8 @@
     "minimatch": "^10.2.5",
     "find-my-way": "^9.7.0",
     "sharp": "^0.35.3",
-    "valibot": "^1.4.2"
+    "valibot": "^1.4.2",
+    "mysql2": "^3.24.4"
   },
   "allowScripts": {
     "@scarf/scarf@1.4.0": true,

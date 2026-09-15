@@ -24,6 +24,7 @@ import { PlayChatMessageInfo } from "@/lib/types";
 import { usePlayChatContext } from "@/lib/client/usePlayChatContext";
 import { useMute } from "@/lib/client/useMute";
 import { PlayChatHistory } from "./play-chat-history";
+import { PlayChatToast } from "./play-chat-toast";
 
 const ROW_HEIGHT = 34;
 const SPEED_PX_PER_SEC = 140;
@@ -203,6 +204,7 @@ export function PlayChatTicker() {
     const theme = useTheme();
     const { fullscreen, messages } = usePlayChatContext();
     const [expanded, setExpanded] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
     const trackRef = useRef<HTMLDivElement>(null);
     const [trackWidth, setTrackWidth] = useState(0);
     const { flowing, handleMeasured } = useCommentQueue(trackRef, trackWidth);
@@ -224,6 +226,7 @@ export function PlayChatTicker() {
 
     return (
         <Container
+            ref={containerRef}
             component="div"
             disableGutters
             sx={{ maxWidth: fullscreen ? "none" : undefined, flexShrink: 0 }}
@@ -286,6 +289,7 @@ export function PlayChatTicker() {
                 </Tooltip>
             </Box>
             {expanded && <PlayChatHistory messages={messages} />}
+            <PlayChatToast anchorRef={containerRef} />
         </Container>
     );
 }
