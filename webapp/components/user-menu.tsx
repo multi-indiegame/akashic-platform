@@ -35,10 +35,11 @@ interface MenuProps {
 }
 
 function AnonymousMenu({
+    user,
     anchorEl,
     handleClose,
     onSignIn,
-}: MenuProps & { onSignIn: () => void }) {
+}: MenuProps & { user: User | null; onSignIn: () => void }) {
     const theme = useTheme();
     return (
         <Menu
@@ -62,6 +63,14 @@ function AnonymousMenu({
                     サインイン
                 </Typography>
             </MenuItem>
+            {user?.authType === "guest" && (
+                <MenuItem component={Link} href="/my-play" sx={{ py: 1.25 }}>
+                    <FormatListBulleted />
+                    <Typography variant="body1" sx={{ ml: 1 }}>
+                        自分が作った部屋
+                    </Typography>
+                </MenuItem>
+            )}
             <MenuItem
                 component={Link}
                 href="/settings/moderation"
@@ -212,6 +221,7 @@ export function UserMenu() {
             {user?.authType !== "oauth" ? (
                 <>
                     <AnonymousMenu
+                        user={user}
                         handleClose={handleClose}
                         anchorEl={anchorEl}
                         onSignIn={() => setSignInOpen(true)}
