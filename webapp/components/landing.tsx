@@ -28,13 +28,15 @@ import {
     Close,
     Lock,
     Login,
+    MeetingRoom,
     NoAccounts,
     Person,
     SportsEsports,
 } from "@mui/icons-material";
-import { AnonymousPlayInfo, GameInfo } from "@/lib/types";
+import { AnonymousPlayInfo, GameInfo, PlayInfo } from "@/lib/types";
+import { useAuth } from "@/lib/client/useAuth";
 import { useGameList } from "@/lib/client/useGameList";
-import { useAnonymousPlayList } from "@/lib/client/usePlayList";
+import { useAnonymousPlayList, usePlayList } from "@/lib/client/usePlayList";
 import { useLocalMutes } from "@/lib/client/useLocalMutes";
 import { UserInline } from "./user-inline";
 import { SignIn } from "./sign-in";
@@ -347,6 +349,70 @@ function RoomTile({
     );
 }
 
+function OwnRoomRow({ play }: { play: PlayInfo }) {
+    return (
+        <Card>
+            <CardActionArea component={Link} href={`/play/${play.id}`}>
+                <Stack
+                    direction="row"
+                    spacing={1.5}
+                    sx={{ alignItems: "center", p: 1 }}
+                >
+                    <Avatar
+                        variant="rounded"
+                        src={play.game.iconURL}
+                        alt={play.game.title}
+                        sx={{ width: 48, height: 48 }}
+                    />
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Typography variant="subtitle1" noWrap>
+                            {play.playName}
+                        </Typography>
+                        <Typography
+                            variant="caption"
+                            color="textSecondary"
+                            noWrap
+                            component="p"
+                        >
+                            {play.game.title}・{play.participants} 人
+                        </Typography>
+                    </Box>
+                    <Button
+                        component="span"
+                        variant="contained"
+                        startIcon={<MeetingRoom />}
+                        sx={{ flexShrink: 0 }}
+                    >
+                        戻る
+                    </Button>
+                </Stack>
+            </CardActionArea>
+        </Card>
+    );
+}
+
+function OwnRoomsSection({ guestId }: { guestId: string }) {
+    const { list } = usePlayList(undefined, guestId);
+    const rooms = list?.flat() ?? [];
+
+    if (rooms.length === 0) {
+        return null;
+    }
+
+    return (
+        <Container maxWidth="lg" sx={{ py: 2 }}>
+            <Typography variant="h6" component="h2" sx={{ mb: 1 }}>
+                あなたが作った部屋
+            </Typography>
+            <Stack spacing={1}>
+                {rooms.map((play) => (
+                    <OwnRoomRow key={play.id} play={play} />
+                ))}
+            </Stack>
+        </Container>
+    );
+}
+
 function LiveRoomsSection({
     onRequestSignIn,
 }: {
@@ -575,6 +641,7 @@ function SignInPromptDialog({
 }
 
 export function GuestLanding() {
+    const [user] = useAuth();
     const { list: gameList } = useGameList(undefined);
     const games = useMemo(() => gameList?.flat() ?? [], [gameList]);
     const [signInOpen, setSignInOpen] = useState(false);
@@ -589,6 +656,10 @@ export function GuestLanding() {
                     },
                 }}
             />
+            {/* ゲストは部屋一覧を見られないため、作った部屋へ戻る導線をここに置く */}
+            {user?.authType === "guest" && (
+                <OwnRoomsSection guestId={user.id} />
+            )}
             <HeroMosaic
                 games={games}
                 onRequestSignIn={() => setSignInOpen(true)}
