@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useTransition, useState } from "react";
+import { ChangeEvent, useRef, useTransition, useState } from "react";
 import { redirect } from "next/navigation";
 import JSZip from "jszip";
 import {
@@ -90,6 +90,7 @@ export function GameForm({
     const [unsupportedExternals, setUnsupportedExternals] =
         useState<string[]>();
     const [gameJsonWarnings, setGameJsonWarnings] = useState<string[]>();
+    const gameFileSelectionRef = useRef(0);
 
     function handleInputTitle(event: ChangeEvent<HTMLInputElement>) {
         if (event.target.value) {
@@ -107,6 +108,7 @@ export function GameForm({
             // 上限超過のまま送信すると Next.js 側でボディが切り詰められ、
             // 原因の分からない失敗になるため選択時点で弾く
             if (file.size > GAME_FILE_MAX_BYTES) {
+                gameFileSelectionRef.current++;
                 setGameFile(undefined);
                 setLicense(undefined);
                 setGameFileError(
@@ -116,31 +118,32 @@ export function GameForm({
                 return;
             }
             setGameFile(file);
+            const selection = ++gameFileSelectionRef.current;
+            let error: string | undefined;
+            let warnings: string[] | undefined;
+            let externals: string[] | undefined;
+            let licenseText: string | undefined;
             try {
                 const zip = await JSZip.loadAsync(await file.arrayBuffer());
                 const gameJsonFile = zip.file("game.json");
                 if (!gameJsonFile) {
-                    setGameFileError(
-                        "不正なゲームデータファイルです。zip の直下に game.json が含まれていません。",
-                    );
+                    error =
+                        "不正なゲームデータファイルです。zip の直下に game.json が含まれていません。";
                 } else {
                     try {
                         const gameJson = JSON.parse(
                             await gameJsonFile.async("text"),
                         );
                         // 投稿してからサーバーに弾かれる前に、選択時点で直すべき箇所を示す
-                        const { error, warnings } =
-                            checkGameJsonEnvironment(gameJson);
-                        if (error) {
-                            setGameFileError(
-                                describeGameJsonEnvironmentError(error),
+                        const result = checkGameJsonEnvironment(gameJson);
+                        if (result.error) {
+                            error = describeGameJsonEnvironmentError(
+                                result.error,
                             );
                         }
-                        if (warnings.length > 0) {
-                            setGameJsonWarnings(
-                                warnings.map(
-                                    describeGameJsonEnvironmentWarning,
-                                ),
+                        if (result.warnings.length > 0) {
+                            warnings = result.warnings.map(
+                                describeGameJsonEnvironmentWarning,
                             );
                         }
                         const externalKeys = Object.keys(
@@ -150,26 +153,29 @@ export function GameForm({
                             (key) => !supportedExternalPlugins.includes(key),
                         );
                         if (unsupportedExternalKeys.length > 0) {
-                            setUnsupportedExternals(unsupportedExternalKeys);
+                            externals = unsupportedExternalKeys;
                         }
                     } catch (err) {
                         console.warn("failed to parse game.json", err);
-                        setGameFileError(
-                            "不正なゲームデータファイルです。game.json がJSON形式ではありません。",
-                        );
+                        error =
+                            "不正なゲームデータファイルです。game.json がJSON形式ではありません。";
                     }
                 }
                 const licenseFile = zip.file("library_license.txt");
                 if (licenseFile) {
-                    const text = await licenseFile.async("text");
-                    setLicense(text);
-                } else {
-                    setLicense(undefined);
+                    licenseText = await licenseFile.async("text");
                 }
             } catch (err) {
                 console.warn("failed to read library_license.txt", err);
-                setLicense(undefined);
             }
+            // 読み込み中に別のファイルが選ばれた場合、古い結果で新しいファイルの送信を塞がない
+            if (selection !== gameFileSelectionRef.current) {
+                return;
+            }
+            setGameFileError(error);
+            setGameJsonWarnings(warnings);
+            setUnsupportedExternals(externals);
+            setLicense(licenseText);
         }
     }
 

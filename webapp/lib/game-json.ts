@@ -38,8 +38,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// game.json は投稿者が任意に書けるため、応答・画面・ログに載せる値は長さを制限する
+const MAX_VALUE_LENGTH = 200;
+const MAX_ENVIRONMENT_KEYS = 20;
+
+export function truncate(text: string, maxLength = MAX_VALUE_LENGTH) {
+    return text.length > maxLength
+        ? `${text.slice(0, maxLength)}…(${text.length} 文字中 ${maxLength} 文字を表示)`
+        : text;
+}
+
 function stringify(value: unknown) {
-    return JSON.stringify(value) ?? String(value);
+    return truncate(JSON.stringify(value) ?? String(value));
 }
 
 export function getGameJsonEnvironment(gameJson: unknown) {
@@ -112,7 +122,11 @@ export function checkGameJsonEnvironment(
                 reason: "MissingMode",
                 modeKey,
                 ignoredNiconicoModes,
-                environmentKeys: environment ? Object.keys(environment) : [],
+                environmentKeys: environment
+                    ? Object.keys(environment)
+                          .slice(0, MAX_ENVIRONMENT_KEYS)
+                          .map((key) => truncate(key, 50))
+                    : [],
             },
             // エラー文で同じ内容を案内するため重複させない
             warnings: ignoredNiconicoModes ? [] : warnings,

@@ -10,7 +10,11 @@ import {
 import JSZip, { JSZipObject } from "jszip";
 import { prisma } from "@yasshi2525/persist-schema";
 import { ContentErrorResponse } from "../types";
-import { checkGameJsonEnvironment, getGameJsonEnvironment } from "../game-json";
+import {
+    checkGameJsonEnvironment,
+    getGameJsonEnvironment,
+    truncate,
+} from "../game-json";
 
 export interface GameForm {
     title: string;
@@ -112,7 +116,10 @@ export async function validateGameZip(
         console.warn(
             'rejected game file (reason = "%s", environment = %s)',
             error.reason,
-            JSON.stringify(getGameJsonEnvironment(gameJson)),
+            truncate(
+                JSON.stringify(getGameJsonEnvironment(gameJson)) ?? "undefined",
+                1000,
+            ),
         );
         return {
             ok: false,
