@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2.2.7
+
+- Improve
+  - `@multi-indiegame/akashic-player-ban` で BAN するとき、名前を表示するよう修正
+
 ## 2.2.6
 
 - Improve

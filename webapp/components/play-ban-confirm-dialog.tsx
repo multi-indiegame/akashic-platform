@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import {
     Alert,
+    Box,
     Button,
     Dialog,
     DialogActions,
     DialogContent,
     DialogContentText,
     DialogTitle,
+    Typography,
 } from "@mui/material";
 
 /**
@@ -18,8 +20,39 @@ import {
  */
 const ARM_DELAY_MS = 500;
 
+const TARGET_NAME_DISPLAY_MAX = 32;
+
 export interface BanConfirmRequest {
     id: number;
+    /**
+     * ゲームが申告した対象の表示名。実行基盤は検証していないため、表示の補助にだけ使う。
+     * 申告が無いときにアカウント名で補うと、確認を出しては取りやめるだけで
+     * 同意なく名前を知れてしまうので、補わずに undefined のままにする
+     */
+    name?: string;
+}
+
+/**
+ * ゲームから来る信頼できない値なので、改行や双方向制御文字でダイアログの
+ * 文言に見せかけられないよう取り除き、長すぎる名前でレイアウトが崩れないよう切り詰める
+ */
+function toDisplayName(name: string | undefined) {
+    if (!name) {
+        return undefined;
+    }
+    const cleaned = name
+        .replace(
+            /[\u0000-\u001F\u007F-\u009F\u061C\u200E\u200F\u2028-\u202E\u2066-\u2069]/g,
+            "",
+        )
+        .trim();
+    if (!cleaned) {
+        return undefined;
+    }
+    const chars = Array.from(cleaned);
+    return chars.length > TARGET_NAME_DISPLAY_MAX
+        ? `${chars.slice(0, TARGET_NAME_DISPLAY_MAX).join("")}…`
+        : cleaned;
 }
 
 /**
@@ -51,6 +84,7 @@ export function PlayBanConfirmDialog({
         return () => clearTimeout(timer);
     }, [request]);
     const armed = !!request && armedId === request.id;
+    const targetName = toDisplayName(request?.name);
 
     const cancel = () => {
         if (armed) {
@@ -72,6 +106,42 @@ export function PlayBanConfirmDialog({
                 <DialogContentText id="ban-confirm-dialog-description">
                     ゲームが、参加者をBANする操作を要求しています。BANした相手はこの部屋から退室させられ、再び入室できなくなります。
                 </DialogContentText>
+                {targetName && (
+                    <Box
+                        sx={{
+                            mt: 1.5,
+                            px: 1.5,
+                            py: 1,
+                            borderLeft: 3,
+                            borderColor: "divider",
+                        }}
+                    >
+                        <Typography
+                            variant="caption"
+                            color="textSecondary"
+                            component="p"
+                        >
+                            ゲームが示した対象
+                        </Typography>
+                        <Typography
+                            variant="subtitle1"
+                            component="p"
+                            sx={{
+                                fontWeight: "bold",
+                                overflowWrap: "anywhere",
+                            }}
+                        >
+                            <bdi>{targetName}</bdi>
+                        </Typography>
+                        <Typography
+                            variant="caption"
+                            color="textSecondary"
+                            component="p"
+                        >
+                            ゲーム内で使われている名前です。アカウント名とは異なる場合があります。
+                        </Typography>
+                    </Box>
+                )}
                 {allRooms && (
                     <Alert variant="outlined" severity="warning" sx={{ mt: 1 }}>
                         BANした相手は、この部屋だけでなくあなたの全ての部屋に入室できなくなります。解除はモデレーション設定から行えます。

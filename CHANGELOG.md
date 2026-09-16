@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.3.7
+
+- Improve
+  - `./webapp`
+    - `@multi-indiegame/akashic-player-ban` で BAN するとき、名前を表示するよう修正
+
 ## 2.3.6
 
 - Improve
