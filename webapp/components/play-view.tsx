@@ -54,6 +54,7 @@ import { AkashicContainer } from "@/lib/client/akashic-container";
 import type {
     BanResult,
     BanResultReason,
+    BanRequestDetail,
     PlayerBanBackend,
 } from "@multi-indiegame/akashic-player-ban-plugin";
 import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
@@ -272,7 +273,7 @@ export function PlayView({
     const [banNotice, setBanNotice] = useState<string>();
     const [banError, setBanError] = useState<string>();
 
-    const confirmBan = useCallback(() => {
+    const confirmBan = useCallback((name: string | undefined) => {
         // サーバーの連打窓は確認の後にしか効かないため、確認待ちはここで押さえる
         if (
             banConfirmResolvers.current.size >= BAN_IN_GAME_CONFIRM_PENDING_MAX
@@ -282,7 +283,7 @@ export function PlayView({
         return new Promise<boolean>((resolve) => {
             const id = nextBanConfirmId.current++;
             banConfirmResolvers.current.set(id, resolve);
-            setBanConfirmRequests((current) => [...current, { id }]);
+            setBanConfirmRequests((current) => [...current, { id, name }]);
         });
     }, []);
 
@@ -299,7 +300,10 @@ export function PlayView({
     }, []);
 
     const executeBanRequest = useCallback(
-        async (targetPlayerId: string): Promise<BanResult> => {
+        async (
+            targetPlayerId: string,
+            detail: BanRequestDetail | undefined,
+        ): Promise<BanResult> => {
             setBanError(undefined);
             // 部屋主でないインスタンスはサーバーへ投げない。ただしこれは通信を
             // 減らすためで、発行元の判定はサーバー側でも必ず行う
@@ -320,7 +324,7 @@ export function PlayView({
                     reason: "SelfBan",
                 };
             }
-            const confirmation = confirmBan();
+            const confirmation = confirmBan(detail?.name);
             if (!confirmation) {
                 setBanError(toBanErrorMessage("LimitExceeded"));
                 return {
@@ -355,14 +359,19 @@ export function PlayView({
     );
 
     const sendBanRequest = useCallback(
-        (targetPlayerId: string): Promise<BanResult> => {
+        (
+            targetPlayerId: string,
+            detail?: BanRequestDetail,
+        ): Promise<BanResult> => {
             const inFlight = inFlightBans.current.get(targetPlayerId);
             if (inFlight) {
                 return inFlight;
             }
-            const request = executeBanRequest(targetPlayerId).finally(() => {
-                inFlightBans.current.delete(targetPlayerId);
-            });
+            const request = executeBanRequest(targetPlayerId, detail).finally(
+                () => {
+                    inFlightBans.current.delete(targetPlayerId);
+                },
+            );
             inFlightBans.current.set(targetPlayerId, request);
             return request;
         },
