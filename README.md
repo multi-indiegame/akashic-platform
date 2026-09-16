@@ -20,11 +20,13 @@
 - 実行可能なゲーム
   - `environment.sandbox-runtime`: `"3"`
   - `environment.nicolive.supportedModes`: `"multi_admission"` または `"multi"`
+    - 旧仕様の `environment.niconico` も受け付ける (`nicolive` と両方ある場合は `niconico` を無視)
   - `environment.external`:
     - 対応
       - `"coeLimited"`
       - `"coe"`
       - `"send"`
+      - [`"playerBan"`](https://github.com/multi-indiegame/akashic-player-ban)
     - 未対応
       - `@akashic-extension/instance-storage`
 

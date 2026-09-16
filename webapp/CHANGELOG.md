@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 2.2.9
+
+- Improve
+  - ゲーム投稿失敗(`game.json`定義誤り)の原因を説明するよう修正
+
 ## 2.2.8
 
 - Improve

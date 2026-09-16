@@ -251,6 +251,11 @@ export default function HelpPage() {
                             <code>environment.nicolive.supportedModes</code>:
                             <code>"multi_admission"</code> または{" "}
                             <code>"multi"</code>
+                            <br />
+                            旧仕様の <code>environment.niconico</code>{" "}
+                            でも投稿できますが、今後サポートを終了する可能性があるため{" "}
+                            <code>environment.nicolive</code>{" "}
+                            への書き換えをおすすめします。
                         </ListItem>
                         <ListItem disableGutters sx={{ display: "list-item" }}>
                             <code>environment.external</code>: "coe"、
