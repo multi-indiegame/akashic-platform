@@ -86,7 +86,7 @@ export function checkGameJsonEnvironment(
                 reason: "UnsupportedVersion",
                 actual: stringify(version),
                 typeMismatch:
-                    typeof version !== "string" &&
+                    typeof version === "number" &&
                     supportedAkashicVersions.includes(String(version)),
             },
             warnings,
