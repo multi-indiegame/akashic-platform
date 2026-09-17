@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.3.9
+
+- Improve
+  - `./webapp`
+    - ゲーム投稿失敗(`game.json`定義誤り)の原因を説明するよう修正 (#116)
+
 ## 2.3.8
 
 - Improve

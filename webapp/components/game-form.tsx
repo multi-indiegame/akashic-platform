@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useTransition, useState } from "react";
+import { ChangeEvent, useRef, useTransition, useState } from "react";
 import { redirect } from "next/navigation";
 import JSZip from "jszip";
 import {
@@ -36,10 +36,13 @@ import {
     ICON_FILE_MAX_MB,
     messageKey,
     messages,
-    supportedAkashicModes,
-    supportedAkashicVersions,
     supportedExternalPlugins,
 } from "@/lib/types";
+import {
+    checkGameJsonEnvironment,
+    describeGameJsonEnvironmentError,
+    describeGameJsonEnvironmentWarning,
+} from "@/lib/game-json";
 import { registerContent } from "@/lib/server/content-register";
 import { editContent } from "@/lib/server/content-edit";
 import { useAuth } from "@/lib/client/useAuth";
@@ -86,6 +89,8 @@ export function GameForm({
     const [serverError, setServerError] = useState<string>();
     const [unsupportedExternals, setUnsupportedExternals] =
         useState<string[]>();
+    const [gameJsonWarnings, setGameJsonWarnings] = useState<string[]>();
+    const gameFileSelectionRef = useRef(0);
 
     function handleInputTitle(event: ChangeEvent<HTMLInputElement>) {
         if (event.target.value) {
@@ -98,10 +103,12 @@ export function GameForm({
         if (event.target.files && event.target.files[0]) {
             setGameFileError(undefined);
             setUnsupportedExternals(undefined);
+            setGameJsonWarnings(undefined);
             const file = event.target.files[0];
             // 上限超過のまま送信すると Next.js 側でボディが切り詰められ、
             // 原因の分からない失敗になるため選択時点で弾く
             if (file.size > GAME_FILE_MAX_BYTES) {
+                gameFileSelectionRef.current++;
                 setGameFile(undefined);
                 setLicense(undefined);
                 setGameFileError(
@@ -111,14 +118,34 @@ export function GameForm({
                 return;
             }
             setGameFile(file);
+            const selection = ++gameFileSelectionRef.current;
+            let error: string | undefined;
+            let warnings: string[] | undefined;
+            let externals: string[] | undefined;
+            let licenseText: string | undefined;
             try {
                 const zip = await JSZip.loadAsync(await file.arrayBuffer());
                 const gameJsonFile = zip.file("game.json");
-                if (gameJsonFile) {
+                if (!gameJsonFile) {
+                    error =
+                        "不正なゲームデータファイルです。zip の直下に game.json が含まれていません。";
+                } else {
                     try {
                         const gameJson = JSON.parse(
                             await gameJsonFile.async("text"),
                         );
+                        // 投稿してからサーバーに弾かれる前に、選択時点で直すべき箇所を示す
+                        const result = checkGameJsonEnvironment(gameJson);
+                        if (result.error) {
+                            error = describeGameJsonEnvironmentError(
+                                result.error,
+                            );
+                        }
+                        if (result.warnings.length > 0) {
+                            warnings = result.warnings.map(
+                                describeGameJsonEnvironmentWarning,
+                            );
+                        }
                         const externalKeys = Object.keys(
                             gameJson?.environment?.external ?? {},
                         ).sort();
@@ -126,23 +153,29 @@ export function GameForm({
                             (key) => !supportedExternalPlugins.includes(key),
                         );
                         if (unsupportedExternalKeys.length > 0) {
-                            setUnsupportedExternals(unsupportedExternalKeys);
+                            externals = unsupportedExternalKeys;
                         }
                     } catch (err) {
                         console.warn("failed to parse game.json", err);
+                        error =
+                            "不正なゲームデータファイルです。game.json がJSON形式ではありません。";
                     }
                 }
                 const licenseFile = zip.file("library_license.txt");
                 if (licenseFile) {
-                    const text = await licenseFile.async("text");
-                    setLicense(text);
-                } else {
-                    setLicense(undefined);
+                    licenseText = await licenseFile.async("text");
                 }
             } catch (err) {
                 console.warn("failed to read library_license.txt", err);
-                setLicense(undefined);
             }
+            // 読み込み中に別のファイルが選ばれた場合、古い結果で新しいファイルの送信を塞がない
+            if (selection !== gameFileSelectionRef.current) {
+                return;
+            }
+            setGameFileError(error);
+            setGameJsonWarnings(warnings);
+            setUnsupportedExternals(externals);
+            setLicense(licenseText);
         }
     }
 
@@ -184,27 +217,19 @@ export function GameForm({
                 break;
             case "NoGameJson":
                 setServerError(
-                    "不正なゲームデータファイルです。game.json が含まれていません。",
+                    "不正なゲームデータファイルです。zip の直下に game.json が含まれていません。",
                 );
                 break;
             case "InvalidGameJson":
                 setServerError(
-                    "不正なゲームデータファイルです。game.json がJSON形式ではありません",
+                    "不正なゲームデータファイルです。game.json がJSON形式ではありません。",
                 );
                 break;
+            case "MissingVersion":
             case "UnsupportedVersion":
-                setServerError(
-                    "非サポートのバージョンが指定されています。" +
-                        "game.json の environment.sandbox-runtime の値を確認してください。" +
-                        `(サポート: ${supportedAkashicVersions.map((v) => `"${v}"`).join()})`,
-                );
-                break;
+            case "MissingMode":
             case "UnsupportedMode":
-                setServerError(
-                    "非サポートのモードが指定されています。" +
-                        "game.json の environment.nicolive.supportedModes の値を確認してください。" +
-                        `(サポート: ${supportedAkashicModes.map((m) => `"${m}"`).join()})`,
-                );
+                setServerError(describeGameJsonEnvironmentError(res));
                 break;
             case "GameFileTooLarge":
                 setServerError(
@@ -399,6 +424,16 @@ export function GameForm({
                                         {gameFileError}
                                     </Alert>
                                 )}
+                                {gameJsonWarnings?.map((warning) => (
+                                    <Alert
+                                        key={warning}
+                                        variant="outlined"
+                                        severity="warning"
+                                        sx={{ mb: 1 }}
+                                    >
+                                        {warning}
+                                    </Alert>
+                                ))}
                                 {unsupportedExternals && (
                                     <Alert
                                         variant="outlined"

@@ -1,4 +1,5 @@
 import type { NicoliveSupportedModes } from "@akashic/game-configuration";
+import type { GameJsonEnvironmentError } from "./game-json";
 import type {
     NotificationType,
     ReportReason,
@@ -407,7 +408,9 @@ const contentErrReasons = [
     "InvalidParams",
     "NoGameJson",
     "InvalidGameJson",
+    "MissingVersion",
     "UnsupportedVersion",
+    "MissingMode",
     "UnsupportedMode",
     "GameFileTooLarge",
     "IconFileTooLarge",
@@ -416,10 +419,12 @@ const contentErrReasons = [
     "InternalError",
 ] as const;
 export type ContentErrorType = (typeof contentErrReasons)[number];
-export type ContentErrorResponse = {
-    ok: false;
-    reason: ContentErrorType;
-};
+export type ContentErrorResponse =
+    | {
+          ok: false;
+          reason: Exclude<ContentErrorType, GameJsonEnvironmentError["reason"]>;
+      }
+    | ({ ok: false } & GameJsonEnvironmentError);
 export type ContentResponse =
     { ok: true; contentId: number } | ContentErrorResponse;
 

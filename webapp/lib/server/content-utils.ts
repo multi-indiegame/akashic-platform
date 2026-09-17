@@ -8,13 +8,13 @@ import {
     S3Client,
 } from "@aws-sdk/client-s3";
 import JSZip, { JSZipObject } from "jszip";
-import { GameConfiguration } from "@akashic/game-configuration";
 import { prisma } from "@yasshi2525/persist-schema";
+import { ContentErrorResponse } from "../types";
 import {
-    ContentErrorResponse,
-    supportedAkashicModes,
-    supportedAkashicVersions,
-} from "../types";
+    checkGameJsonEnvironment,
+    formatValue,
+    getGameJsonEnvironment,
+} from "../game-json";
 
 export interface GameForm {
     title: string;
@@ -95,39 +95,36 @@ export async function validateGameZip(
 ): Promise<ContentErrorResponse | undefined> {
     const gameJsonFile = gameZip.file("game.json");
     if (!gameJsonFile) {
+        console.warn('rejected game file (reason = "NoGameJson")');
         return {
             ok: false,
             reason: "NoGameJson",
         };
     }
+    let gameJson: unknown;
     try {
-        const gameJson: GameConfiguration = JSON.parse(
-            await gameJsonFile.async("text"),
-        );
-        if (
-            !supportedAkashicVersions.some(
-                (ver) => ver === gameJson.environment?.["sandbox-runtime"],
-            )
-        ) {
-            return {
-                ok: false,
-                reason: "UnsupportedVersion",
-            };
-        }
-        if (
-            !gameJson.environment?.nicolive?.supportedModes?.some(
-                (mode) => supportedAkashicModes.indexOf(mode) !== -1,
-            )
-        ) {
-            return {
-                ok: false,
-                reason: "UnsupportedMode",
-            };
-        }
+        gameJson = JSON.parse(await gameJsonFile.async("text"));
     } catch (err) {
+        // SyntaxError のメッセージには入力の断片 (改行・制御文字を含みうる) が埋め込まれるため、エスケープして載せる
+        console.warn(
+            'rejected game file (reason = "InvalidGameJson", error = %s)',
+            formatValue(err instanceof Error ? err.message : String(err)),
+        );
         return {
             ok: false,
             reason: "InvalidGameJson",
+        };
+    }
+    const { error } = checkGameJsonEnvironment(gameJson);
+    if (error) {
+        console.warn(
+            'rejected game file (reason = "%s", environment = %s)',
+            error.reason,
+            formatValue(getGameJsonEnvironment(gameJson), 1000),
+        );
+        return {
+            ok: false,
+            ...error,
         };
     }
 }
