@@ -361,7 +361,11 @@ function GuestInstruction() {
                 </ListItem>
             </List>
             <Divider sx={{ width: "100%", maxWidth: 480 }} />
-            <Alert severity="info" sx={{ width: "100%", maxWidth: 480 }}>
+            <Alert
+                variant="outlined"
+                severity="info"
+                sx={{ width: "100%", maxWidth: 480 }}
+            >
                 サインインすると部屋一覧が表示されます
             </Alert>
             <SignInDialog />
@@ -427,7 +431,7 @@ export function PlayList({
                             自分が作成した部屋
                         </Typography>
                     </Box>
-                    <Alert severity="info">
+                    <Alert variant="outlined" severity="info">
                         サインインすると全ての部屋一覧が表示されます
                     </Alert>
                 </Stack>
