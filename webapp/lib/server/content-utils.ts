@@ -12,8 +12,8 @@ import { prisma } from "@yasshi2525/persist-schema";
 import { ContentErrorResponse } from "../types";
 import {
     checkGameJsonEnvironment,
+    formatValue,
     getGameJsonEnvironment,
-    truncate,
 } from "../game-json";
 
 export interface GameForm {
@@ -105,7 +105,11 @@ export async function validateGameZip(
     try {
         gameJson = JSON.parse(await gameJsonFile.async("text"));
     } catch (err) {
-        console.warn('rejected game file (reason = "InvalidGameJson")', err);
+        // SyntaxError のメッセージには入力の断片 (改行・制御文字を含みうる) が埋め込まれるため、エスケープして載せる
+        console.warn(
+            'rejected game file (reason = "InvalidGameJson", error = %s)',
+            formatValue(err instanceof Error ? err.message : String(err)),
+        );
         return {
             ok: false,
             reason: "InvalidGameJson",
@@ -116,10 +120,7 @@ export async function validateGameZip(
         console.warn(
             'rejected game file (reason = "%s", environment = %s)',
             error.reason,
-            truncate(
-                JSON.stringify(getGameJsonEnvironment(gameJson)) ?? "undefined",
-                1000,
-            ),
+            formatValue(getGameJsonEnvironment(gameJson), 1000),
         );
         return {
             ok: false,

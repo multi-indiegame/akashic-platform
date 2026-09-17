@@ -42,14 +42,115 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const MAX_VALUE_LENGTH = 200;
 const MAX_ENVIRONMENT_KEYS = 20;
 
-export function truncate(text: string, maxLength = MAX_VALUE_LENGTH) {
-    return text.length > maxLength
-        ? `${text.slice(0, maxLength)}…(${text.length} 文字中 ${maxLength} 文字を表示)`
-        : text;
+const MAX_FORMAT_DEPTH = 5;
+
+// サロゲートペアの間で切ると不正な文字が画面・ログに残るため、その手前で切る
+function sliceSafely(text: string, maxLength: number) {
+    if (text.length <= maxLength) {
+        return text;
+    }
+    const code = text.charCodeAt(maxLength - 1);
+    return text.slice(
+        0,
+        code >= 0xd800 && code <= 0xdbff ? maxLength - 1 : maxLength,
+    );
 }
 
-function stringify(value: unknown) {
-    return truncate(JSON.stringify(value) ?? String(value));
+// JSON.stringify は C1 制御文字や行区切り文字をエスケープせず、ログにそのまま載ってしまうため
+function quote(text: string) {
+    return JSON.stringify(text).replace(
+        /[\u007f-\u009f\u2028\u2029]/g,
+        (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`,
+    );
+}
+
+function hasOwn(obj: object, key: string) {
+    return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+/**
+ * 診断用に値を JSON 風の文字列にする。
+ * 巨大・深い入れ子の game.json でも例外 (RangeError) を出さず、
+ * 処理量が入力サイズではなく出力上限に比例するよう、上限に達した時点で走査を打ち切る。
+ */
+export function formatValue(
+    value: unknown,
+    maxLength = MAX_VALUE_LENGTH,
+): string {
+    let out = "";
+    const write = (text: string) => {
+        out += text;
+        return out.length <= maxLength;
+    };
+    const visit = (v: unknown, depth: number): boolean => {
+        if (typeof v === "string") {
+            return write(quote(sliceSafely(v, maxLength + 1)));
+        }
+        if (
+            v === null ||
+            v === undefined ||
+            typeof v === "number" ||
+            typeof v === "boolean" ||
+            typeof v === "bigint"
+        ) {
+            return write(String(v));
+        }
+        if (Array.isArray(v)) {
+            if (v.length === 0) {
+                return write("[]");
+            }
+            if (depth >= MAX_FORMAT_DEPTH) {
+                return write("[…]");
+            }
+            if (!write("[")) {
+                return false;
+            }
+            for (let i = 0; i < v.length; i++) {
+                if ((i > 0 && !write(",")) || !visit(v[i], depth + 1)) {
+                    return false;
+                }
+            }
+            return write("]");
+        }
+        if (typeof v === "object") {
+            let first = true;
+            for (const key in v) {
+                if (!hasOwn(v, key)) {
+                    continue;
+                }
+                if (first && depth >= MAX_FORMAT_DEPTH) {
+                    return write("{…}");
+                }
+                if (
+                    !write(first ? "{" : ",") ||
+                    !write(`${quote(sliceSafely(key, maxLength + 1))}:`) ||
+                    !visit((v as Record<string, unknown>)[key], depth + 1)
+                ) {
+                    return false;
+                }
+                first = false;
+            }
+            return write(first ? "{}" : "}");
+        }
+        return write(typeof v);
+    };
+    visit(value, 0);
+    return out.length <= maxLength
+        ? out
+        : `${sliceSafely(out, maxLength)}…(省略)`;
+}
+
+function collectKeys(obj: object, max: number) {
+    const keys: string[] = [];
+    for (const key in obj) {
+        if (keys.length >= max) {
+            break;
+        }
+        if (hasOwn(obj, key)) {
+            keys.push(key);
+        }
+    }
+    return keys;
 }
 
 export function getGameJsonEnvironment(gameJson: unknown) {
@@ -84,7 +185,7 @@ export function checkGameJsonEnvironment(
         return {
             error: {
                 reason: "UnsupportedVersion",
-                actual: stringify(version),
+                actual: formatValue(version),
                 typeMismatch:
                     typeof version === "number" &&
                     supportedAkashicVersions.includes(String(version)),
@@ -123,9 +224,9 @@ export function checkGameJsonEnvironment(
                 modeKey,
                 ignoredNiconicoModes,
                 environmentKeys: environment
-                    ? Object.keys(environment)
-                          .slice(0, MAX_ENVIRONMENT_KEYS)
-                          .map((key) => truncate(key, 50))
+                    ? collectKeys(environment, MAX_ENVIRONMENT_KEYS).map(
+                          (key) => formatValue(key, 50),
+                      )
                     : [],
             },
             // エラー文で同じ内容を案内するため重複させない
@@ -142,7 +243,7 @@ export function checkGameJsonEnvironment(
             error: {
                 reason: "UnsupportedMode",
                 modeKey,
-                actual: stringify(modes),
+                actual: formatValue(modes),
                 notArray: !Array.isArray(modes),
             },
             warnings,
@@ -199,7 +300,7 @@ export function describeGameJsonEnvironmentError(
                 "game.json に environment.nicolive.supportedModes が指定されていません。" +
                 `${modeExample} のように指定してください。` +
                 (error.environmentKeys.length > 0
-                    ? `キー名の綴りも確認してください (environment 内のキー: ${error.environmentKeys.map((k) => `"${k}"`).join(", ")})。`
+                    ? `キー名の綴りも確認してください (environment 内のキー: ${error.environmentKeys.join(", ")})。`
                     : "")
             );
         case "UnsupportedMode":
