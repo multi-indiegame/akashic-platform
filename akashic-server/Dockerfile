@@ -30,6 +30,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3032
 COPY --from=build --parents /app/schema/persist/package.json /app/schema/persist/dist /
+COPY --from=build --parents /app/schema/amflow/common/package.json /app/schema/amflow/common/dist /
+COPY --from=build --parents /app/schema/amflow/client/package.json /app/schema/amflow/client/dist /
+COPY --from=build --parents /app/schema/runner-ipc/package.json /app/schema/runner-ipc/dist /
 COPY --from=build --parents /app/akashic-server/package.json /app/akashic-server/dist /
 COPY --from=build --parents /app/package.json /app/node_modules /
 COPY *.pem ./akashic-server

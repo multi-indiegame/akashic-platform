@@ -29,6 +29,10 @@ FROM node:${NODE_VERSION}-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3034
+COPY --from=build --parents /app/schema/amflow/common/package.json /app/schema/amflow/common/dist /
+COPY --from=build --parents /app/schema/amflow/client/package.json /app/schema/amflow/client/dist /
+COPY --from=build --parents /app/schema/runner-ipc/package.json /app/schema/runner-ipc/dist /
+COPY --from=build --parents /app/playlogClient-like/package.json /app/playlogClient-like/dist /
 COPY --from=build --parents /app/akashic-runner/package.json /app/akashic-runner/dist /
 COPY --from=build --parents /app/package.json /app/node_modules /
 RUN chown -R node:node .
