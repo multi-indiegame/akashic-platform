@@ -15,7 +15,7 @@ try {
     if (!fs.existsSync(destDir)) {
         fs.mkdirSync(destDir, { recursive: true });
     }
-    const entryPath = require.resolve("@yasshi2525/playlog-client-like");
+    const entryPath = require.resolve("@multi-indiegame/playlog-client");
     const rootPath = path.resolve(path.dirname(entryPath), ".."); // dist/index.js → package.json
     const version = require(path.join(rootPath, "package.json")).version;
     const fileNames = ["", ".map"].map(

@@ -24,7 +24,7 @@ import {
     convertTickPack,
     TickPack,
     toTickList,
-} from "@yasshi2525/amflow-server-event-schema";
+} from "@multi-indiegame/amflow-server-event-schema";
 import {
     genKey,
     PermissionType,

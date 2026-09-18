@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { GUEST_NAME, PLAY_CHAT_BODY_MAX, PLAY_CHAT_NAME_MAX } from "../types";
 import {
     archivePlayChatMessage,

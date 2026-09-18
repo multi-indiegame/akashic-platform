@@ -2,7 +2,7 @@
 
 import { randomBytes } from "crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { publicContentBaseUrl } from "./akashic";
 import { getBucket, getS3Client, s3KeyPrefix } from "./content-utils";
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { isWriteBlocked } from "./drain-state";
 import { getSignedInUser } from "./auth";
 
@@ -14,7 +14,8 @@ const favoriteToggleErrReasons = [
 type FavoriteToggleErrorType = (typeof favoriteToggleErrReasons)[number];
 
 type FavoriteToggleResponse =
-    { ok: true } | { ok: false; reason: FavoriteToggleErrorType };
+    | { ok: true }
+    | { ok: false; reason: FavoriteToggleErrorType };
 
 export async function addFavorite(
     gameId: number,

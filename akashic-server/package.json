@@ -1,6 +1,7 @@
 {
-  "name": "@yasshi2525/akashic-server",
+  "name": "@multi-indiegame/akashic-server",
   "version": "2.2.1",
+  "private": true,
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,17 +10,26 @@
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],
+  "keywords": [
+    "akashic"
+  ],
   "scripts": {
-    "build:all": "npm run build -w @yasshi2525/persist-schema && npm run build:all -w @yasshi2525/runner-ipc-schema && npm run build",
+    "clean": "rimraf ./dist",
     "build": "tsc",
     "run": "node --env-file-if-exists=.env dist/index.js"
   },
-  "author": "yasshi2525",
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "akashic-server"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "@yasshi2525/amflow-client-event-schema": "^2.0.0",
+    "@multi-indiegame/amflow-client-event-schema": "^2.0.0",
     "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
     "typescript": "^6.0.3"
   },
   "dependencies": {
@@ -35,8 +45,8 @@
     "@opentelemetry/resources": "^2.8.0",
     "@opentelemetry/sdk-node": "^0.221.0",
     "@opentelemetry/semantic-conventions": "^1.41.1",
-    "@yasshi2525/persist-schema": "^1.10.0",
-    "@yasshi2525/runner-ipc-schema": "^1.0.0",
+    "@multi-indiegame/persist-schema": "^1.10.0",
+    "@multi-indiegame/runner-ipc-schema": "^1.0.0",
     "express": "^5.2.1"
   }
 }

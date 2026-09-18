@@ -1,17 +1,17 @@
 import type { AMFlow } from "@akashic/amflow";
 import { EventCode, JoinEvent, MessageEvent } from "@akashic/playlog";
 import { RunnerV3 } from "@akashic/headless-driver";
-import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
+import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import type {
     PlayEndOrigin,
     StartPlayRequest,
     StopPlayResponse,
-} from "@yasshi2525/runner-ipc-schema";
+} from "@multi-indiegame/runner-ipc-schema";
 import {
     AMFlowClient,
     Session,
     SessionLike,
-} from "@yasshi2525/playlog-client-like";
+} from "@multi-indiegame/playlog-client";
 import type { ControlClient } from "./controlClient";
 import type { LogSender } from "./logSender";
 import { playStorage } from "./logger";

@@ -1,5 +1,5 @@
 {
-  "name": "@yasshi2525/agvw-like",
+  "name": "@multi-indiegame/agvw",
   "version": "1.0.6",
   "description": "agvw like implementation",
   "main": "dist/index.js",
@@ -11,11 +11,20 @@
   ],
   "type": "module",
   "scripts": {
-    "build:all": "npm run build:all -w @yasshi2525/playlog-client-like && npm run build",
-    "build": "tsup"
+    "clean": "rimraf ./dist",
+    "build": "tsup",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": [],
-  "author": "yasshi2525",
+  "keywords": [
+    "akashic",
+    "agvw"
+  ],
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "agvw-like"
+  },
   "license": "MIT",
   "devDependencies": {
     "@akashic/agvw": "^1.0.7",
@@ -28,8 +37,9 @@
     "@akashic/playlog": "^3.4.1",
     "@cross-border-bridge/data-bus": "^2.0.0",
     "@types/node": "^25.6.0",
-    "@yasshi2525/playlog-client-like": "^2.0.0",
+    "@multi-indiegame/playlog-client": "^2.0.0",
     "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
     "socket.io-client": "^4.8.3",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3"
@@ -40,5 +50,32 @@
     "@cross-border-bridge/memory-queue": "^2.0.0",
     "@cross-border-bridge/memory-queue-data-bus": "^2.0.0",
     "@cross-border-bridge/post-message-data-bus": "^2.0.0"
+  },
+  "peerDependencies": {
+    "@akashic/akashic-engine": "^3.21.3",
+    "@akashic/amflow": "^3.3.0",
+    "@akashic/game-driver": "^2.26.0",
+    "@akashic/pdi-browser": "^2.10.5",
+    "@akashic/playlog": "^3.4.1",
+    "@cross-border-bridge/data-bus": "^2.0.0",
+    "socket.io-client": "^4.8.3",
+    "@multi-indiegame/playlog-client": "^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@akashic/akashic-engine": {
+      "optional": true
+    },
+    "@akashic/game-driver": {
+      "optional": true
+    },
+    "@akashic/pdi-browser": {
+      "optional": true
+    },
+    "@multi-indiegame/playlog-client": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

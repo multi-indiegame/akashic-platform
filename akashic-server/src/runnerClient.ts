@@ -1,7 +1,7 @@
 import type {
     StartPlayRequest,
     StopPlayResponse,
-} from "@yasshi2525/runner-ipc-schema";
+} from "@multi-indiegame/runner-ipc-schema";
 
 export class RunnerClient {
     _baseUrl: string;

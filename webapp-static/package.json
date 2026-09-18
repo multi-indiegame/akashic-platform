@@ -1,16 +1,24 @@
 {
-  "name": "@yasshi2525/webapp-static",
+  "name": "@multi-indiegame/webapp-static",
   "version": "1.0.0",
   "private": true,
   "description": "static page for webapp",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [],
+  "keywords": [
+    "akashic"
+  ],
   "type": "module",
   "scripts": {
     "build": "next build"
   },
-  "author": "yasshi2525",
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "webapp-static"
+  },
   "license": "MIT",
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.4",

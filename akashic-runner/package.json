@@ -1,6 +1,7 @@
 {
-  "name": "@yasshi2525/akashic-runner",
+  "name": "@multi-indiegame/akashic-runner",
   "version": "1.0.2",
+  "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -8,25 +9,35 @@
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],
+  "keywords": [
+    "akashic",
+    "headless"
+  ],
   "scripts": {
-    "build:all": "npm run build:all -w @yasshi2525/playlog-client-like && npm run build:all -w @yasshi2525/runner-ipc-schema && npm run build",
+    "clean": "rimraf ./dist",
     "build": "tsc",
     "run": "node --env-file-if-exists=.env dist/index.js"
   },
-  "author": "yasshi2525",
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "akashic-runner"
+  },
   "license": "MIT",
   "devDependencies": {
     "@akashic/amflow": "^3.3.0",
     "@types/express": "^5.0.6",
-    "@yasshi2525/amflow-client-event-schema": "^2.0.0",
+    "@multi-indiegame/amflow-client-event-schema": "^2.0.0",
     "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
     "typescript": "^6.0.3"
   },
   "dependencies": {
     "@akashic/headless-driver": "^2.18.1",
     "@akashic/playlog": "^3.4.1",
-    "@yasshi2525/playlog-client-like": "^2.0.0",
-    "@yasshi2525/runner-ipc-schema": "^1.0.0",
+    "@multi-indiegame/playlog-client": "^2.0.0",
+    "@multi-indiegame/runner-ipc-schema": "^1.0.0",
     "express": "^5.2.1"
   }
 }

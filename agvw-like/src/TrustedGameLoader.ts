@@ -1,5 +1,5 @@
 import type { AMFlow } from "@akashic/amflow";
-import type * as PlaylogClient from "@yasshi2525/playlog-client-like";
+import type * as PlaylogClient from "@multi-indiegame/playlog-client";
 import { ErrorFactory } from "./Error";
 import { GameViewSharedObject } from "./SharedObject";
 import {

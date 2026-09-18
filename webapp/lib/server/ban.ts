@@ -1,4 +1,4 @@
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { BAN_LIMIT_DEFAULT, type User } from "../types";
 
 const LABEL_BODY_MAX = 40;
@@ -9,7 +9,8 @@ export const BAN_LIMIT = parseInt(
 
 /** BAN の発行スコープ。サインイン部屋主は全部屋、ゲスト部屋主は部屋単位。 */
 export type BanScope =
-    { gmUserId: string; playId: null } | { gmGuestId: string; playId: number };
+    | { gmUserId: string; playId: null }
+    | { gmGuestId: string; playId: number };
 
 /**
  * 上限判定用の、サインイン部屋主の全 BAN 件数。

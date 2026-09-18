@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { cookies } from "next/headers";
 import { getAuth } from "./auth";
 import { endPlay } from "./play-end";
@@ -15,7 +15,8 @@ const errReasons = [
 ] as const;
 type EndPlayErrorType = (typeof errReasons)[number];
 export type EndPlayResponse =
-    { ok: true } | { ok: false; reason: EndPlayErrorType };
+    | { ok: true }
+    | { ok: false; reason: EndPlayErrorType };
 
 /** 部屋主が自分の部屋を閉じる */
 export async function endPlayAction({

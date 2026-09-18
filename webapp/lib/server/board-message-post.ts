@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import {
     BOARD_MESSAGE_BODY_MAX,
     BOARD_MESSAGE_NAME_MAX,

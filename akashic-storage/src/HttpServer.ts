@@ -5,7 +5,7 @@ import type { Event } from "@akashic/playlog";
 import type {
     PlayEndReason,
     PlayExtendPayload,
-} from "@yasshi2525/amflow-server-event-schema";
+} from "@multi-indiegame/amflow-server-event-schema";
 import { AMFlowServerManager } from "./AMFlowServerManager";
 import { PlayManager } from "./PlayManager";
 

@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { User } from "../types";
 import { parseSessionViewerId } from "./viewer-identity";
 

@@ -1,25 +1,36 @@
 {
-  "name": "@yasshi2525/runner-ipc-schema",
+  "name": "@multi-indiegame/runner-ipc-schema",
   "version": "1.0.0",
   "description": "akashic-server と akashic-runner の間の IPC 契約",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "CHANGELOG.md",
-    "dist"
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
   ],
   "keywords": [],
-  "author": "yasshi2525",
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "schema/runner-ipc"
+  },
   "license": "MIT",
   "scripts": {
-    "build:all": "npm run build:all -w @yasshi2525/amflow-client-event-schema && npm run build",
-    "build": "tsc"
+    "clean": "rimraf ./dist",
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@yasshi2525/amflow-client-event-schema": "^2.0.0"
+    "@multi-indiegame/amflow-client-event-schema": "^2.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

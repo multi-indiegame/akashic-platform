@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma, ReportReason } from "@yasshi2525/persist-schema";
+import { prisma, ReportReason } from "@multi-indiegame/persist-schema";
 import {
     REPORT_DETAIL_MAX,
     REPORT_REASON_LABELS,

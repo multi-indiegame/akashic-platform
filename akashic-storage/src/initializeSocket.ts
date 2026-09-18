@@ -22,7 +22,7 @@ import {
     PermissionError,
     Carrier,
     sliceTransferData,
-} from "@yasshi2525/amflow-server-event-schema";
+} from "@multi-indiegame/amflow-server-event-schema";
 import { AMFlowServerManager } from "./AMFlowServerManager";
 import { AMFlowServer } from "./AMFlowServer";
 import { ChunkedTransferSender } from "./ChunkedTransferSender";

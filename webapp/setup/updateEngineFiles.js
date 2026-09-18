@@ -24,7 +24,7 @@
  *
  */
 // Original Source: https://github.com/akashic-games/akashic-cli/blob/main/packages/akashic-cli-serve/build/updateEngineFiles.js
-// Modified by yasshi2525.
+// Modified by multi-indiegame.
 // * remove v1, v2 from versions.
 // * change destdir path.
 // * create destdir initially.

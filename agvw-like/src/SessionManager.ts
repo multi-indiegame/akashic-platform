@@ -1,5 +1,5 @@
-import type { PlayInfo, SessionLike } from "@yasshi2525/playlog-client-like";
-import type * as PlaylogClient from "@yasshi2525/playlog-client-like";
+import type { PlayInfo, SessionLike } from "@multi-indiegame/playlog-client";
+import type * as PlaylogClient from "@multi-indiegame/playlog-client";
 import type { SocketOptions } from "socket.io-client";
 import { ProtocolType } from "./akashic-gameview";
 

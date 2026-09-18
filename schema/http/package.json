@@ -1,19 +1,29 @@
 {
-  "name": "@yasshi2525/http-schema",
+  "name": "@multi-indiegame/http-schema",
   "version": "1.1.0",
-  "private": "true",
+  "private": true,
   "description": "http schema (Open API)",
   "files": [
     "CHANGELOG.md",
-    "dist"
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
   ],
+  "keywords": [],
   "type": "module",
   "scripts": {
-    "build": "npm run build:all -w @yasshi2525/akashic-server && npm run build:all -w @yasshi2525/akashic-runner && npm run build:all -w @yasshi2525/akashic-storage && npm run build -w @yasshi2525/manager-server && node build-swagger.js"
+    "clean": "rimraf ./dist",
+    "build": "node build-swagger.js"
   },
-  "author": "yasshi2525",
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "schema/http"
+  },
   "license": "MIT",
   "devDependencies": {
+    "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
     "swagger-ui-dist": "^5.32.4"
   }
 }

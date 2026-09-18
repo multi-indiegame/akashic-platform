@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { GUEST_NAME } from "../types";
 import { getAuth } from "./auth";
 import { publicBaseUrl } from "./akashic";

@@ -1,4 +1,4 @@
-import { prisma, ReportTargetType } from "@yasshi2525/persist-schema";
+import { prisma, ReportTargetType } from "@multi-indiegame/persist-schema";
 import { GUEST_NAME } from "../types";
 import { authorizePlayChat } from "./play-chat";
 
@@ -18,7 +18,8 @@ const MEDIUM_MAX = parseInt(process.env.REPORT_RATE_MEDIUM_MAX ?? "30");
 const SNAPSHOT_MAX = 500;
 
 export type ReportRateResult =
-    { ok: true } | { ok: false; retryAfterSeconds: number };
+    | { ok: true }
+    | { ok: false; retryAfterSeconds: number };
 
 type ReporterKeys = { reporterId?: string; reporterGuestId?: string };
 

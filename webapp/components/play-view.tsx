@@ -43,7 +43,7 @@ import {
     VolumeUp,
     X,
 } from "@mui/icons-material";
-import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
+import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import { BAN_IN_GAME_CONFIRM_PENDING_MAX, GameInfo, User } from "@/lib/types";
 import { useAkashic } from "@/lib/client/useAkashic";
 import { useCustomData } from "@/lib/client/useCustomData";

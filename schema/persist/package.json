@@ -1,6 +1,7 @@
 {
-  "name": "@yasshi2525/persist-schema",
+  "name": "@multi-indiegame/persist-schema",
   "version": "1.13.1",
+  "private": true,
   "description": "Game and play data schema",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,23 +10,35 @@
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],
+  "keywords": [],
   "scripts": {
+    "clean": "rimraf ./dist",
     "init": "prisma db push",
     "reset": "prisma db push --force-reset && npm run build",
     "migrate": "prisma migrate deploy",
     "migrate:dev": "prisma migrate dev",
-    "build": "prisma generate && tsc"
+    "build": "prisma generate && tsc",
+    "prepublishOnly": "npm run build"
   },
-  "author": "yasshi2525",
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "schema/persist"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^25.6.0",
     "prettier": "^3.8.3",
-    "prisma": "^7.9.0",
+    "prisma": "^7.10.0",
+    "rimraf": "^6.0.1",
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.9.0",
-    "@prisma/client": "^7.9.0"
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

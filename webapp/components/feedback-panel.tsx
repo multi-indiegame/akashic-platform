@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
 import { formatDistance } from "date-fns";
 import { ja } from "date-fns/locale";
 import {
@@ -47,7 +47,7 @@ function PostForm({
     onRefresh?: () => void;
 }) {
     const router = useRouter();
-    const [state, action] = useFormState(postFeedbackAction, initialState);
+    const [state, action] = useActionState(postFeedbackAction, initialState);
     const [authorName, setAuthorName] = useLocalStorage(
         STORAGE_KEYS.PLAYER_INFO_NAME,
         GUEST_NAME,

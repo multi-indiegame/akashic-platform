@@ -20,7 +20,7 @@ This project contains code reconstructed from:
   Licensed under the MIT License. \
   Original source: https://github.com/akashic-games/agvw
 
-The following modifications and additions were made by **yasshi2525 (2025)**:
+The following modifications and additions were made by **multi-indiegame (2025)**:
 
 - TypeScript へ再構成（リバースエンジニアリング）
 - minify されたコードの復元
@@ -28,4 +28,4 @@ The following modifications and additions were made by **yasshi2525 (2025)**:
 - セキュリティ観点でのコード改善
 
 The reconstructed portions are provided under the MIT License,
-but only modifications and newly written code are copyrighted by yasshi2525.
+but only modifications and newly written code are copyrighted by multi-indiegame.

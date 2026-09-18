@@ -1,5 +1,5 @@
 import type { Permission } from "@akashic/amflow";
-import { InvalidStatusError } from "@yasshi2525/amflow-server-event-schema";
+import { InvalidStatusError } from "@multi-indiegame/amflow-server-event-schema";
 
 const keys = ["amf:token", "amf:startpoint", "amf:ticks"] as const;
 type KeyType = (typeof keys)[number];

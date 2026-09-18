@@ -1,4 +1,4 @@
-import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
+import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 
 /**
  * akashic-server が akashic-runner に対して送信するプレイ実行開始要求。

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { getS3Client } from "./content-utils";
 import { getAuth } from "./auth";
 import { checkPlayAccess } from "./play-access-token";
@@ -116,7 +116,8 @@ async function checkWindow(
 }
 
 export type RateLimitResult =
-    { ok: true } | { ok: false; retryAfterSeconds: number };
+    | { ok: true }
+    | { ok: false; retryAfterSeconds: number };
 
 export async function checkPlayChatRateLimit(
     playId: number,

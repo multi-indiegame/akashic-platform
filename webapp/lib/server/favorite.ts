@@ -1,4 +1,4 @@
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { User } from "../types";
 
 // user を引数で受け取るため Server Action ("use server") にしてはならない。

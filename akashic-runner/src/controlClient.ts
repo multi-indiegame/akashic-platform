@@ -1,7 +1,7 @@
 import type {
     AssetRequest,
     PlayEndedRequest,
-} from "@yasshi2525/runner-ipc-schema";
+} from "@multi-indiegame/runner-ipc-schema";
 import { LogSender } from "./logSender";
 
 export class ControlClient {

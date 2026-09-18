@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cache } from "react";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { publicBaseUrl, publicContentBaseUrl } from "@/lib/server/akashic";
 import { getShareImageUrl } from "@/lib/server/play-share";
 import { fetchGameJson, getContentViewSize } from "@/lib/server/play-utils";

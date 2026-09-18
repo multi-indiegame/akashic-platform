@@ -16,10 +16,11 @@ COPY akashic-runner/package.json akashic-runner/package.json
 COPY akashic-storage/package.json akashic-storage/package.json
 COPY webapp/package.json webapp/package.json
 COPY manager-server/package.json manager-server/package.json
-RUN npm ci -w manager-server
+RUN npm ci -w @multi-indiegame/manager-server
 
 COPY . .
-RUN npm run build:all -w @yasshi2525/manager-server
+RUN npm run build -w @multi-indiegame/persist-schema \
+  && npm run build -w @multi-indiegame/manager-server
 
 FROM node:${NODE_VERSION}-alpine
 WORKDIR /app
@@ -32,4 +33,4 @@ COPY *.pem ./manager-server
 RUN chown -R node:node .
 EXPOSE ${PORT}
 USER node
-CMD ["npm", "run", "run", "-w", "@yasshi2525/manager-server"]
+CMD ["npm", "run", "run", "-w", "@multi-indiegame/manager-server"]

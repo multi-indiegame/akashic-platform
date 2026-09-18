@@ -1,4 +1,4 @@
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 
 // 匿名でも送れるフォームなので、まずは全体レートでfloodを止める。
 // 送信者を特定できる場合はさらに送信者単位でも絞る。
@@ -41,7 +41,8 @@ async function checkWindow(
 }
 
 export type ContactRateResult =
-    { ok: true } | { ok: false; retryAfterSeconds: number };
+    | { ok: true }
+    | { ok: false; retryAfterSeconds: number };
 
 export async function checkContactRateLimit(
     keys: SenderKeys,

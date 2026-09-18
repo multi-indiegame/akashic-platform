@@ -4,7 +4,7 @@ import type {
     NotificationType,
     ReportReason,
     ReportTargetType,
-} from "@yasshi2525/persist-schema";
+} from "@multi-indiegame/persist-schema";
 
 const authTypes = ["guest", "oauth"] as const;
 type AuthType = (typeof authTypes)[number];
@@ -426,7 +426,8 @@ export type ContentErrorResponse =
       }
     | ({ ok: false } & GameJsonEnvironmentError);
 export type ContentResponse =
-    { ok: true; contentId: number } | ContentErrorResponse;
+    | { ok: true; contentId: number }
+    | ContentErrorResponse;
 
 const deleteGameErrReasons = [
     "InvalidParams",
@@ -437,17 +438,20 @@ const deleteGameErrReasons = [
 ] as const;
 export type DeleteGameErrorType = (typeof deleteGameErrReasons)[number];
 export type DeleteGameResponse =
-    { ok: true } | { ok: false; reason: DeleteGameErrorType };
+    | { ok: true }
+    | { ok: false; reason: DeleteGameErrorType };
 
 const gameErrReasons = ["InvalidParams", "NotFound", "InternalError"] as const;
 export type GameErrorType = (typeof gameErrReasons)[number];
 export type GameResponse =
-    { ok: true; data: GameInfo } | { ok: false; reason: GameErrorType };
+    | { ok: true; data: GameInfo }
+    | { ok: false; reason: GameErrorType };
 
 const favoriteErrReasons = ["Unauthorized", "InternalError"] as const;
 export type FavoriteErrorType = (typeof favoriteErrReasons)[number];
 export type FavoriteListResponse =
-    { ok: true; data: GameInfo[] } | { ok: false; reason: FavoriteErrorType };
+    | { ok: true; data: GameInfo[] }
+    | { ok: false; reason: FavoriteErrorType };
 
 const playErrReasons = [
     "InvalidParams",
@@ -502,7 +506,8 @@ export interface ClosedPlayViewInfo extends BasePlayViewInfo {
 }
 
 export type PlayResponse =
-    { ok: true; data: PlayViewInfo } | { ok: false; reason: PlayErrorType };
+    | { ok: true; data: PlayViewInfo }
+    | { ok: false; reason: PlayErrorType };
 
 const playParticipantsErrReasons = ["InvalidParams", "InternalError"] as const;
 export type PlayParticipantsErrorType =
@@ -535,7 +540,8 @@ export type LiveInfo = {
 const liveErrReasons = ["NotFound", "InternalError"] as const;
 export type LiveErrorType = (typeof liveErrReasons)[number];
 export type LiveResponse =
-    { ok: true; data: LiveInfo } | { ok: false; reason: LiveErrorType };
+    | { ok: true; data: LiveInfo }
+    | { ok: false; reason: LiveErrorType };
 
 const feedbackErrReasons = [
     "InvalidParams",
@@ -573,7 +579,8 @@ const userHandleErrReasons = [
 ] as const;
 export type UserHandleErrorType = (typeof userHandleErrReasons)[number];
 export type UserHandleResponse =
-    { ok: true; handle: string } | { ok: false; reason: UserHandleErrorType };
+    | { ok: true; handle: string }
+    | { ok: false; reason: UserHandleErrorType };
 
 const contentLogListErrReasons = [
     "InvalidParams",
@@ -595,7 +602,8 @@ const contentLogErrReasons = [
 ] as const;
 export type ContentLogErrorType = (typeof contentLogErrReasons)[number];
 export type ContentLogResponse =
-    string | { ok: false; reason: ContentLogErrorType };
+    | string
+    | { ok: false; reason: ContentLogErrorType };
 
 const notificationErrReasons = ["NotAuthorized", "InternalError"] as const;
 export type NotificationErrorType = (typeof notificationErrReasons)[number];

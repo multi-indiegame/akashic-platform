@@ -1,5 +1,5 @@
 import type { Event } from "@akashic/playlog";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import {
     type PlayerBanAction,
     buildBanNotificationEvent,

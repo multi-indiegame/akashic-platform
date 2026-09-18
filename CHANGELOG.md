@@ -1,4 +1,6 @@
-# CHANGELOG
+# CHANGELOG (old)
+
+最新の変更履歴は個別の `CHANGELOG.md`, Release 参照
 
 ## 2.3.9
 

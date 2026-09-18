@@ -10,7 +10,7 @@ import {
     DialogContentText,
     DialogTitle,
 } from "@mui/material";
-import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
+import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 
 export function PlayEndNotification({ reason }: { reason: PlayEndReason }) {
     const [open, setOpen] = useState(true);

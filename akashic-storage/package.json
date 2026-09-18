@@ -1,6 +1,7 @@
 {
-  "name": "@yasshi2525/akashic-storage",
+  "name": "@multi-indiegame/akashic-storage",
   "version": "2.1.1",
+  "private": true,
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,17 +10,27 @@
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],
+  "keywords": [
+    "akashic",
+    "playlog"
+  ],
   "scripts": {
-    "build:all": "npm run build:all -w @yasshi2525/amflow-server-event-schema && npm run build",
+    "clean": "rimraf ./dist",
     "build": "tsc",
     "run": "node --env-file-if-exists=.env dist/index.js"
   },
   "license": "MIT",
-  "author": "yasshi2525",
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "akashic-storage"
+  },
   "devDependencies": {
     "@akashic/amflow": "^3.3.0",
     "@types/express": "^5.0.6",
     "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
     "typescript": "^6.0.3"
   },
   "dependencies": {
@@ -38,7 +49,7 @@
     "@opentelemetry/sdk-node": "^0.221.0",
     "@opentelemetry/semantic-conventions": "^1.41.1",
     "@valkey/valkey-glide": "^2.3.1",
-    "@yasshi2525/amflow-server-event-schema": "^2.0.0",
+    "@multi-indiegame/amflow-server-event-schema": "^2.0.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "js-sha256": "^0.11.1",

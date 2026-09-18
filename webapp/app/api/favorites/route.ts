@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { FavoriteListResponse } from "@/lib/types";
 import { publicContentBaseUrl } from "@/lib/server/akashic";
 import { fetchLicense } from "@/lib/server/game-info";

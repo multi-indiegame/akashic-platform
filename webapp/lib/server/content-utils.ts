@@ -8,7 +8,7 @@ import {
     S3Client,
 } from "@aws-sdk/client-s3";
 import JSZip, { JSZipObject } from "jszip";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { ContentErrorResponse } from "../types";
 import {
     checkGameJsonEnvironment,

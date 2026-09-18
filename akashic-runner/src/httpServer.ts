@@ -1,6 +1,6 @@
 import { Server } from "node:http";
 import express, { Express } from "express";
-import type { StartPlayRequest } from "@yasshi2525/runner-ipc-schema";
+import type { StartPlayRequest } from "@multi-indiegame/runner-ipc-schema";
 import type { ExecManager } from "./execManager";
 
 interface HttpServerParameterObject {

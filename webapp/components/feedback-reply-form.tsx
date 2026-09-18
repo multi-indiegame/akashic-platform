@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
 import { Alert, Button, Stack, TextField, Typography } from "@mui/material";
 import {
     FeedbackFormState,
@@ -31,7 +31,10 @@ export function FeedbackReplyForm({
     onRefresh?: () => void;
 }) {
     const router = useRouter();
-    const [state, action] = useFormState(postFeedbackReplyAction, initialState);
+    const [state, action] = useActionState(
+        postFeedbackReplyAction,
+        initialState,
+    );
     const [body, setBody] = useState("");
 
     useEffect(() => {

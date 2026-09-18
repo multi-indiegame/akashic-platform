@@ -16,23 +16,24 @@ COPY akashic-runner/package.json akashic-runner/package.json
 COPY akashic-storage/package.json akashic-storage/package.json
 COPY webapp/package.json webapp/package.json
 COPY manager-server/package.json manager-server/package.json
-RUN npm ci -w @yasshi2525/akashic-server
+RUN npm ci -w @multi-indiegame/akashic-server
 
 COPY . .
-RUN npm run build:all -w @yasshi2525/akashic-server
+RUN npm run build -w @multi-indiegame/persist-schema \
+  && npm run build -w @multi-indiegame/amflow-event-schema \
+  && npm run build -w @multi-indiegame/amflow-client-event-schema \
+  && npm run build -w @multi-indiegame/runner-ipc-schema \
+  && npm run build -w @multi-indiegame/akashic-server
 
 FROM node:${NODE_VERSION}-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3032
 COPY --from=build --parents /app/schema/persist/package.json /app/schema/persist/dist /
-COPY --from=build --parents /app/schema/amflow/common/package.json /app/schema/amflow/common/dist /
-COPY --from=build --parents /app/schema/amflow/client/package.json /app/schema/amflow/client/dist /
-COPY --from=build --parents /app/schema/runner-ipc/package.json /app/schema/runner-ipc/dist /
 COPY --from=build --parents /app/akashic-server/package.json /app/akashic-server/dist /
 COPY --from=build --parents /app/package.json /app/node_modules /
 COPY *.pem ./akashic-server
 RUN chown -R node:node .
 EXPOSE ${PORT}
 USER node
-CMD ["npm", "run", "run", "-w", "@yasshi2525/akashic-server"]
+CMD ["npm", "run", "run", "-w", "@multi-indiegame/akashic-server"]

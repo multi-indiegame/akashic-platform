@@ -2,7 +2,7 @@ import NextAuth, { Profile } from "next-auth";
 import Google from "next-auth/providers/google";
 import Twitter from "next-auth/providers/twitter";
 import GitHub from "next-auth/providers/github";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 
 function asString(value: unknown) {

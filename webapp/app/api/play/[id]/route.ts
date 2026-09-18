@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma, prisma } from "@yasshi2525/persist-schema";
+import { Prisma, prisma } from "@multi-indiegame/persist-schema";
 import { GUEST_NAME, PlayResponse } from "@/lib/types";
 import { getAuth } from "@/lib/server/auth";
 import { publicContentBaseUrl } from "@/lib/server/akashic";

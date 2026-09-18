@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { BoardMessageInfo, BoardMessagesGetResponse, User } from "@/lib/types";
 import { boardMessageCutoff } from "@/lib/server/board-message";
 import { getAuth } from "@/lib/server/auth";

@@ -1,4 +1,4 @@
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 
 /**
  * この視聴者がこの部屋で既に発行済みの playToken があれば返す。入室 GET は
