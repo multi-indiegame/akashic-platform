@@ -186,6 +186,18 @@ npm run run -w ./manager-server
   - 意図しないリクエストを許可しないため各種認証用のトークンには推測不可能な文字列を設定してください。
   - `akashic-runner` プロセス上ではユーザースクリプトが実行されるため、アウトバウンド通信を制限するなど、環境を隔離するよう考慮してください。
 
+## リリース
+
+バージョン管理は [changesets](https://github.com/changesets/changesets) で行う。
+
+1. 変更を加えた PR で `npm run changeset` を実行し、対象パッケージと bump 種別 (major / minor / patch)、変更内容を入力する
+2. 生成された `.changeset/*.md` をコミットして PR に含める
+3. `main` にマージされると Release ワークフローが「chore: バージョン更新」PR を作成・更新する
+   - 各パッケージの `package.json` の version と `CHANGELOG.md` が更新される
+4. 「chore: バージョン更新」PR をマージすると下記が自動実行される
+   - 公開パッケージ (`private: true` でないもの) の npm publish
+   - version が更新された Docker イメージのビルドと ECR への push
+
 ## LICENSE
 
 - Source code
