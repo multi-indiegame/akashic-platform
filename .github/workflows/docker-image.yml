@@ -1,71 +1,74 @@
 name: Deploy Docker Image
 
 on:
+  push:
+    branches: ["main"]
   workflow_dispatch:
     inputs:
-      build_db_migrate:
+      force:
         type: boolean
-        default: true
-        description: Build db-migrate image
-      build_akashic_storage:
-        type: boolean
-        default: true
-        description: Build akashic-storage image
-      build_akashic_server:
-        type: boolean
-        default: true
-        description: Build akashic-server image
-      build_akashic_runner:
-        type: boolean
-        default: true
-        description: Build akashic-runner image
-      build_webapp:
-        type: boolean
-        default: true
-        description: Build webapp image
-      build_manager_server:
-        type: boolean
-        default: true
-        description: Build manager-server image
+        default: false
+        description: Push images even if the version is already pushed
 
 permissions:
   id-token: write
   contents: read
+
+concurrency:
+  group: docker-image
+  cancel-in-progress: false
 
 jobs:
   select:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      count: ${{ steps.set-matrix.outputs.count }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
       - id: set-matrix
+        env:
+          FORCE: ${{ inputs.force || false }}
         run: |
-          services=()
-          if [ "${{ inputs.build_db_migrate }}" = "true" ]; then
-            services+=('{"name":"db-migrate","workspace":"schema/persist","context":".","dockerfile":"schema/persist/Dockerfile"}')
-          fi
-          if [ "${{ inputs.build_akashic_storage }}" = "true" ]; then
-            services+=('{"name":"akashic-storage","workspace":"akashic-storage","context":".","dockerfile":"akashic-storage/Dockerfile"}')
-          fi
-          if [ "${{ inputs.build_akashic_server }}" = "true" ]; then
-            services+=('{"name":"akashic-server","workspace":"akashic-server","context":".","dockerfile":"akashic-server/Dockerfile"}')
-          fi
-          if [ "${{ inputs.build_akashic_runner }}" = "true" ]; then
-            services+=('{"name":"akashic-runner","workspace":"akashic-runner","context":".","dockerfile":"akashic-runner/Dockerfile"}')
-          fi
-          if [ "${{ inputs.build_webapp }}" = "true" ]; then
-            services+=('{"name":"webapp","workspace":"webapp","context":".","dockerfile":"webapp/Dockerfile"}')
-          fi
-          if [ "${{ inputs.build_manager_server }}" = "true" ]; then
-            services+=('{"name":"manager-server","workspace":"manager-server","context":".","dockerfile":"manager-server/Dockerfile"}')
-          fi
-          if [ "${#services[@]}" -eq 0 ]; then
-            echo "No images selected. Select at least one image to build." >&2
-            exit 1
-          fi
-          printf 'matrix={"service":[%s]}\n' "$(IFS=,; echo "${services[*]}")" >> "$GITHUB_OUTPUT"
+          cat > "$RUNNER_TEMP/services.json" <<'EOF'
+          [
+            {"name":"db-migrate","workspace":"schema/persist","context":".","dockerfile":"schema/persist/Dockerfile"},
+            {"name":"akashic-storage","workspace":"akashic-storage","context":".","dockerfile":"akashic-storage/Dockerfile"},
+            {"name":"akashic-server","workspace":"akashic-server","context":".","dockerfile":"akashic-server/Dockerfile"},
+            {"name":"akashic-runner","workspace":"akashic-runner","context":".","dockerfile":"akashic-runner/Dockerfile"},
+            {"name":"webapp","workspace":"webapp","context":".","dockerfile":"webapp/Dockerfile"},
+            {"name":"manager-server","workspace":"manager-server","context":".","dockerfile":"manager-server/Dockerfile"}
+          ]
+          EOF
+          targets='[]'
+          while read -r service; do
+            name="$(jq -r '.name' <<< "$service")"
+            workspace="$(jq -r '.workspace' <<< "$service")"
+            version="$(node -p "require('./$workspace/package.json').version")"
+            if [ "$FORCE" != "true" ] \
+              && aws ecr describe-images \
+                --repository-name "multi-indiegame/$name" \
+                --image-ids "imageTag=$version" > /dev/null 2>&1; then
+              echo "skip $name: $version is already pushed"
+              continue
+            fi
+            echo "build $name: $version"
+            targets="$(jq -c --argjson service "$service" --arg version "$version" '. + [$service + {"version": $version}]' <<< "$targets")"
+          done < <(jq -c '.[]' "$RUNNER_TEMP/services.json")
+          echo "matrix={\"service\":$targets}" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq 'length' <<< "$targets")" >> "$GITHUB_OUTPUT"
+
   build:
     needs: select
+    if: needs.select.outputs.count != '0'
     runs-on: ubuntu-latest
 
     strategy:
@@ -96,18 +99,12 @@ jobs:
         with:
           registry: ${{ steps.login-ecr.outputs.registry }}
 
-      - name: Resolve version "${{ matrix.service.name }}"
-        id: image-tag
-        run: |
-          version="$(node -p "require('./${{ matrix.service.workspace }}/package.json').version")"
-          echo "image_tag=$version" >> "$GITHUB_OUTPUT"
-
       - name: Build and push "${{ matrix.service.name }}"
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.dockerfile }}
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/multi-indiegame/${{ matrix.service.name }}:${{ steps.image-tag.outputs.image_tag }}
+            ${{ steps.login-ecr.outputs.registry }}/multi-indiegame/${{ matrix.service.name }}:${{ matrix.service.version }}
             ${{ steps.login-ecr.outputs.registry }}/multi-indiegame/${{ matrix.service.name }}:latest
           push: true

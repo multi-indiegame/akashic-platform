@@ -10,6 +10,12 @@
     "akashic"
   ],
   "license": "MIT",
+  "scripts": {
+    "changeset": "changeset",
+    "version": "changeset version && npm install --package-lock-only",
+    "build:libs": "npm run build -w @multi-indiegame/amflow-event-schema && npm run build -w @multi-indiegame/amflow-client-event-schema && npm run build -w @multi-indiegame/amflow-server-event-schema && npm run build -w @multi-indiegame/runner-ipc-schema && npm run build -w @multi-indiegame/playlog-client && npm run build -w @multi-indiegame/agvw",
+    "release": "npm run build:libs && changeset publish"
+  },
   "workspaces": [
     "schema/amflow/common",
     "schema/amflow/client",
@@ -43,5 +49,8 @@
     "unrs-resolver@1.12.2": true,
     "@prisma/engines@7.10.0": true,
     "prisma@7.10.0": true
+  },
+  "devDependencies": {
+    "@changesets/cli": "^3.0.3"
   }
 }
