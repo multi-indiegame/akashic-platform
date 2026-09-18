@@ -1,5 +1,5 @@
 {
-  "name": "@yasshi2525/playlog-client-like",
+  "name": "@multi-indiegame/playlog-client",
   "version": "2.0.0",
   "description": "playlogClient like implementation",
   "main": "dist/index.js",
@@ -10,23 +10,39 @@
     "dist/**/*.d.ts"
   ],
   "scripts": {
-    "build:all": "npm run build:all -w @yasshi2525/amflow-client-event-schema && npm run build",
-    "build": "tsup"
+    "clean": "rimraf ./dist",
+    "build": "tsup",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": [],
-  "author": "yasshi2525",
+  "keywords": [
+    "akashic",
+    "playlog"
+  ],
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "playlogClient-like"
+  },
   "license": "MIT",
   "devDependencies": {
     "@akashic/amflow": "^3.3.0",
     "esbuild": "^0.28.0",
     "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3"
   },
   "dependencies": {
     "@akashic/playlog": "^3.4.1",
     "@opentelemetry/api": "^1.9.1",
-    "@yasshi2525/amflow-client-event-schema": "^2.0.0",
+    "@multi-indiegame/amflow-client-event-schema": "^2.0.0",
     "socket.io-client": "^4.8.3"
+  },
+  "peerDependencies": {
+    "@akashic/amflow": "^3.3.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

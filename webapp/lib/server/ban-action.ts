@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { getAuth } from "./auth";
 import { BAN_LIMIT, BanScope, buildBanLabel, countGmBans } from "./ban";
 import { archiveBanRequest } from "./ban-audit";

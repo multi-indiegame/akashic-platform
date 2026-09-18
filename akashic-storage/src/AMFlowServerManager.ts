@@ -4,7 +4,7 @@ import {
     InvalidStatusError,
     PlayEndReason,
     PlayExtendPayload,
-} from "@yasshi2525/amflow-server-event-schema";
+} from "@multi-indiegame/amflow-server-event-schema";
 import { ValkeyAMFlowStore } from "./ValkeyAMFlowStore";
 import { AMFlowServer } from "./AMFlowServer";
 

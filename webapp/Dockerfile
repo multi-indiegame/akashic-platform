@@ -16,11 +16,16 @@ COPY akashic-runner/package.json akashic-runner/package.json
 COPY akashic-storage/package.json akashic-storage/package.json
 COPY webapp/package.json webapp/package.json
 COPY manager-server/package.json manager-server/package.json
-RUN npm ci -w @yasshi2525/webapp
+RUN npm ci -w @multi-indiegame/webapp
 
 COPY . .
-RUN npm run setup -w @yasshi2525/webapp \
-  && npm run build -w @yasshi2525/webapp
+RUN npm run build -w @multi-indiegame/persist-schema \
+  && npm run build -w @multi-indiegame/amflow-event-schema \
+  && npm run build -w @multi-indiegame/amflow-client-event-schema \
+  && npm run build -w @multi-indiegame/playlog-client \
+  && npm run build -w @multi-indiegame/agvw \
+  && npm run setup -w @multi-indiegame/webapp \
+  && npm run build -w @multi-indiegame/webapp
 
 FROM node:${NODE_VERSION}-alpine
 WORKDIR /app

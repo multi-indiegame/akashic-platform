@@ -1,2 +1,2 @@
-import { Server } from "@yasshi2525/amflow-event-schema";
+import { Server } from "@multi-indiegame/amflow-event-schema";
 export = Server;

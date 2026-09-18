@@ -2,7 +2,7 @@ import { Server } from "node:http";
 import { createHmac, randomUUID } from "node:crypto";
 import express from "express";
 import { Express, NextFunction, Request, Response } from "express";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { deleteClientLogs, deleteContentLog } from "./s3";
 
 const WEBAPP_URL = process.env.WEBAPP_URL ?? "http://localhost:3000";

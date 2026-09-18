@@ -41,7 +41,18 @@ jobs:
         run: npm ci
 
       - name: Build Swagger UI
-        run: npm run build -w @yasshi2525/http-schema
+        run: |
+          npm run build -w @multi-indiegame/persist-schema \
+          && npm run build -w @multi-indiegame/amflow-event-schema \
+          && npm run build -w @multi-indiegame/amflow-client-event-schema \
+          && npm run build -w @multi-indiegame/amflow-server-event-schema \
+          && npm run build -w @multi-indiegame/playlog-client \
+          && npm run build -w @multi-indiegame/runner-ipc-schema \
+          && npm run build -w @multi-indiegame/akashic-server \
+          && npm run build -w @multi-indiegame/akashic-runner \
+          && npm run build -w @multi-indiegame/akashic-storage \
+          && npm run build -w @multi-indiegame/manager-server \
+          && npm run build -w @multi-indiegame/http-schema
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

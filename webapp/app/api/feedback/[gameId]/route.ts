@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { FEEDBACK_LIMITS, FeedbackResponse, GUEST_NAME } from "@/lib/types";
 
 export async function GET(

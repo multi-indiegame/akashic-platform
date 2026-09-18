@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import {
     Alert,
     Box,
@@ -146,7 +146,7 @@ export function MessageBoard() {
         STORAGE_KEYS.BOARD_AUTHOR_NAME,
         "",
     );
-    const [state, formAction] = useFormState(
+    const [state, formAction] = useActionState(
         postBoardMessageAction,
         initialFormState,
     );

@@ -1,6 +1,6 @@
 import type { GameDriver } from "@akashic/game-driver";
 import type { Game, Scene } from "@akashic/akashic-engine";
-import { AkashicGameView, GameContent } from "@yasshi2525/agvw-like";
+import { AkashicGameView, GameContent } from "@multi-indiegame/agvw";
 
 /**
  * {@link AkashicGameView#destroy} は Promise な gameDriver の終了を待たずに null リセットしてしまっている。

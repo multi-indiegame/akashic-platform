@@ -5,7 +5,7 @@ import type { COEExitSessionParameters } from "@akashic-environment/coe-plugin";
 import type { COEEndMessage } from "@akashic-extension/coe-messages";
 import type { PlayerInfo } from "@akashic-extension/resolve-player-info";
 import type { ResolverSessionParameters } from "@akashic-extension/resolve-player-info/lib/types/PlayerInfoResolver";
-import type { ExternalPlugin, GameContent } from "@yasshi2525/agvw-like";
+import type { ExternalPlugin, GameContent } from "@multi-indiegame/agvw";
 
 interface PlayerInfoResolverResultMessage extends COEEndMessage {
     result: PlayerInfo;

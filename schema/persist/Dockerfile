@@ -16,10 +16,10 @@ COPY akashic-runner/package.json akashic-runner/package.json
 COPY akashic-storage/package.json akashic-storage/package.json
 COPY webapp/package.json webapp/package.json
 COPY manager-server/package.json manager-server/package.json
-RUN npm ci -w @yasshi2525/persist-schema
+RUN npm ci -w @multi-indiegame/persist-schema
 
 COPY . .
-RUN npm run build -w @yasshi2525/persist-schema
+RUN npm run build -w @multi-indiegame/persist-schema
 
 FROM node:${NODE_VERSION}-alpine
 WORKDIR /app
@@ -34,4 +34,4 @@ COPY --from=build --parents /app/package.json /app/node_modules /
 COPY *.pem ./
 RUN chown -R node:node .
 USER node
-CMD ["npm", "run", "migrate", "-w", "@yasshi2525/persist-schema"]
+CMD ["npm", "run", "migrate", "-w", "@multi-indiegame/persist-schema"]

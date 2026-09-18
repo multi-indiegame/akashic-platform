@@ -1,11 +1,11 @@
 import { Server } from "node:http";
 import express from "express";
 import { Express, Router } from "express";
-import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
+import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import type {
     AssetRequest,
     PlayEndedRequest,
-} from "@yasshi2525/runner-ipc-schema";
+} from "@multi-indiegame/runner-ipc-schema";
 import { RunnerManager } from "./runnerManager";
 
 // akashic-runner がバッファしうる量 (4MiB) に余裕をみた上限。

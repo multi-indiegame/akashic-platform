@@ -1,8 +1,14 @@
 {
-  "name": "@yasshi2525/akashic-platform",
-  "version": "2.3.9",
+  "name": "@multi-indiegame/akashic-platform",
   "private": true,
-  "author": "yasshi2525",
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git"
+  },
+  "keywords": [
+    "akashic"
+  ],
   "license": "MIT",
   "workspaces": [
     "schema/amflow/common",
@@ -24,7 +30,6 @@
     "postcss": "^8.5.10",
     "esbuild": "^0.28.1",
     "@hono/node-server": "^1.19.13",
-    "minimatch": "^10.2.5",
     "find-my-way": "^9.7.0",
     "sharp": "^0.35.3",
     "valibot": "^1.4.2",

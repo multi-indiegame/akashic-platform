@@ -1,10 +1,17 @@
 "use client";
 
-import { JSX, useCallback, useEffect, useMemo, useState } from "react";
+import {
+    JSX,
+    useActionState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+} from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { signIn, signOut } from "next-auth/react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
 import {
     Alert,
     Avatar,
@@ -131,7 +138,7 @@ function UserNameForm({
     onUpdated: (name: string) => void;
 }) {
     const [name, setName] = useState(currentName);
-    const [state, action] = useFormState(
+    const [state, action] = useActionState(
         updateUserNameAction,
         initialUserNameState,
     );
@@ -195,7 +202,7 @@ function UserHandleForm({
     onUpdated: (handle: string) => void;
 }) {
     const [handle, setHandle] = useState(currentHandle ?? "");
-    const [state, action] = useFormState(
+    const [state, action] = useActionState(
         updateUserHandleAction,
         initialUserHandleState,
     );

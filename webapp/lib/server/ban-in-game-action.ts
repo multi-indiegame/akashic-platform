@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import type { BanResultReason } from "@multi-indiegame/akashic-player-ban-plugin";
 import {
     BAN_IN_GAME_RATE_MAX_DEFAULT,
@@ -26,7 +26,8 @@ const RATE_MAX = parseInt(
 );
 
 export type InGameBanResponse =
-    { ok: true; label: string } | { ok: false; reason: BanResultReason };
+    | { ok: true; label: string }
+    | { ok: false; reason: BanResultReason };
 
 /**
  * 部屋単位の連打窓。

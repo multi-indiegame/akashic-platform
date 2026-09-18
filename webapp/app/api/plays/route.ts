@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma, prisma } from "@yasshi2525/persist-schema";
+import { Prisma, prisma } from "@multi-indiegame/persist-schema";
 import {
     internalPlaylogServerUrl,
     publicContentBaseUrl,

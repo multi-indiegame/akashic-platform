@@ -34,7 +34,7 @@ import {
     TimeoutError,
     Carrier,
     TransferChunk,
-} from "@yasshi2525/amflow-client-event-schema";
+} from "@multi-indiegame/amflow-client-event-schema";
 
 /**
  * 分割転送中の応答を組み立てるための状態。
@@ -272,7 +272,8 @@ export class AMFlowClient implements AMFlow {
     getTickList(
         optsOrBegin: number | GetTickListOptions,
         endOrCallbeck:
-            number | ((err: Error | null, tickList?: TickList) => void),
+            | number
+            | ((err: Error | null, tickList?: TickList) => void),
         callback?: (err: Error | null, tickList?: TickList) => void,
     ) {
         if (

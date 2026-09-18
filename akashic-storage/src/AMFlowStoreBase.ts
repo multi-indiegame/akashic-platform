@@ -23,7 +23,7 @@
 // Original Source: AMFlowStore (@akashic/headless-driver)
 // https://github.com/akashic-games/headless-driver/blob/main/src/play/amflow/AMFlowStore.ts
 //
-// Modified by yasshi2525
+// Modified by multi-indiegame
 // * delete on memory store.
 // * omit unnecessary option and event handling for this project.
 

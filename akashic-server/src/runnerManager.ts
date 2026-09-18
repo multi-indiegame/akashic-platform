@@ -1,4 +1,4 @@
-import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
+import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import { Runner, RunnerParameterObject } from "./runner";
 import type { RunnerClient } from "./runnerClient";
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
 import {
     alpha,
     Alert,
@@ -111,7 +111,7 @@ export function PlayChatInput() {
         STORAGE_KEYS.PLAY_CHAT_INPUT_COLLAPSED,
         false,
     );
-    const [state, formAction] = useFormState(
+    const [state, formAction] = useActionState(
         postPlayChatAction,
         initialFormState,
     );

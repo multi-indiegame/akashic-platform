@@ -16,10 +16,12 @@ COPY akashic-runner/package.json akashic-runner/package.json
 COPY akashic-storage/package.json akashic-storage/package.json
 COPY webapp/package.json webapp/package.json
 COPY manager-server/package.json manager-server/package.json
-RUN npm ci -w @yasshi2525/akashic-storage
+RUN npm ci -w @multi-indiegame/akashic-storage
 
 COPY . .
-RUN npm run build:all -w @yasshi2525/akashic-storage
+RUN npm run build -w @multi-indiegame/amflow-event-schema \
+  && npm run build -w @multi-indiegame/amflow-server-event-schema \
+  && npm run build -w @multi-indiegame/akashic-storage
 
 FROM node:${NODE_VERSION}-alpine
 WORKDIR /app
@@ -34,4 +36,4 @@ RUN chown -R node:node .
 EXPOSE ${PUBLIC_PORT}
 EXPOSE ${ADMIN_PORT}
 USER node
-CMD ["npm", "run", "run", "-w", "@yasshi2525/akashic-storage"]
+CMD ["npm", "run", "run", "-w", "@multi-indiegame/akashic-storage"]

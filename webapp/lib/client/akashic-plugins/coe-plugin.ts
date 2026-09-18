@@ -2,7 +2,7 @@ import type { MemoryQueueDataBus } from "@cross-border-bridge/memory-queue-data-
 import type { Game } from "@akashic/game-driver";
 import type { COEPlugin } from "@akashic-environment/coe-plugin";
 import type { COEEndMessage } from "@akashic-extension/coe-messages";
-import type { ExternalPlugin, GameContent } from "@yasshi2525/agvw-like";
+import type { ExternalPlugin, GameContent } from "@multi-indiegame/agvw";
 
 interface GameState {
     score?: number;

@@ -1,13 +1,13 @@
 import type {
     PlayEndReason,
     PlayExtendPayload,
-} from "@yasshi2525/amflow-client-event-schema";
-import type { AMFlowClient } from "@yasshi2525/playlog-client-like";
+} from "@multi-indiegame/amflow-client-event-schema";
+import type { AMFlowClient } from "@multi-indiegame/playlog-client";
 import {
     AkashicGameView,
     ExecutionMode,
     GameContent,
-} from "@yasshi2525/agvw-like";
+} from "@multi-indiegame/agvw";
 import {
     type PlayerBanBackend,
     PlayerBanPlugin,

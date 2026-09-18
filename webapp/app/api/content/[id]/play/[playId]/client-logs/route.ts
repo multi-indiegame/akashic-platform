@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import {
     ClientCapturedLog,
     ClientLogEntry,

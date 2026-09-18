@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState, useEffect, useState } from "react";
+import { useFormStatus } from "react-dom";
 import {
     Alert,
     Box,
@@ -36,7 +36,10 @@ function SubmitButton() {
 
 export function ContactForm() {
     const [user] = useAuth();
-    const [state, formAction] = useFormState(submitContactAction, initialState);
+    const [state, formAction] = useActionState(
+        submitContactAction,
+        initialState,
+    );
     const [body, setBody] = useState("");
     const isOAuth = user?.authType === "oauth";
 

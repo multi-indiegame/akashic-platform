@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { BansGetResponse } from "@/lib/types";
 import { getAuth } from "@/lib/server/auth";
 import { BAN_LIMIT } from "@/lib/server/ban";

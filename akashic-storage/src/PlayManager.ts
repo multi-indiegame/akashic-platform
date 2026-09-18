@@ -1,4 +1,4 @@
-import type { PlayEndReason } from "@yasshi2525/amflow-server-event-schema";
+import type { PlayEndReason } from "@multi-indiegame/amflow-server-event-schema";
 import { AMFlowServerManager } from "./AMFlowServerManager";
 
 interface PlayManagerParameterObject {

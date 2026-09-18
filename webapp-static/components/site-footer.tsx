@@ -76,7 +76,7 @@ export function SiteFooter() {
                             </Link>
                             <Typography variant="body2">, </Typography>
                             <Link
-                                href="https://github.com/yasshi2525/akashic-platform"
+                                href="https://github.com/multi-indiegame/akashic-platform"
                                 target="_blank"
                                 color="inherit"
                                 variant="body2"

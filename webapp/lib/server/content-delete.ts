@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { DeleteGameResponse } from "../types";
 import { deleteContentDir } from "./content-utils";
 import { endPlay } from "./play-end";

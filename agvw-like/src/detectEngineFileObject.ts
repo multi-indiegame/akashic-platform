@@ -1,7 +1,7 @@
 import type * as g from "@akashic/akashic-engine";
 import type * as GameDriver from "@akashic/game-driver";
 import type * as PdiBrowser from "@akashic/pdi-browser";
-import type * as PlaylogClient from "@yasshi2525/playlog-client-like";
+import type * as PlaylogClient from "@multi-indiegame/playlog-client";
 import { ErrorFactory } from "./Error";
 
 export const isPlaylogClientUrl = (url: string) =>
@@ -78,7 +78,7 @@ export const detectRuntimes = (win: Window, urls: string[]) => {
                 _PdiBrowser = require("@akashic/pdi-browser");
             }
             if (!playlogClient) {
-                playlogClient = require("@yasshi2525/playlog-client-like");
+                playlogClient = require("@multi-indiegame/playlog-client");
             }
             if (_g && _GameDriver && _PdiBrowser && playlogClient) {
                 return [

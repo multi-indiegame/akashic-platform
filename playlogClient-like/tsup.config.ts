@@ -54,7 +54,6 @@ export default defineConfig({
     format: ["iife", "cjs"],
     platform: "browser",
     dts: true,
-    sourcemap: true,
     minify: true,
     esbuildPlugins: [licensePlugin],
     esbuildOptions: (opts) => {

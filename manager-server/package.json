@@ -1,6 +1,7 @@
 {
-  "name": "@yasshi2525/manager-server",
+  "name": "@multi-indiegame/manager-server",
   "version": "1.2.0",
+  "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "description": "manager server for service maintenance",
@@ -9,22 +10,29 @@
     "dist/**/*.js",
     "dist/**/*.d.ts"
   ],
+  "keywords": [],
   "scripts": {
-    "build:all": "npm run build -w @yasshi2525/persist-schema && npm run build",
+    "clean": "rimraf ./dist",
     "build": "tsc",
     "run": "node --env-file-if-exists=.env dist/index.js"
   },
-  "author": "yasshi2525",
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "manager-server"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^24.12.2",
     "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
     "typescript": "^6.0.3"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",
-    "@yasshi2525/persist-schema": "^1.10.0",
+    "@multi-indiegame/persist-schema": "^1.10.0",
     "express": "^5.2.1"
   }
 }

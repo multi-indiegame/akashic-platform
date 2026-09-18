@@ -1,4 +1,4 @@
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { MUTE_LABEL_BODY_MAX, MUTE_LIMIT_DEFAULT, type User } from "../types";
 
 export const MUTE_LIMIT = parseInt(

@@ -1,7 +1,7 @@
 import type { PassThrough } from "node:stream";
 import type { Upload } from "@aws-sdk/lib-storage";
-import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
-import { prisma } from "@yasshi2525/persist-schema";
+import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import type { RunnerClient } from "./runnerClient";
 import { playStorage } from "./logger";
 import { withPlayBaggage } from "./playBaggage";

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@yasshi2525/persist-schema";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { MutesGetResponse } from "@/lib/types";
 import { getAuth } from "@/lib/server/auth";
 import { MUTE_LIMIT } from "@/lib/server/mute";

@@ -45,7 +45,7 @@
 
 ![アーキテクチャ図](./architecture.png)
 
-Web API 仕様: https://yasshi2525.github.io/akashic-platform/
+Web API 仕様: https://multi-indiegame.github.io/akashic-platform/
 
 ## リポジトリ構成
 
@@ -203,4 +203,4 @@ npm run run -w ./manager-server
 
 ## Author
 
-- yasshi2525 ([X](https://x.com/yasshi2525))
+- multi-indiegame ([Contact](https://multi-indiegame.net/contact/))

@@ -1,4 +1,4 @@
-import type { PlayEndReason } from "@yasshi2525/amflow-client-event-schema";
+import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import { akashicServerUrl, withAkashicServerAuth } from "./akashic";
 
 // 認可を行わず任意の部屋を任意の理由で終了できるため Server Action ("use server") に

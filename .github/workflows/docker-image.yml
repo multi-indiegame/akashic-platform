@@ -108,6 +108,6 @@ jobs:
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.dockerfile }}
           tags: |
-            ${{ steps.login-ecr.outputs.registry }}/akashic-platform/${{ matrix.service.name }}:${{ steps.image-tag.outputs.image_tag }}
-            ${{ steps.login-ecr.outputs.registry }}/akashic-platform/${{ matrix.service.name }}:latest
+            ${{ steps.login-ecr.outputs.registry }}/multi-indiegame/${{ matrix.service.name }}:${{ steps.image-tag.outputs.image_tag }}
+            ${{ steps.login-ecr.outputs.registry }}/multi-indiegame/${{ matrix.service.name }}:latest
           push: true

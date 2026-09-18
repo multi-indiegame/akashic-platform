@@ -16,7 +16,7 @@ import type * as PdiBrowser from "@akashic/pdi-browser";
 import type { Platform, PlatformParameterObject } from "@akashic/pdi-browser";
 import type { ProxyAudioHandlerSet } from "@akashic/pdi-browser/lib/full/plugin/ProxyAudioPlugin/ProxyAudioHandlerSet";
 import type { Event } from "@akashic/playlog";
-import type * as PlaylogClient from "@yasshi2525/playlog-client-like";
+import type * as PlaylogClient from "@multi-indiegame/playlog-client";
 import { ExecutionMode, ProtocolType } from "./akashic-gameview";
 import { ErrorFactory } from "./Error";
 import { EngineConfig, GameLoaderCustomizer } from "./GameContent";

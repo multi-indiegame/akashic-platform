@@ -1,28 +1,47 @@
 {
-  "name": "@yasshi2525/amflow-event-schema",
+  "name": "@multi-indiegame/amflow-event-schema",
   "version": "2.0.0",
   "description": "AMFlow event schema",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "CHANGELOG.md",
-    "dist"
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
   ],
-  "author": "yasshi2525",
+  "keywords": [
+    "akashic",
+    "amflow"
+  ],
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "schema/amflow/common"
+  },
   "license": "MIT",
   "scripts": {
+    "clean": "rimraf ./dist",
     "build": "tsc",
-    "test": "jest"
+    "test": "jest",
+    "prepublishOnly": "npm run build"
   },
   "devDependencies": {
     "@akashic/amflow": "^3.3.0",
     "@types/jest": "^30.0.0",
     "jest": "^30.3.0",
     "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
     "ts-jest": "^29.4.9",
     "typescript": "^6.0.3"
   },
+  "peerDependencies": {
+    "@akashic/amflow": "^3.3.0"
+  },
   "dependencies": {
     "@akashic/playlog": "^3.4.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

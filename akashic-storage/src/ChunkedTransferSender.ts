@@ -5,7 +5,7 @@ import {
     ListenSchema,
     TransferChunk,
     TransferPayload,
-} from "@yasshi2525/amflow-server-event-schema";
+} from "@multi-indiegame/amflow-server-event-schema";
 
 export interface ChunkedTransferSenderParameterObject {
     socket: Socket<ListenSchema, EmitSchema>;
