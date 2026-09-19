@@ -22,6 +22,7 @@ import {
 } from "@/lib/server/play-session";
 import { kickViewerFromPlays } from "@/lib/server/play-kick";
 import { sessionViewerId, verifyRoomOwner } from "@/lib/server/viewer-identity";
+import { logSafe } from "@/lib/server/log-safe";
 
 export async function GET(
     req: NextRequest,
@@ -254,7 +255,10 @@ export async function GET(
         }
         return res;
     } catch (err) {
-        console.warn(`failed to get live play (handle = "${handle}")`, err);
+        console.warn(
+            `failed to get live play (handle = "${logSafe(handle)}")`,
+            err,
+        );
         return NextResponse.json({ ok: false, reason: "InternalError" });
     }
 }

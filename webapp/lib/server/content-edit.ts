@@ -26,6 +26,7 @@ import {
 } from "./content-utils";
 import { isWriteBlocked } from "./drain-state";
 import { getSignedInUser } from "./auth";
+import { logSafe } from "./log-safe";
 
 interface EditGameRequest extends Partial<GameForm> {
     gameId: number;
@@ -95,8 +96,8 @@ async function validateParam({
     } catch (err) {
         console.warn(
             'failed to register content (pulisherId = "%s", gameId = "%s")',
-            publisherId,
-            gameId,
+            logSafe(publisherId),
+            logSafe(gameId),
             err,
         );
         return {
@@ -254,7 +255,7 @@ export async function editContent(
     } catch (err) {
         console.warn(
             'failed to edit content (contentId = "%s")',
-            param.contentId,
+            logSafe(param.contentId),
             err,
         );
         return {

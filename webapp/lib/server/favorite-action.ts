@@ -3,6 +3,7 @@
 import { prisma } from "@multi-indiegame/persist-schema";
 import { isWriteBlocked } from "./drain-state";
 import { getSignedInUser } from "./auth";
+import { logSafe } from "./log-safe";
 
 const favoriteToggleErrReasons = [
     "AlreadyExists",
@@ -14,8 +15,7 @@ const favoriteToggleErrReasons = [
 type FavoriteToggleErrorType = (typeof favoriteToggleErrReasons)[number];
 
 type FavoriteToggleResponse =
-    | { ok: true }
-    | { ok: false; reason: FavoriteToggleErrorType };
+    { ok: true } | { ok: false; reason: FavoriteToggleErrorType };
 
 export async function addFavorite(
     gameId: number,
@@ -64,8 +64,8 @@ export async function addFavorite(
     } catch (err) {
         console.warn(
             "failed to add favorite (userId = %s, gameId = %s)",
-            userId,
-            gameId,
+            logSafe(userId),
+            logSafe(gameId),
             err,
         );
         return {
@@ -115,8 +115,8 @@ export async function deleteFavorite(
     } catch (err) {
         console.warn(
             "failed to delete favorite (userId = %s, gameId = %s)",
-            userId,
-            gameId,
+            logSafe(userId),
+            logSafe(gameId),
             err,
         );
         return {

@@ -6,6 +6,7 @@ import { deleteContentDir } from "./content-utils";
 import { endPlay } from "./play-end";
 import { isWriteBlocked } from "./drain-state";
 import { getSignedInUser } from "./auth";
+import { logSafe } from "./log-safe";
 
 interface DeleteGameRequest {
     gameId: number;
@@ -56,8 +57,8 @@ async function validateParam(
     } catch (err) {
         console.warn(
             'failed to delete game (publisherId = "%s", gameId = "%s")',
-            param.publisherId,
-            param.gameId,
+            logSafe(param.publisherId),
+            logSafe(param.gameId),
             err,
         );
         return {
@@ -130,7 +131,7 @@ export async function deleteGame(
     } catch (err) {
         console.warn(
             'failed to delete game (gameId = "%s")',
-            param.gameId,
+            logSafe(param.gameId),
             err,
         );
         return {

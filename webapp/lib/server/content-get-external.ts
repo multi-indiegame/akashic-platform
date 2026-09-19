@@ -2,6 +2,7 @@
 
 import type { GameConfiguration } from "@akashic/game-configuration";
 import { internalContentBaseUrl } from "./akashic";
+import { logSafe } from "./log-safe";
 
 const implicitExternalMapper: { external: string; keywords: string[] }[] = [
     {
@@ -56,7 +57,7 @@ export async function fetchContentExternal(contentId: number | string) {
     if (!Number.isInteger(id) || id < 0) {
         console.warn(
             "invalid contentId for external fetch (contentId = %s)",
-            contentId,
+            logSafe(contentId),
         );
         return [];
     }
