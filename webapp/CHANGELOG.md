@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.2.10
+
+### Patch Changes
+
+- 078a84c: improve: ログ出力時にユーザー入力の改行を除去
+
 ## 2.2.9
 
 - Improve
