@@ -26,6 +26,7 @@ import {
     playOwnerCookieName,
     refreshPlayOwnerCookie,
 } from "@/lib/server/play-owner-token";
+import { logSafe } from "@/lib/server/log-safe";
 
 const playViewSelect = {
     id: true,
@@ -273,7 +274,7 @@ export async function GET(
         }
         return res;
     } catch (err) {
-        console.warn(`failed to join (playId = "${playId}")`, err);
+        console.warn(`failed to join (playId = "${logSafe(playId)}")`, err);
         return NextResponse.json({
             ok: false,
             reason: "InternalError",

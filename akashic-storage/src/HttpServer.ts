@@ -8,6 +8,7 @@ import type {
 } from "@multi-indiegame/amflow-server-event-schema";
 import { AMFlowServerManager } from "./AMFlowServerManager";
 import { PlayManager } from "./PlayManager";
+import { logSafe } from "./logSafe";
 
 interface HttpServerParameterObject {
     basePath: string;
@@ -196,7 +197,7 @@ export class HttpServer {
                 // 部屋が既に終了していれば切断対象は存在しない。BAN は再入室
                 // 拒否側 (webapp) で担保されるため、ここは skip 応答でよい
                 console.warn(
-                    `kick skipped (playId = "${playId}", cause = "${(err as Error).message}")`,
+                    `kick skipped (playId = "${logSafe(playId)}", cause = "${logSafe((err as Error).message)}")`,
                 );
                 res.json({ ok: true, skipped: true });
                 return;
@@ -209,7 +210,7 @@ export class HttpServer {
                 // すると webapp が再試行の控え (PlaySession) を消してしまうため
                 // 非 2xx で返し、失敗を伝播させる
                 console.warn(
-                    `kick failed (playId = "${playId}", cause = "${(err as Error).message}")`,
+                    `kick failed (playId = "${logSafe(playId)}", cause = "${logSafe((err as Error).message)}")`,
                 );
                 res.status(502).json({
                     ok: false,
@@ -238,7 +239,7 @@ export class HttpServer {
                 // 部屋が既に終了していれば届ける相手がいない。通知は best-effort
                 // なので、kick と同じく skip 応答にする
                 console.warn(
-                    `send-event skipped (playId = "${playId}", cause = "${(err as Error).message}")`,
+                    `send-event skipped (playId = "${logSafe(playId)}", cause = "${logSafe((err as Error).message)}")`,
                 );
                 res.json({ ok: true, skipped: true });
             }

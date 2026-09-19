@@ -7,6 +7,7 @@ import {
 } from "@multi-indiegame/amflow-server-event-schema";
 import { ValkeyAMFlowStore } from "./ValkeyAMFlowStore";
 import { AMFlowServer } from "./AMFlowServer";
+import { logSafe } from "./logSafe";
 
 interface AMFlowServerManagerParameterObject {
     valkey: GlideClusterClient;
@@ -54,7 +55,7 @@ export class AMFlowServerManager {
     getServer(playId: string) {
         const server = this._servers.get(playId);
         if (!server) {
-            console.warn(`invalid playId "${playId}" was specified.`);
+            console.warn(`invalid playId "${logSafe(playId)}" was specified.`);
             throw new InvalidStatusError("invalid playId was specified.");
         }
         return server;

@@ -13,6 +13,7 @@ import { getAuth } from "./auth";
 import { gamePlayerId } from "./game-player-id";
 import { grantPlayOwner } from "./play-owner-token";
 import { isWriteBlocked } from "./drain-state";
+import { logSafe } from "./log-safe";
 
 interface PlayForm {
     contentId: number;
@@ -130,7 +131,7 @@ export async function registerPlay({
         if (res.status !== 200) {
             console.warn(
                 'failed to start play. (contentId = "%s", cause = %s)',
-                contentId,
+                logSafe(contentId),
                 await res.text(),
             );
             return {
@@ -155,7 +156,7 @@ export async function registerPlay({
     } catch (err) {
         console.warn(
             'failed to start play. (contentId = "%s")',
-            contentId,
+            logSafe(contentId),
             err,
         );
         return {
