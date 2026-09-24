@@ -35,6 +35,7 @@ import {
     OpenInNew,
     Refresh,
     Twitter,
+    Leaderboard,
 } from "@mui/icons-material";
 import { GameInfo, UserNameFormState, UserHandleFormState } from "@/lib/types";
 import { useAuth } from "@/lib/client/useAuth";
@@ -55,6 +56,8 @@ import { CopyLinkBox, CopyStatusSnackbar } from "@/components/copy-link-box";
 import { PlayCreateDialog } from "@/components/play-create-dialog";
 import { UserFeedbackList } from "@/components/user-feedback-list";
 import { UserGameListSection } from "@/components/user-game-list-section";
+import { MyScoreboardSettings } from "@/components/my-scoreboard-settings";
+import { TitleBadges } from "@/components/title-badges";
 
 const providerIcons: Record<AuthProvider, JSX.Element> = {
     github: <GitHub />,
@@ -513,6 +516,50 @@ export default function UserPage() {
                                             </>
                                         )}
                                         <Divider />
+                                        <Typography variant="h6">
+                                            記録と称号
+                                        </Typography>
+                                        {profile.titles &&
+                                            profile.titles.length > 0 && (
+                                                <TitleBadges
+                                                    titles={profile.titles}
+                                                    size="medium"
+                                                />
+                                            )}
+                                        <Typography
+                                            variant="body2"
+                                            color="textSecondary"
+                                        >
+                                            遊んだゲームの記録と、集めた称号をまとめて見られます。
+                                        </Typography>
+                                        <Box>
+                                            <Button
+                                                variant="outlined"
+                                                component={Link}
+                                                href="/my-stats"
+                                                startIcon={<Leaderboard />}
+                                                sx={{
+                                                    borderColor:
+                                                        theme.palette.primary
+                                                            .light,
+                                                    color: theme.palette.primary
+                                                        .light,
+                                                }}
+                                            >
+                                                記録と称号を見る
+                                            </Button>
+                                        </Box>
+                                        <MyScoreboardSettings
+                                            userId={profile.id}
+                                            userName={profile.name}
+                                            initialPublic={
+                                                !!profile.scoreboardPublic
+                                            }
+                                            initialOptOut={
+                                                !!profile.scoreboardOptOut
+                                            }
+                                        />
+                                        <Divider />
                                         <Box>
                                             <Button
                                                 variant="outlined"
@@ -565,6 +612,20 @@ export default function UserPage() {
                             >
                                 部屋を作る
                             </Button>
+                            {isOwner && game.hasScoreboard && (
+                                <Button
+                                    variant="outlined"
+                                    component={Link}
+                                    href={`/game/${game.id}/stats/edit`}
+                                    sx={{
+                                        borderColor:
+                                            theme.palette.text.secondary,
+                                        color: theme.palette.text.secondary,
+                                    }}
+                                >
+                                    統計の設定
+                                </Button>
+                            )}
                             {isOwner && (
                                 <Button
                                     variant="contained"

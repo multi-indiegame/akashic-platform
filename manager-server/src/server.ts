@@ -233,6 +233,72 @@ export class HttpServer {
             }
         });
 
+        app.get(
+            "/score-records/delete",
+            async (req: Request, res: Response) => {
+                const retentionDays = Number(
+                    req.query.retentionDays ??
+                        process.env.SCORE_RAW_RETENTION_DAYS ??
+                        90,
+                );
+                if (!Number.isInteger(retentionDays) || retentionDays < 1) {
+                    res.status(400).json({
+                        ok: false,
+                        reason: "InvalidParams",
+                        message: "retentionDays must be a positive integer",
+                    });
+                    return;
+                }
+                const cutoff = new Date(
+                    Date.now() - retentionDays * 24 * 60 * 60 * 1000,
+                );
+
+                try {
+                    // WHY: 生レコードを消してよいのは、その月の集計を凍結し終えた
+                    // 分だけ。凍結していない月を消すと、月別の統計を二度と組み立て
+                    // られなくなる
+                    const archives = await prisma.scoreboardArchive.findMany({
+                        select: { gameId: true, month: true },
+                    });
+                    let deleted = 0;
+                    const months: string[] = [];
+                    for (const archive of archives) {
+                        const [year, mon] = archive.month
+                            .split("-")
+                            .map(Number);
+                        const from = new Date(Date.UTC(year, mon - 1, 1));
+                        const to = new Date(Date.UTC(year, mon, 1));
+                        if (to > cutoff) {
+                            continue;
+                        }
+                        const { count } = await prisma.scoreRecord.deleteMany({
+                            where: {
+                                gameId: archive.gameId,
+                                endedAt: { gte: from, lt: to },
+                            },
+                        });
+                        if (count > 0) {
+                            deleted += count;
+                            months.push(`${archive.gameId}:${archive.month}`);
+                        }
+                    }
+                    res.json({
+                        ok: true,
+                        retentionDays,
+                        cutoff: cutoff.toISOString(),
+                        deleted,
+                        months,
+                    });
+                } catch (err) {
+                    res.status(500).json({
+                        ok: false,
+                        reason: "InternalError",
+                        message: (err as Error).message,
+                    });
+                }
+            },
+        );
+
         app.use((req: Request, res: Response) => {
             res.status(404).json({
                 ok: false,

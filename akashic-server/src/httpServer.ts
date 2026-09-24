@@ -5,6 +5,7 @@ import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema"
 import type {
     AssetRequest,
     PlayEndedRequest,
+    ScoreboardUpdateRequest,
 } from "@multi-indiegame/runner-ipc-schema";
 import { RunnerManager } from "./runnerManager";
 
@@ -152,6 +153,23 @@ export class HttpServer {
             }
         });
 
+        router.post("/scoreboard", (req, res) => {
+            const { playId, seq, records } =
+                req.body as Partial<ScoreboardUpdateRequest>;
+            if (playId == null || typeof seq !== "number" || !records) {
+                res.status(400).json({ ok: false, reason: "BadRequest" });
+                return;
+            }
+            // contentId はリクエストから受け取らず、server が持つ Runner から決める
+            const runner = this._manager.get(playId);
+            if (!runner || !runner.acceptsScore()) {
+                res.status(404).json({ ok: false, reason: "NotFound" });
+                return;
+            }
+            runner.updateScore(records, seq);
+            res.json({ ok: true });
+        });
+
         router.post("/play-ended", async (req, res) => {
             const { playId, reason, origin } =
                 req.body as Partial<PlayEndedRequest>;
@@ -192,6 +210,7 @@ export class HttpServer {
                 inviteHash,
                 requireSignIn,
                 chatEnabled,
+                scoreboard,
             } = req.body;
             if (
                 !playName?.toString() ||
@@ -224,6 +243,7 @@ export class HttpServer {
                     inviteHash: inviteHash?.toString(),
                     requireSignIn: !!requireSignIn,
                     chatEnabled: !!chatEnabled,
+                    scoreboard: !!scoreboard,
                     onDestroy: (playId) => this._manager.unregister(playId),
                 });
                 res.json({ playId });

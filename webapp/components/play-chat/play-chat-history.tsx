@@ -17,6 +17,7 @@ import { PlayChatMessageInfo } from "@/lib/types";
 import { usePlayChatContext } from "@/lib/client/usePlayChatContext";
 import { useMute } from "@/lib/client/useMute";
 import { UserInline } from "../user-inline";
+import { TitleBadges } from "../title-badges";
 import { MutedMessage } from "../muted-message";
 import { ModerationMenu, BanContext } from "../moderation-menu";
 
@@ -45,6 +46,9 @@ function HistoryBody({ message }: { message: PlayChatMessageInfo }) {
                     avatarSize={20}
                     textVariant="subtitle2"
                 />
+                {message.titles && message.titles.length > 0 && (
+                    <TitleBadges titles={message.titles} />
+                )}
                 <Typography variant="caption" color="textSecondary">
                     {formatDistance(new Date(message.createdAt), new Date(), {
                         addSuffix: true,

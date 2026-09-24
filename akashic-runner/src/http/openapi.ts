@@ -145,6 +145,45 @@ export const openapi = {
                     playerId: { type: "string" },
                     playerName: { type: "string" },
                     maxPreservingTickSize: { type: "integer", format: "int32" },
+                    scoreboard: {
+                        $ref: "#/components/schemas/ScoreboardParameters",
+                    },
+                },
+            },
+            ScoreboardParameters: {
+                type: "object",
+                description:
+                    "記録を受け取るなら指定する。 指定したときだけ akashic-runner が投稿スクリプトに `g.game.external.scoreboard` を生やすので、 省略するとコンテンツ側の `isSupported()` は false になる。",
+                properties: {
+                    limits: { $ref: "#/components/schemas/ScoreboardLimits" },
+                },
+            },
+            ScoreboardLimits: {
+                type: "object",
+                description:
+                    "コンテンツに課す上限。 省略した項目は akashic-runner が使う拡張ライブラリの既定値になる。 上限を超えた値は記録されず、 akashic-runner が理由をログに残す。",
+                properties: {
+                    keysPerPlayer: {
+                        type: "integer",
+                        format: "int32",
+                        description: "1 つの記録に持てるキーの数",
+                    },
+                    stringLength: {
+                        type: "integer",
+                        format: "int32",
+                        description: "文字列の値の長さ",
+                    },
+                    playerIdLength: {
+                        type: "integer",
+                        format: "int32",
+                        description: "in-game playerId の長さ",
+                    },
+                    subjectsPerPlay: {
+                        type: "integer",
+                        format: "int32",
+                        description:
+                            "1 プレイで記録を持てる相手の数 (プレイ自体の記録を含まない)",
+                    },
                 },
             },
             StopPlayResponse: {

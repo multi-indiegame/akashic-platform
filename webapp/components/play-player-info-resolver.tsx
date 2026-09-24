@@ -14,6 +14,15 @@ import { ResolvingPlayerInfoRequest } from "@/lib/client/akashic-plugins/coe-lim
 import { useAuth } from "@/lib/client/useAuth";
 import { STORAGE_KEYS, useLocalStorage } from "@/lib/client/useLocalStorage";
 
+function StatsNotice() {
+    return (
+        <DialogContentText variant="body2" sx={{ mt: 1 }}>
+            名前で参加すると、参加者名がこのゲームの統計ページに掲載されることがあります。
+            匿名で参加した場合は掲載されません。
+        </DialogContentText>
+    );
+}
+
 export function PlayPlayerInfoResolver({
     request,
     requireSignIn,
@@ -88,6 +97,7 @@ export function PlayPlayerInfoResolver({
                         {remainingSeconds}秒)
                         ※未選択の場合もユーザー名で参加します。
                     </DialogContentText>
+                    <StatsNotice />
                     <DialogActions>
                         <Button
                             variant="contained"
@@ -109,6 +119,7 @@ export function PlayPlayerInfoResolver({
                         (残り
                         {remainingSeconds}秒) ※未選択の場合は匿名で参加します。
                     </DialogContentText>
+                    <StatsNotice />
                     {user.authType === "guest" && (
                         <TextField
                             autoFocus

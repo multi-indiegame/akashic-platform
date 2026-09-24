@@ -24,3 +24,14 @@
 
 - retetionDays: 保持日数
 - includeErrored: エラーログも消すか
+
+## 記録の削除
+
+エンドポイント: `/score-records/delete`
+
+一定期間経過した、統計の生レコード (ScoreRecord, ScoreValue) を削除します。
+削除するのは月別アーカイブへ凍結済みの月だけです。凍結していない月は、保持日数を
+過ぎていても残します。歴代の記録と回数は別のテーブルへ積んであるため、生レコードを
+消しても失われません。
+
+- retentionDays: 保持日数 (既定値: 環境変数 `SCORE_RAW_RETENTION_DAYS`、未設定なら 90)

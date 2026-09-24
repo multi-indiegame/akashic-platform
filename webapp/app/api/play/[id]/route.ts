@@ -20,6 +20,8 @@ import {
     findPlaySessionToken,
     recordPlaySession,
 } from "@/lib/server/play-session";
+import { recordPlayParticipant } from "@/lib/server/play-participant";
+import { fetchTitles } from "@/lib/server/scoreboard-title";
 import { kickViewerFromPlays } from "@/lib/server/play-kick";
 import { sessionViewerId, verifyRoomOwner } from "@/lib/server/viewer-identity";
 import {
@@ -213,6 +215,12 @@ export async function GET(
                 inviteHash: play.inviteHash ?? undefined,
                 isGameMaster: isOwner,
                 gameMaster: {
+                    // WHY: この部屋のゲームの称号のみ取得
+                    titles: play.gmUser?.id
+                        ? await fetchTitles(play.gmUser.id, {
+                              gameId: play.content.game.id,
+                          })
+                        : undefined,
                     userId: play.gmUser?.id ?? undefined,
                     name: play.gmUser?.name ?? GUEST_NAME,
                     iconURL: play.gmUser?.image ?? undefined,
@@ -249,6 +257,7 @@ export async function GET(
             if (!existingToken) {
                 await recordPlaySession(play.id, viewerId, playToken);
             }
+            await recordPlayParticipant(play.id, user, isOwner);
             // 記録の後にもう一度 BAN 判定する。入室と BAN 発行が競合しても、
             // 記録済みなら自分の token を確実に失効させられる（発行側 kick が
             // 記録前に走って取りこぼしても、ここで拾う）

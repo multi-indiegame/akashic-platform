@@ -3,6 +3,7 @@ import { GameInfo } from "../types";
 import { internalContentBaseUrl, publicContentBaseUrl } from "./akashic";
 import { getAuth } from "./auth";
 import { isFavorited } from "./favorite";
+import { fetchContentExternal } from "./content-get-external";
 
 export async function fetchGameInfo(gameId: number) {
     const game = await prisma.game.findUniqueOrThrow({
@@ -37,9 +38,24 @@ export async function fetchGameInfo(gameId: number) {
             createdAt: true,
         },
     });
+    const contentId = game.versions[0].id;
+    // WHY: 称号の画像に表示が求められる素材が含まれることがある。
+    const titleCredits = await prisma.scoreTitleDef.findMany({
+        where: { gameId, imageCredit: { not: null } },
+        orderBy: [{ priority: "asc" }, { id: "asc" }],
+        select: { name: true, imageCredit: true },
+    });
     return {
         id: game.id,
         title: game.title,
+        // 宣言しているゲームにだけ統計の入口を出す
+        titleCredits: titleCredits.map((def) => ({
+            name: def.name,
+            credit: def.imageCredit!,
+        })),
+        hasScoreboard: (await fetchContentExternal(contentId)).includes(
+            "scoreboard",
+        ),
         iconURL: `${publicContentBaseUrl}/${game.versions[0].id}/${game.versions[0].icon}`,
         publisher: {
             id: game.publisher.id,
