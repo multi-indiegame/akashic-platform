@@ -20,6 +20,8 @@ import {
     findPlaySessionToken,
     recordPlaySession,
 } from "@/lib/server/play-session";
+import { recordPlayParticipant } from "@/lib/server/play-participant";
+import { fetchTitles } from "@/lib/server/scoreboard-title";
 import { kickViewerFromPlays } from "@/lib/server/play-kick";
 import { sessionViewerId, verifyRoomOwner } from "@/lib/server/viewer-identity";
 import { logSafe } from "@/lib/server/log-safe";
@@ -192,6 +194,11 @@ export async function GET(
                     inviteHash: play.inviteHash ?? undefined,
                     isGameMaster: isOwner,
                     gameMaster: {
+                        // WHY: どのゲームの称号かが伝わるよう、その部屋の
+                        // ゲームに絞って出す
+                        titles: await fetchTitles(gmUser.id, {
+                            gameId: play.content.game.id,
+                        }),
                         userId: gmUser.id,
                         name: gmUser.name ?? GUEST_NAME,
                         iconURL: gmUser.image ?? undefined,
@@ -233,6 +240,7 @@ export async function GET(
             if (!existingToken) {
                 await recordPlaySession(play.id, viewerId, playToken);
             }
+            await recordPlayParticipant(play.id, user, isOwner);
             // 記録の後にもう一度 BAN 判定し、入室と BAN 発行の競合を潰す
             if (
                 await isBannedFromPlay(user, {

@@ -8,29 +8,42 @@ datasource db {
 }
 
 model User {
-  id            String            @id @default(cuid())
-  name          String?
-  handle        String?           @unique
-  email         String?           @unique
-  emailVerified DateTime?
-  image         String?
-  accounts      Account[]
-  sessions      Session[]
-  notices       Notification[]
-  games         Game[]
-  plays         Play[]
-  fbPosts       FeedbackPost[]
-  fbReplies     FeedbackReply[]
-  clientLogs    ClientLogRecord[]
-  favorites     Favorite[]
-  boardMessages BoardMessage[]
-  chatMessages  PlayChatMessage[]
-  mutes         Mute[]            @relation("MuteOwner")
-  mutedBy       Mute[]            @relation("MuteTarget")
-  reports       Report[]
-  contacts      ContactMessage[]
-  bansIssued    Ban[]             @relation("BanOwner")
-  bansReceived  Ban[]             @relation("BanTarget")
+  id               String            @id @default(cuid())
+  name             String?
+  handle           String?           @unique
+  email            String?           @unique
+  emailVerified    DateTime?
+  image            String?
+  accounts         Account[]
+  sessions         Session[]
+  notices          Notification[]
+  games            Game[]
+  plays            Play[]
+  fbPosts          FeedbackPost[]
+  fbReplies        FeedbackReply[]
+  clientLogs       ClientLogRecord[]
+  favorites        Favorite[]
+  boardMessages    BoardMessage[]
+  chatMessages     PlayChatMessage[]
+  mutes            Mute[]            @relation("MuteOwner")
+  mutedBy          Mute[]            @relation("MuteTarget")
+  reports          Report[]
+  contacts         ContactMessage[]
+  bansIssued       Ban[]             @relation("BanOwner")
+  bansReceived     Ban[]             @relation("BanTarget")
+  participations   PlayParticipant[]
+  scoreTitles      ScoreTitle[]
+  /// 自分の記録を共有ページとして公開するか。
+  ///
+  /// WHY: 既定はオフ。名前掲載の同意はゲーム単位の掲載への同意であって、
+  /// 横断プロフィールの公開まで含むとは読めない。
+  scoreboardPublic Boolean           @default(false)
+  /// 統計へ掲載しないと決めているか。
+  ///
+  /// WHY: 掲載をやめた人は、そもそも載ることを望んでいないと読む。いま載って
+  /// いる分を消すだけだと、次に名前を使って参加した時点でまた載ってしまう。
+  /// 突き合わせの段でこの印を見て、以後は掲載用へ入れない。
+  scoreboardOptOut Boolean           @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,16 +101,26 @@ model Favorite {
 }
 
 model Game {
-  id          Int            @id @default(autoincrement())
-  publisherId String
-  title       String
-  description String
-  credit      String         @default("")
-  streaming   Boolean        @default(true)
-  playCount   Int            @default(0)
-  versions    Content[]
-  feedbacks   FeedbackPost[]
-  favorites   Favorite[]
+  id             Int                 @id @default(autoincrement())
+  publisherId    String
+  title          String
+  description    String
+  credit         String              @default("")
+  streaming      Boolean             @default(true)
+  playCount      Int                 @default(0)
+  versions       Content[]
+  feedbacks      FeedbackPost[]
+  favorites      Favorite[]
+  scoreRecords   ScoreRecord[]
+  scoreValues    ScoreValue[]
+  scoreBests     ScoreBest[]
+  scoreTotals    ScoreGameTotal[]
+  scorePlays     ScorePlayCount[]
+  scoreTops      ScoreTopEntry[]
+  scoreFormats   ScoreboardFormat[]
+  scoreTitleDefs ScoreTitleDef[]
+  scoreTitles    ScoreTitle[]
+  scoreArchives  ScoreboardArchive[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -142,6 +165,7 @@ model Play {
   gmUser       User?             @relation(fields: [gmUserId], references: [id], onDelete: Cascade)
   chatMessages PlayChatMessage[]
   sessions     PlaySession[]
+  participants PlayParticipant[]
 }
 
 model FeedbackPost {
@@ -279,6 +303,41 @@ model PlaySession {
   @@index([playId, viewerId])
 }
 
+/// 部屋の参加者と、統計への掲載に同意したかの記録。
+///
+/// in-game playerId が誰かを知っているのは webapp だけで、名前取得プラグインの
+/// 同意もブラウザ側にしか現れない。実行基盤（akashic-server / akashic-runner）に
+/// 同意という概念を持ち込まないため、両方を知っているこの層で対応表として持つ。
+/// 記録の掲載可否は、実行基盤が集めた記録とこの表を突き合わせて決める。
+///
+/// 名前取得は1プレイ中に何度でも呼ばれうるため、同意が解決するたびに同じ行を
+/// 上書きし、最後に確定した状態だけを残す。
+model PlayParticipant {
+  id           Int     @id @default(autoincrement())
+  playId       Int
+  /// ゲームへ申告した in-game playerId
+  playerId     String
+  /// 視聴者の識別子。サインインなら userId、未サインインなら guestId
+  viewerId     String
+  /// サインイン利用者の場合のみ設定される
+  userId       String?
+  /// 統計への掲載に同意したか
+  nameConsent  Boolean @default(false)
+  /// ゲストが自称した表示名。サインイン利用者は表示のたび User.name を引くため
+  /// 控えを持たない（改名・退会に追従させる）
+  guestName    String?
+  isGameMaster Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  play Play  @relation(fields: [playId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([playId, playerId])
+  @@index([playId])
+}
+
 /// 利用者からの通報。管理 UI は設けず、psql と通報メールで捌く。
 /// 対象の投稿・部屋・ユーザーは後から消えることがあるため、通報時点の
 /// 内容を bodySnapshot に控え、証拠保全と後追い調査を可能にする。
@@ -358,6 +417,7 @@ enum NotificationType {
   GAME_CRASHED
   GAME_ERROR_LOGGED
   CLIENT_LOG_SUBMITTED
+  TITLE_AWARDED
 }
 
 enum ReportTargetType {
@@ -391,4 +451,318 @@ enum ContactStatus {
 enum BanOrigin {
   MANUAL
   VIA_BLOCK
+}
+
+/// プレイ 1 回に対応する確定レコード。参加プレイヤーごとに 1 行、部屋そのものの
+/// 記録は playerId を持たない 1 行として入る。
+///
+/// WHY: Play ではなく Game に紐づける。集計の軸は gameId で、コンテンツを
+/// 更新して contentId が変わっても同じ系列として続くため。contentId は
+/// どの版のプレイだったかを後から絞れるよう属性として持つ。
+model ScoreRecord {
+  id          Int       @id @default(autoincrement())
+  playId      Int
+  /// ゲームへ申告した in-game playerId。部屋そのものの記録では null
+  playerId    String?
+  gameId      Int
+  contentId   Int
+  /// 掲載してよい相手。突き合わせの段で埋まり、それまでは無記名
+  subjectKey  String?
+  /// 掲載用へ反映した時刻。反映済みかを見て二重加算を防ぐ
+  reflectedAt DateTime?
+  endedAt     DateTime
+  durationSec Int
+  /// 集計に入れない記録。異常終了と、短すぎるプレイ
+  excluded    Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+
+  game   Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  values ScoreValue[]
+
+  /// 同じプレイの同じプレイヤーは 1 行。確定処理を何度流しても増えない。
+  /// playerId が null の行（部屋そのものの記録）も 1 行に保ちたいので、
+  /// 実際のインデックスは migration で NULLS NOT DISTINCT を付与する
+  /// （Prisma は NULLS 節を扱わないため素の @@unique として保持され drift は出ない）。
+  @@unique([playId, playerId], map: "ScoreRecord_play_player_key")
+  @@index([gameId, endedAt])
+}
+
+/// プレイ自体の記録の集計。ゲームとキーで 1 行。
+///
+/// WHY: プレイ自体の記録には主体がいない（誰の記録でもない）ので、掲載の同意も
+/// 要らない。主体ごとの集計（ScoreBest）とは別に持つ。
+///
+/// WHY: 生レコードは一定期間で消えるので、歴代として見せる値はここへ積む。
+model ScoreGameTotal {
+  id          Int       @id @default(autoincrement())
+  gameId      Int
+  key         String
+  maxValue    Float?
+  maxAt       DateTime?
+  minValue    Float?
+  minAt       DateTime?
+  sum         Float     @default(0)
+  /// numValue を持つ記録の数
+  count       Int       @default(0)
+  /// このキーの記録の数（型を問わない）
+  recordCount Int       @default(0)
+  /// boolValue が true だった記録の数。クリア回数のような「何回起きたか」
+  trueCount   Int       @default(0)
+  lastValue   Float?
+  lastAt      DateTime?
+  lastStr     String?
+  lastBool    Boolean?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, key])
+}
+
+/// 記録のキー 1 つ 1 行。ランキングと期間指定の集計はここを引く。
+///
+/// WHY: ScoreRecord に JSON で持たず行に開くのは、値で並べ替えたり期間で
+/// 絞ったりするため。JSON のままだと索引が効かない。
+model ScoreValue {
+  id         Int      @id @default(autoincrement())
+  recordId   Int
+  gameId     Int
+  contentId  Int
+  key        String
+  numValue   Float?
+  strValue   String?
+  boolValue  Boolean?
+  /// ScoreRecord と同じ値を持つ。ランキングを引くたびに join しないための非正規化
+  subjectKey String?
+  endedAt    DateTime
+
+  record ScoreRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  game   Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([recordId])
+  @@index([gameId, key, numValue(sort: Desc)])
+  @@index([gameId, key, endedAt(sort: Desc)])
+  @@index([subjectKey, gameId, key])
+}
+
+/// 掲載してよい相手。名前の出しかたを決めるためだけに持つ。
+///
+/// WHY: サインイン利用者の表示名は掲載のたび User から引く（改名・退会に
+/// 追従させるため）。ゲストは追従先が無いので、自称した名前をここへ控える。
+model ScoreSubject {
+  /// `u:<userId>` か `g:<in-game playerId>`
+  subjectKey String  @id
+  /// サインイン利用者のとき設定される
+  userId     String?
+  /// ゲストが自称した表示名
+  guestName  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+/// 歴代。主体ごと・キーごとの集計を増分で更新する。
+///
+/// WHY: 歴代を生レコードから毎回作ると、生レコードを消した時点で歴代も消える。
+/// 行数がプレイ回数ではなく参加者数に比例するので、生レコードを短い期間しか
+/// 持たなくてもここは残り続ける。**決して消さない。**
+///
+/// WHY: max と min を両方持つのは、投稿者が「高いほど上位／低いほど上位」を
+/// 変えても作り直さずに済むようにするため。sum / count / last も同じ理由で持つ。
+model ScoreBest {
+  id          Int       @id @default(autoincrement())
+  gameId      Int
+  key         String
+  subjectKey  String
+  maxValue    Float?
+  maxAt       DateTime?
+  minValue    Float?
+  minAt       DateTime?
+  sum         Float     @default(0)
+  /// numValue を持つ記録の数。平均を出すのに使う
+  count       Int       @default(0)
+  /// この主体・このキーの記録の数（型を問わない）。達成率の分母
+  recordCount Int       @default(0)
+  /// boolValue が true だった記録の数。達成率の分子
+  trueCount   Int       @default(0)
+  lastValue   Float?
+  lastAt      DateTime?
+  /// number 以外の記録でも「最後の値」を見せられるようにする
+  lastStr     String?
+  lastBool    Boolean?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, key, subjectKey])
+  @@index([gameId, key, maxValue(sort: Desc)])
+  @@index([gameId, key, minValue(sort: Asc)])
+  @@index([subjectKey])
+}
+
+/// 遊んだ回数ランキング（歴代）。ScoreBest と同じく消さない。
+model ScorePlayCount {
+  id           Int      @id @default(autoincrement())
+  gameId       Int
+  subjectKey   String
+  count        Int      @default(0)
+  lastPlayedAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, subjectKey])
+  @@index([gameId, count(sort: Desc)])
+  @@index([subjectKey])
+}
+
+/// 投稿者が決める、記録の見せ方。
+///
+/// WHY: 版を積む。閉じた月のアーカイブを「当時のフォーマット」で凍結するため、
+/// いつどの版が有効だったかを後から引けるようにしておく。
+model ScoreboardFormat {
+  id            Int      @id @default(autoincrement())
+  gameId        Int
+  version       Int
+  definition    Json
+  effectiveFrom DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, version])
+  @@index([gameId, effectiveFrom])
+}
+
+/// 歴代ランキングの上位 N 件。1 件 1 行で、同じ主体が何度でも載る。
+///
+/// WHY: 同一ユーザーの複数ランクインを許すとき、主体ごとに 1 行の ScoreBest では
+/// 2 位以下を持てない。ランキングを「上位 N 件のリスト」として持てば、新しい値を
+/// 差し込んで末尾を捨てるだけで保てる。一度こぼれた記録が上位へ戻ることはないので、
+/// **元の記録を消した後も歴代が保たれる**。
+///
+/// WHY: いまの設定の向きで 1 本だけ持つ。向きを変えたときのために反対向きも
+/// 持つ、という作りにはしない。設定が変わったら、残っている生レコードから
+/// 積み直す（それより前の歴代は失われる）。
+model ScoreTopEntry {
+  id         Int      @id @default(autoincrement())
+  gameId     Int
+  key        String
+  value      Float
+  subjectKey String
+  /// 元の記録。残っていれば辿れる
+  recordId   Int?
+  endedAt    DateTime
+
+  createdAt DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, key, value(sort: Desc), endedAt], map: "ScoreTopEntry_desc_idx")
+  @@index([gameId, key, value(sort: Asc), endedAt], map: "ScoreTopEntry_asc_idx")
+  @@index([subjectKey])
+}
+
+/// 称号の段位。上にいくほど上位で、同じカテゴリでは最上位のものだけを持つ。
+enum ScoreTitleRank {
+  NONE
+  BRONZE
+  SILVER
+  GOLD
+}
+
+/// 投稿者が決める称号の定義。
+///
+/// WHY: カテゴリとラベル（段位）に分ける。同じカテゴリで段位だけ違う称号を
+/// 並べて持たせず、到達した最上位だけを見せるため。
+model ScoreTitleDef {
+  id          Int            @id @default(autoincrement())
+  gameId      Int
+  /// 何についての称号か（例: "score"、"allclear"）
+  categoryKey String
+  rank        ScoreTitleRank @default(NONE)
+  /// 表示順。小さいほど先に出る
+  priority    Int            @default(0)
+  name        String
+  /// 投稿者がアップロードした画像。`games/<gameId>/titles/` 以下に置く
+  imageKey    String?
+  /// 画像の出どころ。表示が求められる素材のために持つ
+  imageCredit String?
+  /// 付与の条件
+  condition   Json
+  /// 取り下げた時刻。取り下げた後は新たに付与しない。
+  ///
+  /// WHY: 消してしまうと、すでに獲得した人の称号まで消える。投稿者が公開をやめても
+  /// 配布済み分が残るようにする。
+  retiredAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  game   Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  titles ScoreTitle[]
+
+  @@unique([gameId, categoryKey, rank])
+  @@index([gameId, priority])
+}
+
+/// 付与済みの称号。
+///
+/// WHY: サインイン利用者にだけ付ける。ゲストは identity が Cookie 依存で
+/// 続かないので、積み上げた称号を持ち主に結び付けられない。
+model ScoreTitle {
+  id          Int            @id @default(autoincrement())
+  userId      String
+  gameId      Int
+  categoryKey String
+  rank        ScoreTitleRank
+  defId       Int
+  awardedAt   DateTime       @default(now())
+  /// マイページでの並び替え。未設定なら投稿者の priority に従う
+  pinnedOrder Int?
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  /// WHY: 定義を消しても、すでに獲得した称号は残す。取り下げは retiredAt で
+  /// 表し、行そのものを消すのは付与が 1 件も無いときに限る
+  def  ScoreTitleDef @relation(fields: [defId], references: [id], onDelete: Restrict)
+
+  /// カテゴリごとに 1 つ。上位に達したら差し替える
+  @@unique([userId, gameId, categoryKey])
+  @@index([userId, gameId])
+  @@index([gameId])
+}
+
+/// 凍結した月次集計の目録。中身は S3 に置く。
+///
+/// WHY: 閉じた月の集計は変わらないので、そのつど計算し直さず凍結しておく。
+/// S3 なら CDN で配れて DB も太らせない。
+///
+/// WHY: 凍結するのは集計済みの値と主体の鍵だけ。**表示名は入れない。**
+/// 改名・退会・掲載の取りやめが、過去の月にも効くようにするため。
+model ScoreboardArchive {
+  id            Int    @id @default(autoincrement())
+  gameId        Int
+  /// 対象の月。`YYYY-MM`
+  month         String
+  /// その月の終わりに有効だったフォーマットの版
+  formatVersion Int
+  s3Key         String
+
+  createdAt DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, month])
+  @@index([gameId, month])
 }

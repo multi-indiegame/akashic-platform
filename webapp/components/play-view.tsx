@@ -44,7 +44,12 @@ import {
     X,
 } from "@mui/icons-material";
 import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
-import { BAN_IN_GAME_CONFIRM_PENDING_MAX, GameInfo, User } from "@/lib/types";
+import {
+    BAN_IN_GAME_CONFIRM_PENDING_MAX,
+    GameInfo,
+    TitleBadge,
+    User,
+} from "@/lib/types";
 import { useAkashic } from "@/lib/client/useAkashic";
 import { useCustomData } from "@/lib/client/useCustomData";
 import { usePlayLeaveGuard } from "@/lib/client/usePlayLeaveGuard";
@@ -60,6 +65,7 @@ import type {
 import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
 import { extendPlay } from "@/lib/server/play-extend";
 import { banPlayerInGameAction } from "@/lib/server/ban-in-game-action";
+import { reportNameConsent } from "@/lib/server/play-participant-action";
 import { uploadPlayShareScreenshot } from "@/lib/server/play-share";
 import {
     BanConfirmRequest,
@@ -71,6 +77,7 @@ import { PlayEndNotification } from "./play-end-notification";
 import { PlayPlayerInfoResolver } from "./play-player-info-resolver";
 import { CreditPanel } from "./credit-panel";
 import { UserInline } from "./user-inline";
+import { TitleBadges } from "./title-badges";
 import { ClientLogDialog } from "./client-log-dialog";
 import { TroubleshootButton } from "./troubleshoot-button";
 import { FavoriteButton } from "./favorite-button";
@@ -168,6 +175,7 @@ export function PlayView({
         name: string;
         iconURL?: string;
         handle?: string;
+        titles?: TitleBadge[];
     };
     isGameMaster: boolean;
     contentWidth: number;
@@ -611,6 +619,19 @@ export function PlayView({
                     if (accepted && name) {
                         setPlayerName(name);
                     }
+                    // ゲームを待たせないよう完了を待たない。
+                    reportNameConsent(Number(playId), accepted, name).then(
+                        (res) => {
+                            if (!res.ok) {
+                                console.warn(
+                                    `failed to report name consent: ${res.reason}`,
+                                );
+                            }
+                        },
+                        (err) => {
+                            console.warn("failed to report name consent", err);
+                        },
+                    );
                 },
             });
         }
@@ -1453,6 +1474,15 @@ export function PlayView({
                                                 avatarSize={32}
                                                 openInNewWindow
                                             />
+                                            {gameMaster.titles &&
+                                                gameMaster.titles.length >
+                                                    0 && (
+                                                    <TitleBadges
+                                                        titles={
+                                                            gameMaster.titles
+                                                        }
+                                                    />
+                                                )}
                                             {!isGameMaster && (
                                                 <>
                                                     <Box sx={{ flexGrow: 1 }} />

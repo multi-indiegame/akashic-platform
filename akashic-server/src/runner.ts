@@ -2,7 +2,10 @@ import type { PassThrough } from "node:stream";
 import type { Upload } from "@aws-sdk/lib-storage";
 import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import { prisma } from "@multi-indiegame/persist-schema";
+import type { ScoreboardRecords } from "@multi-indiegame/runner-ipc-schema";
+import { reconcilePlay } from "@multi-indiegame/scoreboard-schema";
 import type { RunnerClient } from "./runnerClient";
+import { finalizeScoreRecords } from "./scoreboard";
 import { playStorage } from "./logger";
 import { withPlayBaggage } from "./playBaggage";
 import { maskSecrets } from "./secretMasker";
@@ -43,6 +46,8 @@ export interface RunnerParameterObject {
     inviteHash?: string;
     requireSignIn: boolean;
     chatEnabled: boolean;
+    /** コンテンツが scoreboard を宣言しているか。生やすかどうかを決める */
+    scoreboard: boolean;
     onDestroy: (playId: number) => void;
 }
 
@@ -61,6 +66,9 @@ export class Runner {
     _lastLogSeq = 0;
     _logBytes = 0;
     _logTruncated = false;
+    _startedAt?: number;
+    _scoreRecords?: ScoreboardRecords;
+    _lastScoreSeq = 0;
 
     constructor(param: RunnerParameterObject) {
         this._param = param;
@@ -116,7 +124,9 @@ export class Runner {
                             playerName: this._param.playerName,
                             maxPreservingTickSize:
                                 this._param.maxPreservingTickSize,
+                            scoreboard: this._param.scoreboard ? {} : undefined,
                         });
+                        this._startedAt = Date.now();
                         this._setTimer(Date.now() + PLAY_DURATION_MS);
                         this._startIdleWatch(playId);
                     } catch (err) {
@@ -180,6 +190,25 @@ export class Runner {
         }
         this._logBytes += size;
         this._logStream!.write(masked);
+    }
+
+    acceptsScore() {
+        return this._playId != null && !this._ending;
+    }
+
+    /**
+     * 進行中の記録を受け取る。
+     *
+     * WHY: メモリにだけ持つ。1 プレイに閉じた情報の欠落は許容する範囲なので、
+     * 更新のたびに DB を叩く必要がない。
+     */
+    updateScore(records: ScoreboardRecords, seq: number) {
+        // 応答が失われて再送になったとき、古い内容で新しい内容を上書きしない
+        if (seq <= this._lastScoreSeq) {
+            return;
+        }
+        this._lastScoreSeq = seq;
+        this._scoreRecords = records;
     }
 
     resolveAllowedAsset(url: string) {
@@ -270,6 +299,7 @@ export class Runner {
                 console.warn(`failed to end play (playId = "${playId}")`, err);
             }
         }
+        await this._finalizeScore(playId, crashed);
         await this._endPlayRecord(playId);
         this._param.onDestroy(playId);
 
@@ -372,6 +402,34 @@ export class Runner {
             });
         } catch (err) {
             console.warn(`failed to delete playId "${playId}"`, err);
+        }
+    }
+
+    async _finalizeScore(playId: number, crashed: boolean) {
+        if (!this._scoreRecords) {
+            return;
+        }
+        const records = this._scoreRecords;
+        this._scoreRecords = undefined;
+        try {
+            await finalizeScoreRecords({
+                playId,
+                contentId: this._param.contentId,
+                records,
+                startedAt: this._startedAt ?? Date.now(),
+                crashed,
+            });
+            // WHY: 掲載してよいかの判定はこの呼び出しの中だけで行う。
+            // ここは「揃ったので突き合わせてほしい」と伝えるだけで、
+            // 同意そのものは扱わない
+            await reconcilePlay(playId);
+        } catch (err) {
+            // WHY: 記録が残らないことの影響はそのプレイに閉じるので、
+            // プレイの終了処理は止めない（ログのアップロードと同じ扱い）
+            console.warn(
+                `failed to finalize score records (playId = "${playId}")`,
+                err,
+            );
         }
     }
 

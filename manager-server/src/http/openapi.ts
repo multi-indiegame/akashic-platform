@@ -71,6 +71,45 @@ export const openapi = {
                 },
             },
         },
+        "/score-records/delete": {
+            get: {
+                summary: "Delete archived raw score records from DB",
+                parameters: [
+                    {
+                        name: "retentionDays",
+                        minimum: 1,
+                        default: 90,
+                        description:
+                            "Records older than this many days are deleted, but only for months already archived",
+                        in: "query",
+                        required: false,
+                        schema: { type: "string" },
+                    },
+                ],
+                responses: {
+                    "200": {
+                        description: "Deletion completed",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ScoreRecordDeleteResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Invalid parameters",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
         "/drain": {
             get: {
                 summary: "Forward a signed drain request to webapp",
@@ -162,6 +201,30 @@ export const openapi = {
                     },
                     succeeded: { type: "integer" },
                     failed: { type: "integer" },
+                },
+            },
+            ScoreRecordDeleteResponse: {
+                type: "object",
+                required: [
+                    "ok",
+                    "retentionDays",
+                    "cutoff",
+                    "deleted",
+                    "months",
+                ],
+                properties: {
+                    ok: { type: "boolean", enum: [true] },
+                    retentionDays: { type: "integer" },
+                    cutoff: { type: "string", format: "date-time" },
+                    deleted: {
+                        type: "integer",
+                        description: "Number of score records deleted",
+                    },
+                    months: {
+                        type: "array",
+                        description: "Pruned months as `<gameId>:<YYYY-MM>`",
+                        items: { type: "string" },
+                    },
                 },
             },
             HealthResponse: {

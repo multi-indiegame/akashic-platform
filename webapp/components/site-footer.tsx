@@ -80,6 +80,14 @@ export function SiteFooter() {
                                 お問い合わせ
                             </Link>
                             <Typography variant="body2"> / </Typography>
+                            <Link
+                                href="/licenses"
+                                color="inherit"
+                                variant="body2"
+                            >
+                                素材のライセンス
+                            </Link>
+                            <Typography variant="body2"> / </Typography>
                             <Stack direction="row" spacing="0.5">
                                 <Typography variant="body2">
                                     開発: やっしー

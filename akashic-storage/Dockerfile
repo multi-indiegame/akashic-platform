@@ -9,6 +9,7 @@ COPY schema/amflow/server/package.json schema/amflow/server/package.json
 COPY schema/runner-ipc/package.json schema/runner-ipc/package.json
 COPY schema/http/package.json schema/http/package.json
 COPY schema/persist/package.json schema/persist/package.json
+COPY schema/scoreboard/package.json schema/scoreboard/package.json
 COPY playlogClient-like/package.json playlogClient-like/package.json
 COPY agvw-like/package.json agvw-like/package.json
 COPY akashic-server/package.json akashic-server/package.json

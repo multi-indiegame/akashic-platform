@@ -66,6 +66,19 @@ export function GameEditor() {
                         >
                             部屋を作る
                         </Button>
+                        {game.hasScoreboard && (
+                            <Button
+                                variant="outlined"
+                                component={Link}
+                                href={`/game/${game.id}/stats/edit`}
+                                sx={{
+                                    borderColor: theme.palette.text.secondary,
+                                    color: theme.palette.text.secondary,
+                                }}
+                            >
+                                統計の設定
+                            </Button>
+                        )}
                         <Button
                             variant="contained"
                             size="large"

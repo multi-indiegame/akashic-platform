@@ -18,6 +18,7 @@ import {
     niconicommonsWorkUrl,
     clientLogCacheMaxEntries,
     drainRefreshInterval,
+    titleRankImageUrlPattern,
 } from "@/lib/server/custom-data";
 import { theme } from "@/lib/client/theme";
 import { AkashicProvider } from "@/components/akashic-provider";
@@ -70,6 +71,7 @@ export default async function RootLayout({
                             customFooterImageWidth={customFooterImageWidth}
                             niconicommonsWorkUrl={niconicommonsWorkUrl}
                             clientLogCacheMaxEntries={clientLogCacheMaxEntries}
+                            titleRankImageUrlPattern={titleRankImageUrlPattern}
                         >
                             <AuthProvider user={user}>
                                 <ThemeProvider theme={theme}>

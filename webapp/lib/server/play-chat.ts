@@ -36,6 +36,7 @@ export async function authorizePlayChat(playId: number): Promise<
           needsRenew: boolean;
           gameMasterId: string;
           gmUserId: string | null;
+          gameId: number;
       }
     | { ok: false; reason: PlayChatDenial }
 > {
@@ -47,6 +48,7 @@ export async function authorizePlayChat(playId: number): Promise<
             chatEnabled: true,
             gameMasterId: true,
             gmUserId: true,
+            content: { select: { gameId: true } },
         },
     });
     if (!play) {
@@ -78,6 +80,7 @@ export async function authorizePlayChat(playId: number): Promise<
         needsRenew: access.needsRenew,
         gameMasterId: play.gameMasterId,
         gmUserId: play.gmUserId,
+        gameId: play.content.gameId,
     };
 }
 
@@ -116,8 +119,7 @@ async function checkWindow(
 }
 
 export type RateLimitResult =
-    | { ok: true }
-    | { ok: false; retryAfterSeconds: number };
+    { ok: true } | { ok: false; retryAfterSeconds: number };
 
 export async function checkPlayChatRateLimit(
     playId: number,

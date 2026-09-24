@@ -526,6 +526,67 @@ export const openapi = {
                 },
             },
         },
+        "/internal/scoreboard": {
+            post: {
+                summary:
+                    "[internal] Receive in-progress scoreboard records from akashic-runner (X-Akashic-Internal-Token = SERVER_RUNNER_API_TOKEN)",
+                description:
+                    "akashic-runner が投稿スクリプトから受け取った記録を送出する。 差分ではなくそのプレイの記録の全体が毎回送られ、 akashic-server はメモリ上の内容を置き換える。 確定は終了処理でまとめて行うため、この呼び出しでは永続化しない。 どのコンテンツの記録かはリクエストから受け取らず、 akashic-server が playId から決める。",
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                $ref: "#/components/schemas/ScoreboardUpdateRequest",
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    "200": {
+                        description: "OK",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/OkResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Bad Request",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "401": {
+                        description: "Unauthorized",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                    "404": {
+                        description:
+                            "Not Found (unknown playId, or the play is already ending)",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
         "/internal/logs": {
             post: {
                 summary:
@@ -696,6 +757,11 @@ export const openapi = {
                     inviteHash: { type: "string" },
                     requireSignIn: { type: "boolean" },
                     chatEnabled: { type: "boolean" },
+                    scoreboard: {
+                        type: "boolean",
+                        description:
+                            "コンテンツが scoreboard を宣言しているか。 true のときだけ akashic-runner が投稿スクリプトに `g.game.external.scoreboard` を生やし、 記録を受け取る。",
+                    },
                 },
             },
             StartResponse: {
@@ -797,6 +863,49 @@ export const openapi = {
                         type: "string",
                         enum: ["runtime-error", "storage"],
                     },
+                },
+            },
+            ScoreboardUpdateRequest: {
+                type: "object",
+                required: ["playId", "seq", "records"],
+                properties: {
+                    playId: { type: "integer", format: "int32" },
+                    seq: {
+                        type: "integer",
+                        format: "int32",
+                        description:
+                            "プレイ内で単調に増える通し番号。 応答が失われた際の再送で古い内容が新しい内容を上書きしないよう、 akashic-server は前回以下の番号を破棄する。",
+                    },
+                    records: {
+                        $ref: "#/components/schemas/ScoreboardRecords",
+                    },
+                },
+            },
+            ScoreboardRecords: {
+                type: "object",
+                description:
+                    "そのプレイの記録の全体。 play はプレイそのものの記録、 players は in-game playerId ごとの記録。",
+                properties: {
+                    play: { $ref: "#/components/schemas/ScoreboardPatch" },
+                    players: {
+                        type: "object",
+                        additionalProperties: {
+                            $ref: "#/components/schemas/ScoreboardPatch",
+                        },
+                    },
+                },
+            },
+            ScoreboardPatch: {
+                type: "object",
+                description:
+                    "キーごとの値。 null はそのキーを記録しないことを表す。",
+                additionalProperties: {
+                    nullable: true,
+                    oneOf: [
+                        { type: "number" },
+                        { type: "string" },
+                        { type: "boolean" },
+                    ],
                 },
             },
         },
