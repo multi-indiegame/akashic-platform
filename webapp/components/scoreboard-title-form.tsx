@@ -20,6 +20,7 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
+import { ImageNotSupported } from "@mui/icons-material";
 import type { ScoreTitleRank } from "@multi-indiegame/persist-schema";
 import {
     TitleDefRow,
@@ -49,6 +50,13 @@ const RANKS: { value: ScoreTitleRank; label: string }[] = [
     { value: "SILVER", label: "シルバー" },
     { value: "GOLD", label: "ゴールド" },
 ];
+
+const RANK_COLOR: { [key in ScoreTitleRank]: string | undefined } = {
+    NONE: undefined,
+    BRONZE: "#9C6B3F",
+    SILVER: "#6E7A88",
+    GOLD: "#A8801C",
+};
 
 const emptyRow = (field: string): ConditionRow => ({
     target: "field",
@@ -123,32 +131,69 @@ export function ScoreboardTitleForm({
                                 >
                                     表示順 {def.priority}
                                 </Typography>
-                                <Avatar
-                                    src={def.imageURL}
-                                    alt=""
-                                    variant="rounded"
-                                    sx={{ width: 40, height: 40 }}
-                                />
-                                <Avatar
-                                    src={toRankImageURL(def.rank)}
-                                    alt=""
-                                    variant="rounded"
-                                    sx={{ width: 40, height: 40 }}
-                                />
+                                <Stack spacing={0}>
+                                    <Avatar
+                                        src={def.imageURL}
+                                        alt={
+                                            RANKS.find(
+                                                (r) => r.value === def.rank,
+                                            )?.label ?? def.rank
+                                        }
+                                        variant="rounded"
+                                        sx={{ width: 100, height: 100 }}
+                                        slotProps={{
+                                            img: {
+                                                style: {
+                                                    objectFit: "contain",
+                                                    width: "100%",
+                                                    height: "100%",
+                                                },
+                                            },
+                                        }}
+                                    >
+                                        <ImageNotSupported fontSize="large" />
+                                    </Avatar>
+                                    {def.rank !== "NONE" && (
+                                        <Avatar
+                                            src={toRankImageURL(def.rank)}
+                                            alt={def.rank}
+                                            variant="square"
+                                            sx={{ width: 100 }}
+                                            slotProps={{
+                                                img: {
+                                                    style: {
+                                                        objectFit: "contain",
+                                                        width: "100%",
+                                                        height: "100%",
+                                                    },
+                                                },
+                                            }}
+                                        >
+                                            <Chip
+                                                size="small"
+                                                label={
+                                                    RANKS.find(
+                                                        (r) =>
+                                                            r.value ===
+                                                            def.rank,
+                                                    )?.label ?? def.rank
+                                                }
+                                                sx={{
+                                                    color: RANK_COLOR[def.rank],
+                                                    borderColor:
+                                                        RANK_COLOR[def.rank],
+                                                }}
+                                            />
+                                        </Avatar>
+                                    )}
+                                </Stack>
                                 <Typography variant="subtitle1" component="h2">
                                     {def.name}
                                 </Typography>
-                                <Chip
-                                    size="small"
-                                    label={
-                                        RANKS.find((r) => r.value === def.rank)
-                                            ?.label ?? def.rank
-                                    }
-                                />
                                 {def.retired && (
                                     <Chip
                                         size="small"
-                                        color="default"
+                                        color="error"
                                         variant="outlined"
                                         label="配布を停止中"
                                     />
