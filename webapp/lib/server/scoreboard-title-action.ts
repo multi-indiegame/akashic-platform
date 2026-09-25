@@ -6,7 +6,7 @@ import {
     TitleCondition,
     normalizeCondition,
 } from "@multi-indiegame/scoreboard-schema";
-import { titleRanks } from "../types";
+import { RECORD_KEY_PATTERN, titleRanks } from "../types";
 import { publicContentBaseUrl } from "./akashic";
 import {
     deleteTitleImage,
@@ -21,11 +21,6 @@ import { logSafe } from "./log-safe";
 const NAME_MAX_LENGTH = 20;
 const IMAGE_CREDIT_MAX_LENGTH = 200;
 const CATEGORY_MAX_LENGTH = 32;
-
-/**
- * カテゴリ名の形式。記録のキーと同じにそろえる。
- */
-const CATEGORY_PATTERN = /^[a-zA-Z0-9_:-]{1,32}$/;
 
 const titleErrReasons = [
     "InvalidParams",
@@ -172,7 +167,7 @@ export async function saveTitleDef(
     }
     const categoryKey = input.categoryKey?.trim() ?? "";
     if (
-        !CATEGORY_PATTERN.test(categoryKey) ||
+        !RECORD_KEY_PATTERN.test(categoryKey) ||
         categoryKey.length > CATEGORY_MAX_LENGTH
     ) {
         return { ok: false, reason: "InvalidParams" };

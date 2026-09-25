@@ -24,6 +24,7 @@ import type {
     ScoreFieldSetting,
     ScoreValueType,
 } from "@multi-indiegame/scoreboard-schema";
+import { RECORD_KEY_PATTERN } from "@/lib/types";
 import {
     FieldCandidate,
     FormatEditorData,
@@ -580,14 +581,6 @@ function toMessage(reason: string) {
 }
 
 /**
- * キー名の形式。拡張ライブラリが課しているものと同じ。
- *
- * WHY: 打ち間違いはここで気づけるようにする。形式に合わないキーは、ゲームが
- * 送っても破棄されるので、設定しても意味を持たない。
- */
-const KEY_PATTERN = /^[a-zA-Z0-9_:-]{1,32}$/;
-
-/**
  * 設定と実際のデータの食い違いを知らせる。
  */
 function diagnose(
@@ -641,7 +634,7 @@ function AddKeyCard({
     const [valueType, setValueType] = useState<ScoreValueType>("number");
     const trimmed = key.trim();
     const duplicated = existing.includes(trimmed);
-    const invalid = trimmed.length > 0 && !KEY_PATTERN.test(trimmed);
+    const invalid = trimmed.length > 0 && !RECORD_KEY_PATTERN.test(trimmed);
     return (
         <Card variant="outlined">
             <CardContent>

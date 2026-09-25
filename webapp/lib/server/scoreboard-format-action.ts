@@ -11,20 +11,13 @@ import {
     playFieldSetting,
     rebuildChangedKeys,
 } from "@multi-indiegame/scoreboard-schema";
+import { RECORD_KEY_PATTERN } from "../types";
 import { getSignedInUser } from "./auth";
 import { isWriteBlocked } from "./drain-state";
 import { logSafe } from "./log-safe";
 
 const LABEL_MAX_LENGTH = 40;
 const UNIT_MAX_LENGTH = 8;
-
-/**
- * キー名の形式。
- *
- * WHY: 拡張ライブラリ（@multi-indiegame/akashic-scoreboard）が課している形式と
- * 同じ。
- */
-const RECORD_KEY_PATTERN = /^[a-zA-Z0-9_:-]{1,32}$/;
 
 const formatErrReasons = [
     "InvalidParams",

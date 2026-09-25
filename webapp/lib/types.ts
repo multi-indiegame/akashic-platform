@@ -508,6 +508,9 @@ export interface MyScoreboard {
 /** 統計の期間。歴代か、直近 30 日か */
 export type StatsPeriod = "all" | "recent" | "month";
 
+/** @multi-indiegame/akashic-scoreboard の RECORD_KEY_PATTERN */
+export const RECORD_KEY_PATTERN = /^[a-zA-Z0-9_:-]{1,32}$/;
+
 export interface ScoreEntry {
     rank: number;
     name: string;
