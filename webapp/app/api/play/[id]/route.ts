@@ -54,6 +54,7 @@ const playViewSelect = {
     content: {
         select: {
             icon: true,
+            scoreboard: true,
             game: {
                 select: {
                     id: true,
@@ -117,6 +118,7 @@ async function closedPlayResponse(
                 },
                 contentId: play.contentId,
                 isFavorited: await isFavorited(user, play.content.game.id),
+                hasScoreboard: play.content.scoreboard,
                 createdAt: play.content.game.createdAt,
                 updatedAt: play.content.game.updatedAt,
             },
@@ -242,6 +244,7 @@ export async function GET(
                     },
                     contentId: play.contentId,
                     isFavorited: await isFavorited(user, play.content.game.id),
+                    hasScoreboard: play.content.scoreboard,
                     createdAt: play.content.game.createdAt,
                     updatedAt: play.content.game.updatedAt,
                 },

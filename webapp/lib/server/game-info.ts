@@ -3,7 +3,6 @@ import { GameInfo } from "../types";
 import { internalContentBaseUrl, publicContentBaseUrl } from "./akashic";
 import { getAuth } from "./auth";
 import { isFavorited } from "./favorite";
-import { fetchContentExternal } from "./content-get-external";
 
 export async function fetchGameInfo(gameId: number) {
     const game = await prisma.game.findUniqueOrThrow({
@@ -29,6 +28,7 @@ export async function fetchGameInfo(gameId: number) {
                 select: {
                     id: true,
                     icon: true,
+                    scoreboard: true,
                     updatedAt: true,
                 },
                 orderBy: {
@@ -53,9 +53,7 @@ export async function fetchGameInfo(gameId: number) {
             name: def.name,
             credit: def.imageCredit!,
         })),
-        hasScoreboard: (await fetchContentExternal(contentId)).includes(
-            "scoreboard",
-        ),
+        hasScoreboard: game.versions[0].scoreboard,
         iconURL: `${publicContentBaseUrl}/${game.versions[0].id}/${game.versions[0].icon}`,
         publisher: {
             id: game.publisher.id,

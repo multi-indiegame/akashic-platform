@@ -5,7 +5,6 @@ import { publicContentBaseUrl } from "@/lib/server/akashic";
 import { fetchLicense } from "@/lib/server/game-info";
 import { getFavoriteList } from "@/lib/server/favorite";
 import { getAuth } from "@/lib/server/auth";
-import { fetchContentExternal } from "@/lib/server/content-get-external";
 
 export async function GET(req: NextRequest) {
     const keyword = req.nextUrl.searchParams.get("keyword") ?? undefined;
@@ -81,6 +80,7 @@ export async function GET(req: NextRequest) {
                 select: {
                     id: true,
                     icon: true,
+                    scoreboard: true,
                     updatedAt: true,
                 },
                 orderBy: {
@@ -90,27 +90,7 @@ export async function GET(req: NextRequest) {
             createdAt: true,
         },
     });
-    // WHY: scoreboard を宣言しているかの判定には game.json の取得が要る。
-    // 一覧すべてで引くと往復が増えるので、自分の投稿一覧を見ているときだけ
-    // 調べる（設定の入口を出すかを決めるのに要る）
     const auth = await getAuth();
-    const viewsOwnGames =
-        !!userId && auth?.authType === "oauth" && auth.id === userId;
-    const scoreboardGameIds = new Set<number>(
-        viewsOwnGames
-            ? (
-                  await Promise.all(
-                      result.map(async (game) =>
-                          (
-                              await fetchContentExternal(game.versions[0].id)
-                          ).includes("scoreboard")
-                              ? game.id
-                              : null,
-                      ),
-                  )
-              ).filter((id): id is number => id != null)
-            : [],
-    );
     const favoritedGameIds = new Set(
         await getFavoriteList(
             auth,
@@ -148,9 +128,7 @@ export async function GET(req: NextRequest) {
                         license: await fetchLicense(versions[0].id),
                         contentId: versions[0].id,
                         isFavorited: favoritedGameIds.has(id),
-                        ...(viewsOwnGames
-                            ? { hasScoreboard: scoreboardGameIds.has(id) }
-                            : {}),
+                        hasScoreboard: versions[0].scoreboard,
                         createdAt,
                         updatedAt: versions[0].updatedAt,
                     }) satisfies GameInfo,

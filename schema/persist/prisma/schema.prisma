@@ -129,10 +129,13 @@ model Game {
 }
 
 model Content {
-  id     Int    @id @default(autoincrement())
-  gameId Int
-  icon   String
-  plays  Play[]
+  id         Int     @id @default(autoincrement())
+  gameId     Int
+  icon       String
+  /// game.json で scoreboard を宣言しているか。
+  /// WHY: 参照のたびに game.json を取得すると往復が増えるため、投稿時に判定して持つ
+  scoreboard Boolean @default(false)
+  plays      Play[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

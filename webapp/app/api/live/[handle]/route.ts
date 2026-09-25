@@ -76,6 +76,7 @@ export async function GET(
                 content: {
                     select: {
                         icon: true,
+                        scoreboard: true,
                         game: {
                             select: {
                                 id: true,
@@ -224,6 +225,7 @@ export async function GET(
                             user,
                             play.content.game.id,
                         ),
+                        hasScoreboard: play.content.scoreboard,
                         createdAt: play.content.game.createdAt,
                         updatedAt: play.content.game.updatedAt,
                     },

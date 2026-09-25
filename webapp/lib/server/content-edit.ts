@@ -10,6 +10,7 @@ import {
 } from "../types";
 import {
     createContentRecord,
+    declaresScoreboard,
     deleteContentRecord,
     extractGameFile,
     deployGameZip,
@@ -217,6 +218,7 @@ export async function editContent(
             const newContentId = await createContentRecord(
                 param.gameId,
                 iconPath,
+                await declaresScoreboard(gameZip),
             );
             try {
                 await throwIfInvalidContentDir(newContentId);

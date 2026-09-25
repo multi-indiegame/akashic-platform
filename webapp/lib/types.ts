@@ -51,13 +51,8 @@ export interface GameInfo {
     isFavorited: boolean;
     /** 称号の画像に添えるクレジット。ゲームのクレジットと一緒に出す */
     titleCredits?: { name: string; credit: string }[];
-    /**
-     * コンテンツが scoreboard を宣言しているか。統計の入口を出すかを決める。
-     *
-     * WHY: 判定には game.json の取得が要るので、一覧では埋めない。1 件ずつ
-     * 取りに行くと、並ぶゲームの数だけ往復が増えるため。
-     */
-    hasScoreboard?: boolean;
+    /** コンテンツが scoreboard を宣言しているか。統計の入口を出すかを決める。 */
+    hasScoreboard: boolean;
     createdAt: Date;
     updatedAt: Date;
 }

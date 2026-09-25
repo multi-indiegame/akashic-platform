@@ -10,7 +10,6 @@ import {
     withAkashicServerAuth,
 } from "./akashic";
 import { getAuth } from "./auth";
-import { fetchContentExternal } from "./content-get-external";
 import { gamePlayerId } from "./game-player-id";
 import { grantPlayOwner } from "./play-owner-token";
 import { isWriteBlocked } from "./drain-state";
@@ -119,12 +118,13 @@ export async function registerPlay({
                 gameMasterId,
                 playerUserId: gmUserId,
                 playerName,
-                // 宣言していないコンテンツには external を生やさない。
-                // 生やす・生やさないの判断材料を持っているのは、game.json を
-                // 読んでいるこちら側
-                scoreboard: (await fetchContentExternal(contentId)).includes(
-                    "scoreboard",
-                ),
+                scoreboard:
+                    (
+                        await prisma.content.findUnique({
+                            where: { id: contentId },
+                            select: { scoreboard: true },
+                        })
+                    )?.scoreboard ?? false,
                 playName: !!playName
                     ? playName
                     : await fetchDefaultPlayName(contentId),
