@@ -287,24 +287,28 @@ async function applyRecord(param: ApplyRecordParameterObject): Promise<void> {
             // 最後に確定した名前で上書きする
             update: { userId: param.userId, guestName: param.guestName },
         });
-        await tx.scorePlayCount.upsert({
-            where: {
-                gameId_subjectKey: {
+        // WHY: 遊んだ回数はサインイン利用者だけ数える。ゲストは identity が
+        // Cookie 依存で続かない
+        if (param.userId) {
+            await tx.scorePlayCount.upsert({
+                where: {
+                    gameId_subjectKey: {
+                        gameId: param.gameId,
+                        subjectKey: param.subjectKey,
+                    },
+                },
+                create: {
                     gameId: param.gameId,
                     subjectKey: param.subjectKey,
+                    count: 1,
+                    lastPlayedAt: param.endedAt,
                 },
-            },
-            create: {
-                gameId: param.gameId,
-                subjectKey: param.subjectKey,
-                count: 1,
-                lastPlayedAt: param.endedAt,
-            },
-            update: {
-                count: { increment: 1 },
-                lastPlayedAt: param.endedAt,
-            },
-        });
+                update: {
+                    count: { increment: 1 },
+                    lastPlayedAt: param.endedAt,
+                },
+            });
+        }
         for (const value of param.values) {
             await applyValue(tx, param, value, param.setting(value.key));
         }

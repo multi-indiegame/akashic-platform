@@ -611,6 +611,8 @@ model ScoreBest {
 }
 
 /// 遊んだ回数ランキング（歴代）。ScoreBest と同じく消さない。
+///
+/// WHY: サインイン利用者（`u:`）だけを持つ。ゲストは identity が Cookie 依存
 model ScorePlayCount {
   id           Int      @id @default(autoincrement())
   gameId       Int

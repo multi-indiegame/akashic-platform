@@ -535,7 +535,9 @@ async function buildPlayRanking(
                       by: ["subjectKey"],
                       where: {
                           gameId,
-                          subjectKey: { not: null },
+                          // WHY: 歴代（ScorePlayCount）と揃え、サインイン
+                          // 利用者だけ数える
+                          subjectKey: { startsWith: "u:" },
                           endedAt: { gte: since() },
                       },
                       _count: { _all: true },

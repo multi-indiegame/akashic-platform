@@ -239,7 +239,8 @@ async function buildArchive(
         by: ["subjectKey"],
         where: {
             gameId,
-            subjectKey: { not: null },
+            // WHY: 歴代（ScorePlayCount）と揃え、サインイン利用者だけ数える
+            subjectKey: { startsWith: "u:" },
             endedAt: { gte: from, lt: to },
         },
         _count: { _all: true },
