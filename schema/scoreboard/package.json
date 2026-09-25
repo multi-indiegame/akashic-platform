@@ -1,6 +1,7 @@
 {
   "name": "@multi-indiegame/scoreboard-schema",
   "version": "1.0.0",
+  "private": true,
   "description": "記録の掲載可否を決める突き合わせ。akashic-server と webapp が共有する",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
