@@ -117,6 +117,12 @@ export function ScoreboardTitleForm({
                                 spacing={1}
                                 sx={{ alignItems: "center", flexWrap: "wrap" }}
                             >
+                                <Typography
+                                    variant="caption"
+                                    color="textSecondary"
+                                >
+                                    表示順 {def.priority}
+                                </Typography>
                                 <Avatar
                                     src={def.imageURL}
                                     alt=""
