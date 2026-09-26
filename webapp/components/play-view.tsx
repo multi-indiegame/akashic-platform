@@ -32,6 +32,7 @@ import {
     Fullscreen,
     FullscreenExit,
     HelpOutlined,
+    Leaderboard,
     Lock,
     NoAccounts,
     OpenInNew,
@@ -2028,10 +2029,32 @@ export function PlayView({
                                 </Stack>
                                 <Stack
                                     direction="row"
+                                    useFlexGap
+                                    spacing={1}
                                     sx={{
                                         justifyContent: "flex-end",
+                                        flexWrap: "wrap",
                                     }}
                                 >
+                                    {game.hasScoreboard && (
+                                        <Button
+                                            component={Link}
+                                            href={`/game/${game.id}/stats`}
+                                            target="_blank"
+                                            variant="outlined"
+                                            startIcon={<Leaderboard />}
+                                            endIcon={<OpenInNew />}
+                                            sx={{
+                                                borderColor:
+                                                    theme.palette.text
+                                                        .secondary,
+                                                color: theme.palette.text
+                                                    .secondary,
+                                            }}
+                                        >
+                                            統計を見る
+                                        </Button>
+                                    )}
                                     <Button
                                         component={Link}
                                         href={`/game/${game.id}#feedback`}

@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import {
     Alert,
     Avatar,
+    Box,
     Button,
     Card,
     CardContent,
@@ -25,9 +26,11 @@ import {
     VideocamOff,
     Add,
     InfoOutlined,
+    Leaderboard,
     RateReview,
 } from "@mui/icons-material";
 import { GameInfo, User } from "@/lib/types";
+import { verticalButtonSx } from "@/lib/client/theme";
 import { UserInline } from "./user-inline";
 import { CreditPanel } from "./credit-panel";
 import { renderTextWithLinks } from "./text-with-links";
@@ -370,11 +373,17 @@ export function ClosedPlayView({
                                     />
                                 </Stack>
                             </Stack>
-                            <Stack
-                                direction={{ xs: "column", sm: "row" }}
-                                spacing={1}
+                            <Box
                                 sx={{
-                                    justifyContent: "flex-end",
+                                    display: { xs: "grid", md: "flex" },
+                                    gridTemplateColumns: {
+                                        xs: "1fr",
+                                        sm: "repeat(2, 1fr)",
+                                    },
+                                    alignItems: { md: "center" },
+                                    justifyContent: { md: "flex-end" },
+                                    gap: 1,
+                                    ...verticalButtonSx,
                                 }}
                             >
                                 <Button
@@ -402,6 +411,21 @@ export function ClosedPlayView({
                                 >
                                     詳細
                                 </Button>
+                                {game.hasScoreboard && (
+                                    <Button
+                                        startIcon={<Leaderboard />}
+                                        component={Link}
+                                        href={`/game/${game.id}/stats`}
+                                        variant="outlined"
+                                        sx={{
+                                            borderColor:
+                                                theme.palette.text.secondary,
+                                            color: theme.palette.text.secondary,
+                                        }}
+                                    >
+                                        統計を見る
+                                    </Button>
+                                )}
                                 <Button
                                     startIcon={<RateReview />}
                                     component={Link}
@@ -415,7 +439,7 @@ export function ClosedPlayView({
                                 >
                                     フィードバックを送る
                                 </Button>
-                            </Stack>
+                            </Box>
                         </Stack>
                     </CardContent>
                 </Card>
