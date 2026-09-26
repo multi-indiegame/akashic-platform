@@ -29,7 +29,17 @@ import {
     TITLE_RANK_COLOR,
     titleRankLabel,
 } from "@/lib/title-rank";
-import { TitleFieldNames, describeConditions } from "@/lib/title-condition";
+import {
+    TitleFieldNames,
+    TitleKeyTypes,
+    conditionWarning,
+    describeConditions,
+} from "@/lib/title-condition";
+import {
+    describeTypeCounts,
+    presentTypes,
+    typeLabel,
+} from "@/lib/score-value-type";
 import {
     TitleDefRow,
     TitleEditorData,
@@ -204,6 +214,24 @@ export function ScoreboardTitleForm({
                                 {def.conditionText ??
                                     describe(def, data.fields)}
                             </Typography>
+                            {def.condition.all.flatMap((condition, index) => {
+                                const warning = conditionWarning(
+                                    condition,
+                                    data.keyTypes,
+                                    data.fields,
+                                );
+                                return warning
+                                    ? [
+                                          <Alert
+                                              key={index}
+                                              variant="outlined"
+                                              severity="warning"
+                                          >
+                                              {warning}
+                                          </Alert>,
+                                      ]
+                                    : [];
+                            })}
                             {def.conditionHidden && (
                                 <Chip
                                     size="small"
@@ -270,6 +298,7 @@ export function ScoreboardTitleForm({
                     gameId={gameId}
                     keys={data.keys}
                     fields={data.fields}
+                    keyTypes={data.keyTypes}
                     def={editing === "new" ? undefined : editing}
                     onClose={() => setEditing(undefined)}
                 />
@@ -322,12 +351,14 @@ function TitleDialog({
     gameId,
     keys,
     fields,
+    keyTypes,
     def,
     onClose,
 }: {
     gameId: number;
     keys: string[];
     fields: TitleFieldNames;
+    keyTypes: TitleKeyTypes;
     def?: TitleDefRow;
     onClose: () => void;
 }) {
@@ -567,155 +598,192 @@ function TitleDialog({
                     </Typography>
                     <Typography variant="subtitle2">付与の条件</Typography>
                     {rows.map((row, index) => (
-                        <Stack
-                            key={index}
-                            direction={{ xs: "column", sm: "row" }}
-                            spacing={1}
-                            sx={{ alignItems: { sm: "center" } }}
-                        >
-                            <TextField
-                                select
-                                label="対象"
-                                size="small"
-                                value={row.target}
-                                sx={{ minWidth: 140 }}
-                                onChange={(e) =>
-                                    update(index, {
-                                        target: e.target
-                                            .value as ConditionRow["target"],
-                                    })
-                                }
+                        <Stack key={index} spacing={1}>
+                            <Stack
+                                direction={{ xs: "column", sm: "row" }}
+                                spacing={1}
+                                sx={{ alignItems: { sm: "center" } }}
                             >
-                                <MenuItem value="field">記録のキー</MenuItem>
-                                <MenuItem value="playCount">
-                                    遊んだ回数
-                                </MenuItem>
-                            </TextField>
-                            {row.target === "field" && (
-                                <>
-                                    <TextField
-                                        select
-                                        label="キー"
-                                        size="small"
-                                        value={row.field}
-                                        sx={{ minWidth: 180 }}
-                                        onChange={(e) =>
-                                            update(index, {
-                                                field: e.target.value,
-                                            })
-                                        }
-                                    >
-                                        {keys.map((key) => (
-                                            <MenuItem key={key} value={key}>
-                                                {key}
-                                            </MenuItem>
-                                        ))}
-                                    </TextField>
-                                    <TextField
-                                        select
-                                        label="見る値"
-                                        size="small"
-                                        value={row.valueKind}
-                                        sx={{ minWidth: 150 }}
-                                        onChange={(e) =>
-                                            update(index, {
-                                                valueKind: e.target
-                                                    .value as ConditionRow["valueKind"],
-                                            })
-                                        }
-                                    >
-                                        <MenuItem value="number">
-                                            数として比べる
-                                        </MenuItem>
-                                        <MenuItem value="true">
-                                            達成していれば付与する
-                                        </MenuItem>
-                                    </TextField>
-                                </>
-                            )}
-                            {row.valueKind === "number" && (
-                                <>
-                                    {row.target === "field" && (
+                                <TextField
+                                    select
+                                    label="対象"
+                                    size="small"
+                                    value={row.target}
+                                    sx={{ minWidth: 140 }}
+                                    onChange={(e) =>
+                                        update(index, {
+                                            target: e.target
+                                                .value as ConditionRow["target"],
+                                        })
+                                    }
+                                >
+                                    <MenuItem value="field">
+                                        記録のキー
+                                    </MenuItem>
+                                    <MenuItem value="playCount">
+                                        遊んだ回数
+                                    </MenuItem>
+                                </TextField>
+                                {row.target === "field" && (
+                                    <>
                                         <TextField
                                             select
-                                            label="集計"
+                                            label="キー"
                                             size="small"
-                                            value={row.of}
-                                            sx={{ minWidth: 130 }}
+                                            value={row.field}
+                                            sx={{ minWidth: 180 }}
+                                            slotProps={{
+                                                select: {
+                                                    // WHY: 候補には値の種類を添えるが、
+                                                    // 選んだ後の欄はキー名だけにする
+                                                    renderValue: (value) =>
+                                                        String(value),
+                                                },
+                                            }}
                                             onChange={(e) =>
                                                 update(index, {
-                                                    of: e.target
-                                                        .value as ConditionRow["of"],
+                                                    field: e.target.value,
                                                 })
                                             }
                                         >
-                                            <MenuItem value="best">
-                                                最良値
+                                            {keys.map((key) => (
+                                                <MenuItem key={key} value={key}>
+                                                    <Stack
+                                                        direction="row"
+                                                        spacing={1}
+                                                        sx={{
+                                                            alignItems:
+                                                                "baseline",
+                                                        }}
+                                                    >
+                                                        <span>{key}</span>
+                                                        <Typography
+                                                            variant="caption"
+                                                            color="textSecondary"
+                                                        >
+                                                            {keyTypeLabel(
+                                                                keyTypes[key],
+                                                            )}
+                                                        </Typography>
+                                                    </Stack>
+                                                </MenuItem>
+                                            ))}
+                                        </TextField>
+                                        <TextField
+                                            select
+                                            label="見る値"
+                                            size="small"
+                                            value={row.valueKind}
+                                            sx={{ minWidth: 150 }}
+                                            onChange={(e) =>
+                                                update(index, {
+                                                    valueKind: e.target
+                                                        .value as ConditionRow["valueKind"],
+                                                })
+                                            }
+                                        >
+                                            <MenuItem value="number">
+                                                数として比べる
                                             </MenuItem>
-                                            <MenuItem value="latest">
-                                                最新の値
-                                            </MenuItem>
-                                            <MenuItem value="sum">
-                                                合計
-                                            </MenuItem>
-                                            <MenuItem value="count">
-                                                回数
+                                            <MenuItem value="true">
+                                                達成していれば付与する
                                             </MenuItem>
                                         </TextField>
-                                    )}
-                                    <TextField
-                                        select
-                                        label="条件"
+                                    </>
+                                )}
+                                {row.valueKind === "number" && (
+                                    <>
+                                        {row.target === "field" && (
+                                            <TextField
+                                                select
+                                                label="集計"
+                                                size="small"
+                                                value={row.of}
+                                                sx={{ minWidth: 130 }}
+                                                onChange={(e) =>
+                                                    update(index, {
+                                                        of: e.target
+                                                            .value as ConditionRow["of"],
+                                                    })
+                                                }
+                                            >
+                                                <MenuItem value="best">
+                                                    最良値
+                                                </MenuItem>
+                                                <MenuItem value="latest">
+                                                    最新の値
+                                                </MenuItem>
+                                                <MenuItem value="sum">
+                                                    合計
+                                                </MenuItem>
+                                                <MenuItem value="count">
+                                                    回数
+                                                </MenuItem>
+                                            </TextField>
+                                        )}
+                                        <TextField
+                                            select
+                                            label="条件"
+                                            size="small"
+                                            value={row.op}
+                                            sx={{ minWidth: 110 }}
+                                            onChange={(e) =>
+                                                update(index, {
+                                                    op: e.target
+                                                        .value as ConditionRow["op"],
+                                                })
+                                            }
+                                        >
+                                            <MenuItem value=">=">以上</MenuItem>
+                                            <MenuItem value=">">
+                                                より大きい
+                                            </MenuItem>
+                                            <MenuItem value="<=">以下</MenuItem>
+                                            <MenuItem value="<">
+                                                より小さい
+                                            </MenuItem>
+                                            <MenuItem value="==">
+                                                ちょうど
+                                            </MenuItem>
+                                        </TextField>
+                                        <TextField
+                                            label="値"
+                                            size="small"
+                                            type="number"
+                                            value={row.value}
+                                            sx={{ minWidth: 110 }}
+                                            onChange={(e) =>
+                                                update(index, {
+                                                    value: Number(
+                                                        e.target.value,
+                                                    ),
+                                                })
+                                            }
+                                        />
+                                    </>
+                                )}
+                                {rows.length > 1 && (
+                                    <Button
                                         size="small"
-                                        value={row.op}
-                                        sx={{ minWidth: 110 }}
-                                        onChange={(e) =>
-                                            update(index, {
-                                                op: e.target
-                                                    .value as ConditionRow["op"],
-                                            })
+                                        variant="outlined"
+                                        color="error"
+                                        onClick={() =>
+                                            setRows((current) =>
+                                                current.filter(
+                                                    (_, i) => i !== index,
+                                                ),
+                                            )
                                         }
                                     >
-                                        <MenuItem value=">=">以上</MenuItem>
-                                        <MenuItem value=">">
-                                            より大きい
-                                        </MenuItem>
-                                        <MenuItem value="<=">以下</MenuItem>
-                                        <MenuItem value="<">
-                                            より小さい
-                                        </MenuItem>
-                                        <MenuItem value="==">ちょうど</MenuItem>
-                                    </TextField>
-                                    <TextField
-                                        label="値"
-                                        size="small"
-                                        type="number"
-                                        value={row.value}
-                                        sx={{ minWidth: 110 }}
-                                        onChange={(e) =>
-                                            update(index, {
-                                                value: Number(e.target.value),
-                                            })
-                                        }
-                                    />
-                                </>
-                            )}
-                            {rows.length > 1 && (
-                                <Button
-                                    size="small"
-                                    variant="outlined"
-                                    color="error"
-                                    onClick={() =>
-                                        setRows((current) =>
-                                            current.filter(
-                                                (_, i) => i !== index,
-                                            ),
-                                        )
-                                    }
-                                >
-                                    削除
-                                </Button>
-                            )}
+                                        削除
+                                    </Button>
+                                )}
+                            </Stack>
+                            <ConditionWarning
+                                row={row}
+                                keyTypes={keyTypes}
+                                fields={fields}
+                            />
                         </Stack>
                     ))}
                     <Button
@@ -816,6 +884,41 @@ function TitleDialog({
             </DialogContent>
         </Dialog>
     );
+}
+
+function ConditionWarning({
+    row,
+    keyTypes,
+    fields,
+}: {
+    row: ConditionRow;
+    keyTypes: TitleKeyTypes;
+    fields: TitleFieldNames;
+}) {
+    const warning = conditionWarning(toCondition(row), keyTypes, fields);
+    if (!warning) {
+        return null;
+    }
+    return (
+        <Alert variant="outlined" severity="warning">
+            {warning}
+        </Alert>
+    );
+}
+
+function keyTypeLabel(keyType: TitleKeyTypes[string] | undefined): string {
+    if (!keyType) {
+        return "";
+    }
+    const types = presentTypes(keyType.counts);
+    if (types.length === 0) {
+        return keyType.declared
+            ? `${typeLabel(keyType.declared)}・記録なし`
+            : "記録なし";
+    }
+    return types.length > 1
+        ? `混在（${describeTypeCounts(keyType.counts)}）`
+        : typeLabel(types[0]);
 }
 
 function toCondition(row: ConditionRow) {

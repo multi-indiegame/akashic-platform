@@ -27,6 +27,11 @@ import type {
 import { RECORD_KEY_PATTERN } from "@/lib/types";
 import { affectsTopEntries } from "@/lib/scoreboard-rebuild";
 import {
+    describeTypeCounts,
+    presentTypes,
+    typeLabel,
+} from "@/lib/score-value-type";
+import {
     FieldCandidate,
     FormatEditorData,
     saveScoreboardFormat,
@@ -341,18 +346,16 @@ function FieldCard({
     /** プレイ自体の記録の設定か。出せる選択肢が違う */
     forPlayRecord?: boolean;
 }) {
-    // WHY: 記録が届いていないキーは、投稿者が申告した種類で選択肢を出す。
-    // 届いていれば実際の値の種類を優先する（申告の取り違えに引きずられない）
-    const type =
-        candidate.recordCount > 0
-            ? candidate.type
-            : (setting.valueType ?? candidate.type);
+    const mixed = presentTypes(candidate.counts).length > 1;
+    // WHY: 投稿者が種類を選んでいれば、集計もその種類の値で行う。画面も同じ
+    // 種類で出し、実際の値と食い違うときは警告で直してもらう
+    const type = setting.valueType ?? candidate.type;
     const isNumber = type === "number";
     const isBoolean = type === "boolean";
     const byRate = isBoolean && setting.aggregate === "rate";
     // WHY: 真偽値の場合でも割合でなく回数で出すときは単位を付けられるように
     const showUnit = isNumber || (isBoolean && !byRate);
-    const diagnosis = diagnose(candidate, setting);
+    const diagnoses = diagnose(candidate, setting, type);
     const rebuilds = !!saved && affectsTopEntries(saved, setting);
     // 申告した種類と、実際に登録されている種類が食い違っているか
     const mismatched =
@@ -374,10 +377,12 @@ function FieldCard({
                         <Typography variant="caption" color="textSecondary">
                             {candidate.recordCount === 0
                                 ? `${typeLabel(candidate.setting.valueType ?? candidate.type)}・記録なし`
-                                : `${typeLabel(candidate.type)}・${candidate.recordCount} 件`}
+                                : mixed
+                                  ? `混在（${describeTypeCounts(candidate.counts)}）`
+                                  : `${typeLabel(candidate.type)}・${candidate.recordCount} 件`}
                         </Typography>
                     </Stack>
-                    {(candidate.declaredOnly || mismatched) && (
+                    {(candidate.declaredOnly || mismatched || mixed) && (
                         // WHY: 記録が登録される前に決めた種類にあとから間違いに
                         // 気づいた際、修正できるようにする
                         <TextField
@@ -387,10 +392,12 @@ function FieldCard({
                             value={setting.valueType ?? candidate.type}
                             sx={{ width: { sm: 160 } }}
                             onChange={(e) =>
-                                onChange({
-                                    valueType: e.target
-                                        .value as ScoreFieldSetting["valueType"],
-                                })
+                                onChange(
+                                    changeValueType(
+                                        setting,
+                                        e.target.value as ScoreValueType,
+                                    ),
+                                )
                             }
                         >
                             <MenuItem value="number">数値</MenuItem>
@@ -558,12 +565,16 @@ function FieldCard({
                             label="統計ページに出さない"
                         />
                     </Stack>
-                    {diagnosis && (
-                        <Alert variant="outlined" severity={diagnosis.severity}>
+                    {diagnoses.map((diagnosis) => (
+                        <Alert
+                            key={diagnosis.text}
+                            variant="outlined"
+                            severity={diagnosis.severity}
+                        >
                             {diagnosis.text}
                         </Alert>
-                    )}
-                    {candidate.type === "string" && (
+                    ))}
+                    {type === "string" && (
                         <Alert variant="outlined" severity="info">
                             文字列の記録は統計ページに表示されません。
                         </Alert>
@@ -595,17 +606,6 @@ function booleanDescription(forPlayRecord: boolean, byRate: boolean) {
     );
 }
 
-function typeLabel(type: FieldCandidate["type"]) {
-    switch (type) {
-        case "number":
-            return "数値";
-        case "boolean":
-            return "真偽値";
-        case "string":
-            return "文字列";
-    }
-}
-
 function toMessage(reason: string) {
     switch (reason) {
         case "Unauthorized":
@@ -623,44 +623,75 @@ function toMessage(reason: string) {
 
 /**
  * 設定と実際のデータの食い違いを知らせる。
+ *
+ * WHY: 型の混在は申告の有無に関わらず知らせる。記録が先に届いたキーには申告が
+ * 無く、そこでコンテンツ側の取り違えが起きても気づけないため。
  */
 function diagnose(
     candidate: FieldCandidate,
     setting: ScoreFieldSetting,
-): { severity: "info" | "warning"; text: string } | undefined {
+    /** 設定項目をどの種類として出しているか */
+    shownAs: ScoreValueType,
+): { severity: "info" | "warning"; text: string }[] {
     if (candidate.recordCount === 0) {
-        return {
-            severity: "info",
-            text: "このキーの記録はまだ登録されていません。キー名が合っているか確かめてください。",
-        };
+        return [
+            {
+                severity: "info",
+                text: "このキーの記録はまだ登録されていません。キー名が合っているか確かめてください。",
+            },
+        ];
     }
+    const result: { severity: "info" | "warning"; text: string }[] = [];
+    const mixed = presentTypes(candidate.counts).length > 1;
     if (!candidate.configured) {
-        return {
+        result.push({
             severity: "warning",
-            text: `記録は登録されていますが、見せ方が設定されていません。登録されている値は${typeLabel(candidate.type)}です。`,
-        };
+            text: mixed
+                ? "記録は登録されていますが、見せ方が設定されていません。"
+                : `記録は登録されていますが、見せ方が設定されていません。登録されている値は${typeLabel(candidate.type)}です。`,
+        });
     }
     const declared = setting.valueType;
-    if (!declared) {
-        return undefined;
-    }
-    const matched = candidate.counts[declared] ?? 0;
-    if (matched === candidate.recordCount) {
-        return undefined;
-    }
-    if (matched === 0) {
-        return {
+    const missingDeclared = !!declared && candidate.counts[declared] === 0;
+    if (mixed) {
+        result.push({
             severity: "warning",
-            text: `${typeLabel(declared)}として設定されていますが、登録されているのは${typeLabel(candidate.type)}だけです。${typeLabel(candidate.type)}へ変更してください。`,
-        };
+            text:
+                (missingDeclared
+                    ? `${typeLabel(declared)}として設定されていますが、${typeLabel(declared)}は登録されていません。`
+                    : "") +
+                `値の種類が混在しています（${describeTypeCounts(candidate.counts)}）。ゲーム側で登録する値の種類をそろえてください。` +
+                (declared
+                    ? `設定項目は選んだ${typeLabel(shownAs)}として表示しています。`
+                    : `設定項目は件数の多い${typeLabel(shownAs)}として表示しています。値の種類を選ぶと変えられます。`),
+        });
+    } else if (missingDeclared) {
+        result.push({
+            severity: "warning",
+            text: `${typeLabel(declared)}として設定されていますが、登録されているのは${typeLabel(candidate.type)}だけです。このままでは統計ページに表示されません。${typeLabel(candidate.type)}へ変更してください。`,
+        });
     }
-    const others = (["number", "boolean", "string"] as ScoreValueType[])
-        .filter((type) => type !== declared && candidate.counts[type] > 0)
-        .map((type) => `${typeLabel(type)} ${candidate.counts[type]} 件`)
-        .join("、");
+    return result;
+}
+
+/**
+ * WHY: 代表値の選択肢は種類ごとに違う。前の種類の代表値が残ると、画面に出ない
+ * 引き方で集計されてしまうので、新しい種類で選べるものへ戻す。
+ */
+function changeValueType(
+    setting: ScoreFieldSetting,
+    valueType: ScoreValueType,
+): Partial<ScoreFieldSetting> {
+    const choices: ScoreFieldSetting["aggregate"][] =
+        valueType === "boolean"
+            ? ["count", "rate"]
+            : ["best", "latest", "sum", "count"];
     return {
-        severity: "warning",
-        text: `値の種類が混在しています。${typeLabel(declared)} ${matched} 件のほかに ${others} 登録されています。ゲーム側で登録する値の種類をそろえてください。`,
+        valueType,
+        ...(choices.includes(setting.aggregate) ? {} : { aggregate: "count" }),
+        // WHY: 真偽値には 1 プレイ 1 件のランキングが無い。数値の上位 N 件が
+        // 残ったままだと、真偽値を選んでも数値のランキングが出てしまう
+        ...(valueType === "boolean" ? { dedupe: "best" } : {}),
     };
 }
 

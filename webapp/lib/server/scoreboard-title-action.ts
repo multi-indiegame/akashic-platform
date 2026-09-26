@@ -20,7 +20,11 @@ import {
 import { getSignedInUser } from "./auth";
 import { isWriteBlocked } from "./drain-state";
 import { logSafe } from "./log-safe";
-import { TitleFieldNames, describeConditions } from "../title-condition";
+import {
+    TitleFieldNames,
+    TitleKeyTypes,
+    describeConditions,
+} from "../title-condition";
 
 const NAME_MAX_LENGTH = 20;
 const IMAGE_CREDIT_MAX_LENGTH = 200;
@@ -78,6 +82,8 @@ export interface TitleEditorData {
     keys: string[];
     /** キーの見出しと単位。条件をユーザー向けに言い換えるために使う */
     fields: TitleFieldNames;
+    /** キーの値の種類。条件が型に合わないときに知らせるために使う */
+    keyTypes: TitleKeyTypes;
 }
 
 function toFieldNames(
@@ -137,10 +143,10 @@ export async function fetchTitleEditorData(
                 _count: { select: { titles: true } },
             },
         }),
-        prisma.scoreValue.findMany({
+        prisma.scoreValue.groupBy({
+            by: ["key"],
             where: { gameId, record: { playerId: { not: null } } },
-            distinct: ["key"],
-            select: { key: true },
+            _count: { numValue: true, strValue: true, boolValue: true },
             orderBy: { key: "asc" },
         }),
         fetchFormat(gameId),
@@ -176,6 +182,22 @@ export async function fetchTitleEditorData(
         })),
         keys: allKeys,
         fields: toFieldNames(format, [...allKeys, ...conditionKeys]),
+        keyTypes: Object.fromEntries(
+            [...new Set([...allKeys, ...conditionKeys])].map((key) => {
+                const row = keys.find((k) => k.key === key);
+                return [
+                    key,
+                    {
+                        counts: {
+                            number: row?._count.numValue ?? 0,
+                            string: row?._count.strValue ?? 0,
+                            boolean: row?._count.boolValue ?? 0,
+                        },
+                        declared: fieldSetting(format, key).valueType,
+                    },
+                ];
+            }),
+        ),
     };
 }
 

@@ -2,6 +2,7 @@ import { prisma } from "@multi-indiegame/persist-schema";
 import { publicContentBaseUrl } from "./akashic";
 import { fetchFormat, fieldSetting } from "@multi-indiegame/scoreboard-schema";
 import { MyGameStats, MyScoreboard, MyScoreRecord } from "../types";
+import { isShownOnStats } from "../score-value-type";
 import { fetchTitles } from "./scoreboard-title";
 
 /** 一覧に並べるゲームの数 */
@@ -113,7 +114,7 @@ async function fetchMyRecords(
     const records: MyScoreRecord[] = [];
     for (const best of bests) {
         const setting = fieldSetting(format, best.key);
-        if (setting.hidden) {
+        if (!isShownOnStats(setting)) {
             continue;
         }
         const value = representative(best, setting);
@@ -184,11 +185,10 @@ function representative(
         case "sum":
             return row.count > 0 ? row.sum : null;
         case "count":
-            if (row.count > 0) {
-                return row.count;
+            if (ranksByTrueCount(row, setting)) {
+                return row.trueCount > 0 ? row.trueCount : null;
             }
-            // WHY: 数値を持たないキーでは、達成した回数を「回数」とみなす
-            return row.trueCount > 0 ? row.trueCount : null;
+            return row.count > 0 ? row.count : null;
         case "rate":
             return null;
     }
@@ -199,7 +199,15 @@ function ranksByTrueCount(
     row: BestRow,
     setting: ReturnType<typeof fieldSetting>,
 ): boolean {
-    return setting.aggregate === "count" && row.count === 0;
+    if (setting.aggregate !== "count") {
+        return false;
+    }
+    // WHY: 種類が混在したキーは、投稿者が選んだ種類の値だけを数える。
+    // 選んでいなければ、数値を持たないキーで達成した回数を「回数」とみなす
+    if (setting.valueType) {
+        return setting.valueType === "boolean";
+    }
+    return row.count === 0;
 }
 
 function representativeAt(

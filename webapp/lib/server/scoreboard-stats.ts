@@ -13,6 +13,7 @@ import {
     fieldSetting,
     playFieldSetting,
 } from "@multi-indiegame/scoreboard-schema";
+import { isShownOnStats } from "../score-value-type";
 import { fetchMonthlyArchive, listArchivedMonths } from "./scoreboard-archive";
 
 /** 直近としてさかのぼる日数。月初にランキングが空にならないようローリングで持つ */
@@ -54,7 +55,7 @@ export async function fetchGameStats(
     const sections: ScoreSection[] = [];
     for (const key of keys) {
         const setting = fieldSetting(format, key);
-        if (setting.hidden) {
+        if (!isShownOnStats(setting)) {
             continue;
         }
         const section =
@@ -100,7 +101,7 @@ async function buildPlayRecords(
     const records: ScoreTotal[] = [];
     for (const total of totals) {
         const setting = playFieldSetting(format, total.key);
-        if (setting.hidden) {
+        if (!isShownOnStats(setting)) {
             continue;
         }
         const record = toPlayRecord(total.key, total, setting);
@@ -449,7 +450,8 @@ function buildSection(
             (acc, row) => acc + row.count,
             0,
         );
-        const byTrueCount = numericCount === 0;
+        const byTrueCount =
+            setting.valueType === "boolean" || numericCount === 0;
         const sum = aggregates.reduce((acc, row) => acc + row.sum, 0);
         return {
             key,
@@ -507,8 +509,12 @@ function representative(
         case "sum":
             return row.count > 0 ? row.sum : null;
         case "count":
-            if (row.count > 0) {
-                return row.count;
+            // WHY: 種類が混在したキーは、投稿者が選んだ種類の値だけを数える
+            if (setting.valueType === "boolean") {
+                return row.trueCount > 0 ? row.trueCount : null;
+            }
+            if (row.count > 0 || setting.valueType === "number") {
+                return row.count > 0 ? row.count : null;
             }
             // WHY: 数値を持たないキーでは、達成した回数を「回数」とみなす。
             // boolean は false も記録されるので、件数で数えると達成しなかった
@@ -667,7 +673,7 @@ async function fromArchive(
     const sections: ScoreSection[] = [];
     for (const archived of archive.keys) {
         const setting = fieldSetting(archive.format, archived.key);
-        if (setting.hidden) {
+        if (!isShownOnStats(setting)) {
             continue;
         }
         const section =
@@ -718,7 +724,7 @@ async function fromArchive(
     const playRecords: ScoreTotal[] = [];
     for (const total of archive.playTotals ?? []) {
         const setting = playFieldSetting(archive.format, total.key);
-        if (setting.hidden) {
+        if (!isShownOnStats(setting)) {
             continue;
         }
         const record = toPlayRecord(
