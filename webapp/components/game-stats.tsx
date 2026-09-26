@@ -73,6 +73,24 @@ export function GameStatsView({
                     value={month ?? ""}
                     onChange={(ev) => onMonthChange(ev.target.value)}
                     sx={{ maxWidth: 200 }}
+                    slotProps={{
+                        select: {
+                            MenuProps: {
+                                slotProps: {
+                                    paper: {
+                                        // WHY: 月は年単位で積み上がるので、5 件強で
+                                        // 切って続きがあるとわかるようにする
+                                        sx: {
+                                            maxHeight: {
+                                                xs: 48 * 5.5 + 8,
+                                                sm: 36 * 5.5 + 8,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    }}
                 >
                     {stats.months.map((value) => (
                         <MenuItem key={value} value={value}>

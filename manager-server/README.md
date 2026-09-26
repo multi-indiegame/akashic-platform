@@ -35,3 +35,13 @@
 消しても失われません。
 
 - retentionDays: 保持日数 (既定値: 環境変数 `SCORE_RAW_RETENTION_DAYS`、未設定なら 90)
+
+## 月別アーカイブの削除
+
+エンドポイント: `/score-archives/delete`
+
+一定期間経過した月別アーカイブ (ScoreboardArchive) のレコードを削除します。
+削除した月は統計ページの月別の選択肢に出なくなります。
+S3 上の実体は削除しないため、S3 のライフサイクルポリシーで消してください。
+
+- retentionMonths: 保持月数。今月を除き、直近この月数分を残します (既定値: 環境変数 `SCORE_ARCHIVE_RETENTION_MONTHS`、未設定なら 48)

@@ -299,6 +299,56 @@ export class HttpServer {
             },
         );
 
+        app.get(
+            "/score-archives/delete",
+            async (req: Request, res: Response) => {
+                const retentionMonths = Number(
+                    req.query.retentionMonths ??
+                        process.env.SCORE_ARCHIVE_RETENTION_MONTHS ??
+                        48,
+                );
+                if (!Number.isInteger(retentionMonths) || retentionMonths < 1) {
+                    res.status(400).json({
+                        ok: false,
+                        reason: "InvalidParams",
+                        message: "retentionMonths must be a positive integer",
+                    });
+                    return;
+                }
+                const now = new Date();
+                const cutoffDate = new Date(
+                    Date.UTC(
+                        now.getUTCFullYear(),
+                        now.getUTCMonth() - retentionMonths,
+                        1,
+                    ),
+                );
+                const cutoff = `${cutoffDate.getUTCFullYear()}-${String(cutoffDate.getUTCMonth() + 1).padStart(2, "0")}`;
+
+                try {
+                    // WHY: S3 の実体はライフサイクルポリシーで消えるので、
+                    // ここでは月の一覧に出さないよう DB のレコードだけ消す
+                    const { count } = await prisma.scoreboardArchive.deleteMany(
+                        {
+                            where: { month: { lt: cutoff } },
+                        },
+                    );
+                    res.json({
+                        ok: true,
+                        retentionMonths,
+                        cutoff,
+                        deleted: count,
+                    });
+                } catch (err) {
+                    res.status(500).json({
+                        ok: false,
+                        reason: "InternalError",
+                        message: (err as Error).message,
+                    });
+                }
+            },
+        );
+
         app.use((req: Request, res: Response) => {
             res.status(404).json({
                 ok: false,

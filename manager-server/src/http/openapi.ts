@@ -110,6 +110,46 @@ export const openapi = {
                 },
             },
         },
+        "/score-archives/delete": {
+            get: {
+                summary:
+                    "Delete old monthly scoreboard archive records from DB",
+                parameters: [
+                    {
+                        name: "retentionMonths",
+                        minimum: 1,
+                        default: 48,
+                        description:
+                            "Archives of months older than this many months are deleted",
+                        in: "query",
+                        required: false,
+                        schema: { type: "string" },
+                    },
+                ],
+                responses: {
+                    "200": {
+                        description: "Deletion completed",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ScoreArchiveDeleteResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Invalid parameters",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
         "/drain": {
             get: {
                 summary: "Forward a signed drain request to webapp",
@@ -224,6 +264,23 @@ export const openapi = {
                         type: "array",
                         description: "Pruned months as `<gameId>:<YYYY-MM>`",
                         items: { type: "string" },
+                    },
+                },
+            },
+            ScoreArchiveDeleteResponse: {
+                type: "object",
+                required: ["ok", "retentionMonths", "cutoff", "deleted"],
+                properties: {
+                    ok: { type: "boolean", enum: [true] },
+                    retentionMonths: { type: "integer" },
+                    cutoff: {
+                        type: "string",
+                        description:
+                            "Archives of months before this `YYYY-MM` are deleted",
+                    },
+                    deleted: {
+                        type: "integer",
+                        description: "Number of archive records deleted",
                     },
                 },
             },

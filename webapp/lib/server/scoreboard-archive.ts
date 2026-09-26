@@ -1,4 +1,8 @@
-import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+    GetObjectCommand,
+    NoSuchKey,
+    PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import { prisma } from "@multi-indiegame/persist-schema";
 import {
     ScoreboardFormatDefinition,
@@ -115,13 +119,21 @@ export async function fetchMonthlyArchive(
         where: { gameId_month: { gameId, month } },
         select: { s3Key: true },
     });
-    if (existing) {
-        const stored = await readArchive(existing.s3Key);
-        if (stored) {
-            return stored;
-        }
+    if (!existing) {
+        return await buildArchive(gameId, month);
     }
-    return await buildArchive(gameId, month);
+    const stored = await readArchive(existing.s3Key);
+    if (stored && stored !== "missing") {
+        return stored;
+    }
+    const built = await buildArchive(gameId, month);
+    if (!built && stored === "missing") {
+        // WHY: S3 の実体がライフサイクルポリシーで先に消えうる
+        await prisma.scoreboardArchive.deleteMany({
+            where: { gameId, month },
+        });
+    }
+    return built;
 }
 
 async function buildArchive(
@@ -302,7 +314,9 @@ async function writeArchive(
     }
 }
 
-async function readArchive(key: string): Promise<MonthlyArchive | null> {
+async function readArchive(
+    key: string,
+): Promise<MonthlyArchive | "missing" | null> {
     try {
         const res = await getS3Client().send(
             new GetObjectCommand({
@@ -313,6 +327,9 @@ async function readArchive(key: string): Promise<MonthlyArchive | null> {
         const body = await res.Body?.transformToString();
         return body ? (JSON.parse(body) as MonthlyArchive) : null;
     } catch (err) {
+        if (err instanceof NoSuchKey) {
+            return "missing";
+        }
         console.warn(
             "failed to read scoreboard archive (key = %s)",
             logSafe(key),
