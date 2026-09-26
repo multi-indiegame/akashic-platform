@@ -103,21 +103,44 @@ async function buildPlayRecords(
         if (setting.hidden) {
             continue;
         }
-        const value = representative(total, setting);
-        if (value == null) {
-            continue;
+        const record = toPlayRecord(total.key, total, setting);
+        if (record) {
+            records.push(record);
         }
-        records.push({
-            key: total.key,
-            heading: setting.label ?? total.key,
-            unit: setting.unit,
-            value,
-            at: setting.showTimestamp
-                ? (representativeAt(total, setting) ?? undefined)
-                : undefined,
-        });
     }
     return records;
+}
+
+function toPlayRecord(
+    key: string,
+    total: SubjectAggregate,
+    setting: ScoreFieldSetting,
+): ScoreTotal | null {
+    const heading = setting.label ?? key;
+    if (setting.aggregate === "rate") {
+        // WHY: 主体ごとの達成率と同じく、true が 1 件も無いうちは出さない
+        if (total.recordCount === 0 || total.trueCount === 0) {
+            return null;
+        }
+        return {
+            key,
+            heading,
+            rate: { achieved: total.trueCount, total: total.recordCount },
+        };
+    }
+    const value = representative(total, setting);
+    if (value == null) {
+        return null;
+    }
+    return {
+        key,
+        heading,
+        unit: setting.unit,
+        value,
+        at: setting.showTimestamp
+            ? (representativeAt(total, setting) ?? undefined)
+            : undefined,
+    };
 }
 
 /** プレイ自体の記録の集計。歴代は積んだ表から、直近は生レコードから */
@@ -455,11 +478,9 @@ function buildSection(
             },
         };
     }
-    // 数値が 1 つも無いキーは達成率で見せる。true の回数を持っているのは
-    // boolean のときだけなので、そうでなければ出さない
     const total = aggregates.reduce((acc, row) => acc + row.recordCount, 0);
     const achieved = aggregates.reduce((acc, row) => acc + row.trueCount, 0);
-    if (total > 0 && achieved > 0) {
+    if (setting.aggregate === "rate" && total > 0 && achieved > 0) {
         return {
             key,
             heading,
@@ -490,9 +511,11 @@ function representative(
                 return row.count;
             }
             // WHY: 数値を持たないキーでは、達成した回数を「回数」とみなす。
-            // boolean は達成したときだけ報告される（達成しなかったことは
-            // 報告されない）ので、件数ではなく true の回数が意図に合う
+            // boolean は false も記録されるので、件数で数えると達成しなかった
+            // 回まで含んでしまう。true の回数が意図に合う
             return row.trueCount > 0 ? row.trueCount : null;
+        case "rate":
+            return null;
     }
 }
 
@@ -698,7 +721,8 @@ async function fromArchive(
         if (setting.hidden) {
             continue;
         }
-        const value = representative(
+        const record = toPlayRecord(
+            total.key,
             {
                 subjectKey: "",
                 max: total.max,
@@ -714,15 +738,9 @@ async function fromArchive(
             },
             setting,
         );
-        if (value == null) {
-            continue;
+        if (record) {
+            playRecords.push(record);
         }
-        playRecords.push({
-            key: total.key,
-            heading: setting.label ?? total.key,
-            unit: setting.unit,
-            value,
-        });
     }
     return {
         gameId,

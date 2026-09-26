@@ -542,8 +542,13 @@ export interface ScoreTotal {
     key: string;
     heading: string;
     unit?: string;
-    value: number;
+    /** 割合で出すときは持たない */
+    value?: number;
     at?: Date;
+    rate?: {
+        achieved: number;
+        total: number;
+    };
 }
 
 export interface GameStats {

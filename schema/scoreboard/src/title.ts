@@ -48,6 +48,7 @@ export interface TitleContext {
             max: number | null;
             min: number | null;
             sum: number;
+            /** 数値を記録した回数 */
             count: number;
             /** true を記録した回数。boolean のキーの「達成回数」 */
             trueCount: number;
@@ -249,8 +250,8 @@ function pick(
             return field.count > 0 ? field.sum : null;
         case "count":
             // WHY: 数値を持たないキーでは、達成した回数を「回数」とみなす。
-            // boolean は達成したときだけ報告される（達成しなかったことは
-            // 報告されない）ので、件数ではなく true の回数が意図に合う
+            // boolean は false も記録されるので、件数で数えると達成しなかった
+            // 回まで含んでしまう。true の回数が意図に合う
             return field.count > 0 ? field.count : field.trueCount;
     }
 }

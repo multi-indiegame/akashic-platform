@@ -173,9 +173,21 @@ export function PlayRecordCard({ records }: { records: ScoreTotal[] }) {
                                 variant="body1"
                                 sx={{ fontVariantNumeric: "tabular-nums" }}
                             >
-                                {numberFormat.format(record.value)}
-                                {record.unit ?? ""}
+                                {record.rate
+                                    ? `${Math.round((record.rate.achieved / record.rate.total) * 100)}%`
+                                    : `${numberFormat.format(record.value ?? 0)}${record.unit ?? ""}`}
                             </Typography>
+                            {record.rate && (
+                                <Typography
+                                    variant="caption"
+                                    color="textSecondary"
+                                >
+                                    {numberFormat.format(record.rate.total)}{" "}
+                                    件中{" "}
+                                    {numberFormat.format(record.rate.achieved)}{" "}
+                                    件
+                                </Typography>
+                            )}
                             {record.at && (
                                 <Typography
                                     variant="caption"

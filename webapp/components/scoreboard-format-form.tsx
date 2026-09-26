@@ -133,12 +133,7 @@ export function ScoreboardFormatForm({
             counts: { number: 0, string: 0, boolean: 0 },
             declaredOnly: true,
             configured: true,
-            setting: {
-                ...(forPlayRecord
-                    ? data.defaults.playField
-                    : data.defaults.field),
-                valueType,
-            },
+            setting: { ...data.defaults, valueType },
         };
         if (forPlayRecord) {
             setAddedPlay((current) => [...current, candidate]);
@@ -158,10 +153,11 @@ export function ScoreboardFormatForm({
     return (
         <Stack spacing={2}>
             <Alert variant="outlined" severity="warning">
-                並べ方（上位の決め方・代表値・複数ランクイン）を変えると、そのキーの歴代記録は残っている記録から積み直します。
+                「1 プレイ 1
+                件」のキーで上位の決め方を変えたとき、または複数ランクインの設定を変えたときは、そのキーの歴代ランキングを残っている記録から積み直します。
                 古い記録は消えているため、
-                <strong>それより前の歴代は失われます</strong>。
-                見出しや単位だけの変更では積み直しません。
+                <strong>それより前のランクインは失われます</strong>。
+                それ以外の変更では積み直しません。
             </Alert>
             {candidates.length === 0 && (
                 <Alert variant="outlined" severity="info">
@@ -188,8 +184,6 @@ export function ScoreboardFormatForm({
                 <Alert variant="outlined" severity="info">
                     誰の記録でもなく、そのプレイで起きたこととして登録された記録です。
                     順位は付かず、ゲーム全体の数として出ます。
-                    <strong>既定では出しません。</strong>
-                    出すと決めたものだけが統計ページに並びます。
                 </Alert>
                 {playCandidates.map((candidate) => (
                     <FieldCard
@@ -336,7 +330,7 @@ function FieldCard({
     candidate: FieldCandidate;
     setting: ScoreFieldSetting;
     onChange: (patch: Partial<ScoreFieldSetting>) => void;
-    /** プレイ自体の記録の設定か。既定と出せる選択肢が違う */
+    /** プレイ自体の記録の設定か。出せる選択肢が違う */
     forPlayRecord?: boolean;
 }) {
     // WHY: 記録が届いていないキーは、投稿者が申告した種類で選択肢を出す。
@@ -346,9 +340,10 @@ function FieldCard({
             ? candidate.type
             : (setting.valueType ?? candidate.type);
     const isNumber = type === "number";
-    // WHY: プレイ自体の記録は、真偽値でも「何回起きたか」を数として出す。
-    // 単位を付けられないと「12」とだけ出てしまう
-    const showUnit = isNumber || forPlayRecord;
+    const isBoolean = type === "boolean";
+    const byRate = isBoolean && setting.aggregate === "rate";
+    // WHY: 真偽値の場合でも割合でなく回数で出すときは単位を付けられるように
+    const showUnit = isNumber || (isBoolean && !byRate);
     const diagnosis = diagnose(candidate, setting);
     // 申告した種類と、実際に登録されている種類が食い違っているか
     const mismatched =
@@ -419,6 +414,32 @@ function FieldCard({
                             />
                         )}
                     </Stack>
+                    {isBoolean && (
+                        <TextField
+                            select
+                            label="表示のしかた"
+                            size="small"
+                            sx={{ width: { sm: 240 } }}
+                            value={byRate ? "rate" : "count"}
+                            onChange={(e) =>
+                                onChange({
+                                    aggregate: e.target
+                                        .value as ScoreFieldSetting["aggregate"],
+                                })
+                            }
+                        >
+                            <MenuItem value="count">
+                                {forPlayRecord
+                                    ? "true になったプレイの数"
+                                    : "true の回数でランキング"}
+                            </MenuItem>
+                            <MenuItem value="rate">
+                                {forPlayRecord
+                                    ? "true になったプレイの割合"
+                                    : "全体の達成率"}
+                            </MenuItem>
+                        </TextField>
+                    )}
                     {isNumber && (
                         <Stack
                             direction={{ xs: "column", sm: "row" }}
@@ -492,7 +513,7 @@ function FieldCard({
                                 label="日時を出す"
                             />
                         )}
-                        {!forPlayRecord && (
+                        {!forPlayRecord && !byRate && (
                             <FormControlLabel
                                 control={
                                     <Switch
@@ -511,25 +532,13 @@ function FieldCard({
                         <FormControlLabel
                             control={
                                 <Checkbox
-                                    checked={
-                                        forPlayRecord
-                                            ? !setting.hidden
-                                            : setting.hidden
-                                    }
+                                    checked={setting.hidden}
                                     onChange={(e) =>
-                                        onChange({
-                                            hidden: forPlayRecord
-                                                ? !e.target.checked
-                                                : e.target.checked,
-                                        })
+                                        onChange({ hidden: e.target.checked })
                                     }
                                 />
                             }
-                            label={
-                                forPlayRecord
-                                    ? "統計ページに出す"
-                                    : "統計ページに出さない"
-                            }
+                            label="統計ページに出さない"
                         />
                     </Stack>
                     {diagnosis && (
@@ -542,15 +551,30 @@ function FieldCard({
                             文字列の記録は統計ページに表示されません。
                         </Alert>
                     )}
-                    {forPlayRecord && type === "boolean" && (
+                    {isBoolean && (
                         <Alert variant="outlined" severity="info">
-                            真偽値の記録は、そうなったプレイの数として表示します
-                            （例: クリアされた回数）。
+                            {booleanDescription(forPlayRecord, byRate)}
                         </Alert>
                     )}
                 </Stack>
             </CardContent>
         </Card>
+    );
+}
+
+function booleanDescription(forPlayRecord: boolean, byRate: boolean) {
+    if (!byRate) {
+        return forPlayRecord
+            ? "真偽値の記録は、true になったプレイの数を表示します（例: クリアされた回数）。"
+            : "真偽値の記録は、true になった回数でランキングします（例: クリア回数）。false は数えません。";
+    }
+    // WHY: 母数は「このキーが記録された数」。失敗時に何も記録しないゲームだと
+    // 常に 100% になってしまうので、投稿者に false の記録を促す
+    return (
+        (forPlayRecord
+            ? "真偽値の記録は、このキーが記録されたプレイのうち true だった割合を表示します（例: クリア率）。"
+            : "真偽値の記録は、全記録のうち true だった割合を表示します（例: クリア率）。") +
+        "失敗したときも false を記録してください。記録されなかったプレイは割合の母数に入りません。"
     );
 }
 

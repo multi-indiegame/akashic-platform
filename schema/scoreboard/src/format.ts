@@ -2,14 +2,20 @@ import { prisma } from "@multi-indiegame/persist-schema";
 
 /**
  * 記録の引き方は投稿者が決める。引き方は歴代・直近でも同じ設定。
- * 集計外のデータは保持しないので、設定変更時は残っている生レコードから積み直す。
+ * 複数ランクインの上位 N 件だけはいまの向きの分しか持たないので、上位の決め方か
+ * 複数ランクインを変えたときは残っている生レコードから積み直す。
  */
 
 /** 上位の決め方 */
 export type ScoreDirection = "high" | "low";
 
-/** 主体 1 人分の代表値をどう採るか */
-export type ScoreAggregate = "best" | "latest" | "sum" | "count";
+/**
+ * 主体 1 人分の代表値をどう採るか。
+ *
+ * `count` は真偽値のキーでは true の回数を数える。`rate` は真偽値のキー向けで、
+ * true の割合を出す。
+ */
+export type ScoreAggregate = "best" | "latest" | "sum" | "count" | "rate";
 
 /**
  * 同一の主体が何度もランクインしてよいか。
@@ -65,24 +71,10 @@ export interface ScoreboardFormatDefinition {
 
 export const DEFAULT_FIELD_SETTING: ScoreFieldSetting = {
     direction: "high",
-    aggregate: "best",
-    dedupe: "best",
-    showTimestamp: false,
-    hidden: false,
-};
-
-/**
- * プレイ自体の記録の既定。
- *
- * WHY: **既定では出さない。** ゲームが進行のために送っているだけのキーが、
- * 投稿者の意図と関係なく統計ページへ出るのを避ける。
- */
-export const DEFAULT_PLAY_FIELD_SETTING: ScoreFieldSetting = {
-    direction: "high",
     aggregate: "count",
     dedupe: "best",
     showTimestamp: false,
-    hidden: true,
+    hidden: false,
 };
 
 export const DEFAULT_FORMAT: ScoreboardFormatDefinition = {
@@ -163,13 +155,10 @@ export function fieldSetting(
     return { ...DEFAULT_FIELD_SETTING, ...(format.fields[key] ?? {}) };
 }
 
-/** プレイ自体の記録の設定。載せると決められていなければ非表示 */
+/** プレイ自体の記録の設定 */
 export function playFieldSetting(
     format: ScoreboardFormatDefinition,
     key: string,
 ): ScoreFieldSetting {
-    return {
-        ...DEFAULT_PLAY_FIELD_SETTING,
-        ...(format.playFields?.[key] ?? {}),
-    };
+    return { ...DEFAULT_FIELD_SETTING, ...(format.playFields?.[key] ?? {}) };
 }

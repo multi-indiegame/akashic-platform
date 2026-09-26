@@ -189,6 +189,8 @@ function representative(
             }
             // WHY: 数値を持たないキーでは、達成した回数を「回数」とみなす
             return row.trueCount > 0 ? row.trueCount : null;
+        case "rate":
+            return null;
     }
 }
 

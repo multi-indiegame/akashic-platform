@@ -158,8 +158,7 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
 /**
  * プレイ自体の記録を、ゲーム全体の集計へ積む。
  *
- * WHY: 主体がいないので同意の判定は要らない。掲載するかどうかは投稿者の設定
- * （`playFields`）で決まり、既定では出さない。
+ * WHY: 主体がいないので同意の判定は要らない。
  */
 async function applyPlayRecord(record: {
     id: number;
@@ -397,7 +396,7 @@ async function applyValue(
  * WHY: 差し込んで末尾を捨てるだけでよい。こぼれた記録が上位へ戻ることはないので、
  * 元の記録を消した後もランキングは保たれる。
  *
- * WHY: いまの設定の向きで 1 本だけ持つ。設定が変わったら積み直す（`rebuildKey`）。
+ * WHY: いまの設定の向きで 1 本だけ持つ。設定が変わったら積み直す（`rebuildTopEntries`）。
  */
 async function keepTopEntries(
     tx: TransactionClient,
@@ -463,66 +462,67 @@ export async function revokeSubject(subjectKey: SubjectKey): Promise<void> {
 }
 
 /**
- * あるキーの歴代を、残っている生レコードから積み直す。
+ * 歴代ランキングの上位 N 件を、残っている生レコードから積み直す。
  *
- * 投稿者が引き方を変えたときに呼ぶ。**生レコードが残っている分しか戻らない。**
- * それより前の歴代は失われる、という制約を受け入れることで、設定の組み合わせ
- * ごとに集計を持ち分ける必要がなくなる。
- */
-export async function rebuildKey(gameId: number, key: string): Promise<void> {
-    const format = await fetchFormat(gameId);
-    const setting = fieldSetting(format, key);
-    const values = await prisma.scoreValue.findMany({
-        where: { gameId, key, subjectKey: { not: null } },
-        orderBy: { endedAt: "asc" },
-        select: {
-            recordId: true,
-            subjectKey: true,
-            numValue: true,
-            strValue: true,
-            boolValue: true,
-            endedAt: true,
-        },
-    });
-    await prisma.$transaction(async (tx) => {
-        await tx.scoreBest.deleteMany({ where: { gameId, key } });
-        await tx.scoreTopEntry.deleteMany({ where: { gameId, key } });
-        for (const value of values) {
-            await applyValue(
-                tx,
-                {
-                    recordId: value.recordId,
-                    gameId,
-                    endedAt: value.endedAt,
-                    subjectKey: value.subjectKey!,
-                    userId: null,
-                    guestName: null,
-                    values: [],
-                    setting: () => setting,
-                },
-                {
-                    key,
-                    numValue: value.numValue,
-                    strValue: value.strValue,
-                    boolValue: value.boolValue,
-                },
-                setting,
-            );
-        }
-    });
-}
-
-/**
- * 引き方が変わったキーの歴代を積み直す。
+ * 投稿者が上位の決め方か複数ランクインの設定を変えたときに呼ぶ。
+ * **生レコードが残っている分しか戻らない。** 向きごとに上位 N 件を持ち分けない
+ * 代わりに、それより前の上位記録は失われる、という制約を受け入れている。
  *
- * WHY: 変わっていないキーは触らない。触ると、生レコードより前の歴代を
- * 失ってしまう
+ * WHY: 主体ごとの歴代（ScoreBest）には触らない。向きや代表値に関わらず
+ * 必要な値をすべて積んでいるので、作り直すと生レコードより前の歴代を失うだけになる
+ *
+ * WHY: 複数ランクインをやめたキーの上位 N 件も消す。使われなくなった行を残さない
  */
-export async function rebuildChangedKeys(
+export async function rebuildTopEntries(
     gameId: number,
-    changedKeys: string[],
+    keys: string[],
 ): Promise<void> {
-    for (const key of changedKeys) {
-        await rebuildKey(gameId, key);
+    if (keys.length === 0) {
+        return;
+    }
+    const format = await fetchFormat(gameId);
+    for (const key of keys) {
+        const setting = fieldSetting(format, key);
+        const values =
+            setting.dedupe === "all"
+                ? await prisma.scoreValue.findMany({
+                      where: {
+                          gameId,
+                          key,
+                          subjectKey: { not: null },
+                          numValue: { not: null },
+                      },
+                      // 同値のときは先に達成したほうを上位に置く
+                      orderBy: [
+                          {
+                              numValue:
+                                  setting.direction === "high" ? "desc" : "asc",
+                          },
+                          { endedAt: "asc" },
+                      ],
+                      take: TOP_ENTRY_LIMIT,
+                      select: {
+                          recordId: true,
+                          subjectKey: true,
+                          numValue: true,
+                          endedAt: true,
+                      },
+                  })
+                : [];
+        await prisma.$transaction(async (tx) => {
+            await tx.scoreTopEntry.deleteMany({ where: { gameId, key } });
+            if (values.length > 0) {
+                await tx.scoreTopEntry.createMany({
+                    data: values.map((value) => ({
+                        gameId,
+                        key,
+                        value: value.numValue!,
+                        subjectKey: value.subjectKey!,
+                        recordId: value.recordId,
+                        endedAt: value.endedAt,
+                    })),
+                });
+            }
+        });
     }
 }

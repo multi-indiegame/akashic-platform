@@ -3,13 +3,12 @@
 import { prisma } from "@multi-indiegame/persist-schema";
 import {
     DEFAULT_FIELD_SETTING,
-    DEFAULT_PLAY_FIELD_SETTING,
     ScoreFieldSetting,
     ScoreboardFormatDefinition,
     fetchFormat,
     fieldSetting,
     playFieldSetting,
-    rebuildChangedKeys,
+    rebuildTopEntries,
 } from "@multi-indiegame/scoreboard-schema";
 import { RECORD_KEY_PATTERN } from "../types";
 import { getSignedInUser } from "./auth";
@@ -34,8 +33,8 @@ export type SaveFormatResponse =
 /**
  * 投稿者が決めた引き方を保存する。
  *
- * WHY: 引き方が変わったキーは歴代を積み直す。歴代はいまの設定の分だけを
- * 積んでいるので、設定が変われば作り直す。**残っている
+ * WHY: 複数ランクインの上位 N 件の持ち方が変わったキーは積み直す。上位 N 件は
+ * いまの設定の分だけを積んでいるので、設定が変われば作り直す。**残っている
  * 生レコードの分しか戻らない**（それより前は失われる）。
  */
 export async function saveScoreboardFormat(
@@ -67,10 +66,7 @@ export async function saveScoreboardFormat(
         return { ok: false, reason: "Unauthorized" };
     }
     const normalized = normalizeFields(fields);
-    const normalizedPlay = normalizeFields(
-        playFields,
-        DEFAULT_PLAY_FIELD_SETTING,
-    );
+    const normalizedPlay = normalizeFields(playFields);
     if (!normalized || !normalizedPlay) {
         return { ok: false, reason: "InvalidParams" };
     }
@@ -103,12 +99,12 @@ export async function saveScoreboardFormat(
             ...previous.fields,
             ...normalized,
         }).filter((key) =>
-            affectsAggregation(
+            affectsTopEntries(
                 fieldSetting(previous, key),
                 fieldSetting(definition, key),
             ),
         );
-        await rebuildChangedKeys(gameId, changed);
+        await rebuildTopEntries(gameId, changed);
         return { ok: true };
     } catch (err) {
         console.warn(
@@ -121,29 +117,29 @@ export async function saveScoreboardFormat(
 }
 
 /**
- * 歴代の積み方に影響する変更か。
+ * 複数ランクインの上位 N 件の持ち方が変わるか。
  *
- * WHY: 見出しや単位を変えただけで積み直さないようにする
+ * WHY: 積み直すと生レコードより前の上位記録を失うので、必要なときに限る。
+ * 見出し・単位・代表値は表示時の選び方が変わるだけで、積み方には効かない。
+ * 1 人 1 件だけのキーは主体ごとの歴代から引くので、向きを変えても積み直さない
  */
-function affectsAggregation(
+function affectsTopEntries(
     before: ScoreFieldSetting,
     after: ScoreFieldSetting,
 ): boolean {
-    return (
-        before.direction !== after.direction ||
-        before.aggregate !== after.aggregate ||
-        before.dedupe !== after.dedupe
-    );
+    if (before.dedupe !== after.dedupe) {
+        return true;
+    }
+    return after.dedupe === "all" && before.direction !== after.direction;
 }
 
 /**
- * WHY: 既定値と同じ指定は書き込まない。プレイ自体の記録は既定が違う
- * （非表示・回数）ので、比べる相手を差し替えられるようにしている。
+ * WHY: 既定値と同じ指定は書き込まない。
  */
-function normalizeFields(
-    fields: { [key: string]: Partial<ScoreFieldSetting> },
-    defaults: ScoreFieldSetting = DEFAULT_FIELD_SETTING,
-): { [key: string]: Partial<ScoreFieldSetting> } | null {
+function normalizeFields(fields: {
+    [key: string]: Partial<ScoreFieldSetting>;
+}): { [key: string]: Partial<ScoreFieldSetting> } | null {
+    const defaults = DEFAULT_FIELD_SETTING;
     const result: { [key: string]: Partial<ScoreFieldSetting> } = {};
     for (const [key, raw] of Object.entries(fields ?? {})) {
         if (typeof key !== "string" || !RECORD_KEY_PATTERN.test(key)) {
@@ -175,7 +171,11 @@ function normalizeFields(
             setting.direction = raw.direction;
         }
         if (raw.aggregate && raw.aggregate !== defaults.aggregate) {
-            if (!["best", "latest", "sum", "count"].includes(raw.aggregate)) {
+            if (
+                !["best", "latest", "sum", "count", "rate"].includes(
+                    raw.aggregate,
+                )
+            ) {
                 return null;
             }
             setting.aggregate = raw.aggregate;
@@ -189,9 +189,8 @@ function normalizeFields(
         if (raw.showTimestamp) {
             setting.showTimestamp = true;
         }
-        // WHY: 既定が非表示のときは「出す」を書き残す。
-        if (raw.hidden !== undefined && raw.hidden !== defaults.hidden) {
-            setting.hidden = raw.hidden;
+        if (raw.hidden) {
+            setting.hidden = true;
         }
         if (raw.chartHidden) {
             setting.chartHidden = true;
@@ -226,7 +225,7 @@ export interface FormatEditorData {
     playRankingHidden: boolean;
     playRankingChartHidden: boolean;
     candidates: FieldCandidate[];
-    /** プレイ自体の記録の候補。既定では出さないので、載せるかから決める */
+    /** プレイ自体の記録の候補 */
     playCandidates: FieldCandidate[];
     /**
      * 決められていないときの値。
@@ -234,7 +233,7 @@ export interface FormatEditorData {
      * WHY: 画面はクライアント側で動くので、スキーマのパッケージを直接読めない
      * （サーバー専用のモジュールを抱えているため）。既定値はここで渡す。
      */
-    defaults: { field: ScoreFieldSetting; playField: ScoreFieldSetting };
+    defaults: ScoreFieldSetting;
 }
 
 /**
@@ -288,10 +287,7 @@ export async function fetchFormatEditorData(
     return {
         playRankingHidden: format.playRanking.hidden,
         playRankingChartHidden: !!format.playRanking.chartHidden,
-        defaults: {
-            field: DEFAULT_FIELD_SETTING,
-            playField: DEFAULT_PLAY_FIELD_SETTING,
-        },
+        defaults: DEFAULT_FIELD_SETTING,
         candidates: toCandidates(rows, format.fields ?? {}, (key) =>
             fieldSetting(format, key),
         ),
