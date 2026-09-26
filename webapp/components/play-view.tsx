@@ -1839,6 +1839,9 @@ export function PlayView({
                                                                     .primary
                                                                     .light,
                                                                 py: 1,
+                                                                whiteSpace:
+                                                                    "nowrap",
+                                                                flexShrink: 0,
                                                             }}
                                                         >
                                                             設定する
