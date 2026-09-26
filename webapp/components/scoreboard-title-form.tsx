@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
     Alert,
-    Avatar,
     Button,
     Card,
     CardContent,
@@ -32,11 +31,7 @@ import {
     Save,
 } from "@mui/icons-material";
 import type { ScoreTitleRank } from "@multi-indiegame/persist-schema";
-import {
-    TITLE_RANKS,
-    TITLE_RANK_COLOR,
-    titleRankLabel,
-} from "@/lib/share/title-rank";
+import { TITLE_RANKS } from "@/lib/share/title-rank";
 import {
     TitleFieldNames,
     TitleKeyTypes,
@@ -56,7 +51,7 @@ import {
     retireTitleDef,
     saveTitleDef,
 } from "@/lib/server/scoreboard-title-action";
-import { useTitleRankImageUrl } from "@/lib/client/useTitleRankImageUrl";
+import { TITLE_TILE_SIZE, TitleArt } from "./title-badges";
 
 /** 条件 1 件分の入力。画面では 1 行として扱う */
 interface ConditionRow {
@@ -89,7 +84,6 @@ export function ScoreboardTitleForm({
     data: TitleEditorData;
 }) {
     const theme = useTheme();
-    const toRankImageURL = useTitleRankImageUrl();
     const [editing, setEditing] = useState<TitleDefRow | "new">();
     const [retiring, setRetiring] = useState<TitleDefRow>();
     const [message, setMessage] = useState<{
@@ -145,56 +139,7 @@ export function ScoreboardTitleForm({
                                 >
                                     表示順 {def.priority}
                                 </Typography>
-                                <Stack spacing={0}>
-                                    <Avatar
-                                        src={def.imageURL}
-                                        alt={titleRankLabel(def.rank)}
-                                        variant="rounded"
-                                        sx={{ width: 100, height: 100 }}
-                                        slotProps={{
-                                            img: {
-                                                style: {
-                                                    objectFit: "contain",
-                                                    width: "100%",
-                                                    height: "100%",
-                                                },
-                                            },
-                                        }}
-                                    >
-                                        <ImageNotSupported fontSize="large" />
-                                    </Avatar>
-                                    {def.rank !== "NONE" && (
-                                        <Avatar
-                                            src={toRankImageURL(def.rank)}
-                                            alt={def.rank}
-                                            variant="square"
-                                            sx={{ width: 100 }}
-                                            slotProps={{
-                                                img: {
-                                                    style: {
-                                                        objectFit: "contain",
-                                                        width: "100%",
-                                                        height: "100%",
-                                                    },
-                                                },
-                                            }}
-                                        >
-                                            <Chip
-                                                size="small"
-                                                label={titleRankLabel(def.rank)}
-                                                sx={{
-                                                    color: TITLE_RANK_COLOR[
-                                                        def.rank
-                                                    ],
-                                                    borderColor:
-                                                        TITLE_RANK_COLOR[
-                                                            def.rank
-                                                        ],
-                                                }}
-                                            />
-                                        </Avatar>
-                                    )}
-                                </Stack>
+                                <TitleArt title={def} size={TITLE_TILE_SIZE} />
                                 <Typography variant="subtitle1" component="h2">
                                     {def.name}
                                 </Typography>
@@ -380,7 +325,6 @@ function TitleDialog({
     onClose: () => void;
 }) {
     const theme = useTheme();
-    const toRankImageURL = useTitleRankImageUrl();
     const [name, setName] = useState(def?.name ?? "");
     const [categoryKey, setCategoryKey] = useState(def?.categoryKey ?? "");
     const [rank, setRank] = useState<ScoreTitleRank>(def?.rank ?? "NONE");
@@ -389,6 +333,19 @@ function TitleDialog({
         def ? toRows(def) : [emptyRow(keys[0] ?? "")],
     );
     const [image, setImage] = useState<File>();
+    const uploadingImageURL = useMemo(
+        () => (image ? URL.createObjectURL(image) : undefined),
+        [image],
+    );
+    useEffect(
+        () => () => {
+            if (uploadingImageURL) {
+                URL.revokeObjectURL(uploadingImageURL);
+            }
+        },
+        [uploadingImageURL],
+    );
+    const previewImageURL = uploadingImageURL ?? def?.imageURL;
     const [imageCredit, setImageCredit] = useState(def?.imageCredit ?? "");
     const [customConditionText, setCustomConditionText] = useState(
         !!def?.conditionText,
@@ -538,21 +495,9 @@ function TitleDialog({
                         spacing={2}
                         sx={{ alignItems: "center", flexWrap: "wrap" }}
                     >
-                        <Avatar
-                            src={
-                                image
-                                    ? URL.createObjectURL(image)
-                                    : def?.imageURL
-                            }
-                            alt=""
-                            variant="rounded"
-                            sx={{ width: 56, height: 56 }}
-                        />
-                        <Avatar
-                            src={toRankImageURL(def?.rank)}
-                            alt=""
-                            variant="rounded"
-                            sx={{ width: 56, height: 56 }}
+                        <TitleArt
+                            title={{ name, rank, imageURL: previewImageURL }}
+                            size={TITLE_TILE_SIZE}
                         />
                         <Button
                             startIcon={<AddPhotoAlternate />}
@@ -788,6 +733,7 @@ function TitleDialog({
                                         size="small"
                                         variant="outlined"
                                         color="error"
+                                        sx={{ flexShrink: 0 }}
                                         onClick={() =>
                                             setRows((current) =>
                                                 current.filter(

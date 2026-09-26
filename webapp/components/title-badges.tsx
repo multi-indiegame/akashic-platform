@@ -32,7 +32,7 @@ import {
     fetchTitleConditions,
 } from "@/lib/server/scoreboard-title-action";
 
-const TILE_SIZE = 100;
+export const TITLE_TILE_SIZE = 100;
 
 const containImg = {
     img: {
@@ -125,7 +125,13 @@ export function TitleBadges({
     );
 }
 
-function TitleArt({ title, size }: { title: TitleBadge; size: number }) {
+export function TitleArt({
+    title,
+    size,
+}: {
+    title: Pick<TitleBadge, "name" | "rank" | "imageURL">;
+    size: number;
+}) {
     const toRankImageUrl = useTitleRankImageUrl();
     const color = TITLE_RANK_COLOR[title.rank];
     return (
@@ -180,9 +186,9 @@ function TitleTile({
         >
             <Stack
                 spacing={0.5}
-                sx={{ alignItems: "center", width: TILE_SIZE }}
+                sx={{ alignItems: "center", width: TITLE_TILE_SIZE }}
             >
-                <TitleArt title={title} size={TILE_SIZE} />
+                <TitleArt title={title} size={TITLE_TILE_SIZE} />
                 <Typography
                     variant="body2"
                     sx={{ textAlign: "center", overflowWrap: "anywhere" }}
