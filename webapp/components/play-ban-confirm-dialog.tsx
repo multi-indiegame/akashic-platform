@@ -12,6 +12,7 @@ import {
     DialogTitle,
     Typography,
 } from "@mui/material";
+import { Block } from "@mui/icons-material";
 
 /**
  * 次の要求に切り替わった直後に操作を受け付けない時間。
@@ -154,6 +155,7 @@ export function PlayBanConfirmDialog({
                 )}
                 <DialogActions sx={{ flexWrap: "wrap", gap: 1 }}>
                     <Button
+                        startIcon={<Block />}
                         variant="contained"
                         color="error"
                         disabled={!armed}

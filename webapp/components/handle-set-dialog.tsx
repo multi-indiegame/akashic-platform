@@ -11,6 +11,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
+import { AlternateEmail } from "@mui/icons-material";
 import { updateUserHandle } from "@/lib/server/user";
 
 export function HandleSetDialog({
@@ -109,6 +110,7 @@ export function HandleSetDialog({
                         キャンセル
                     </Button>
                     <Button
+                        startIcon={<AlternateEmail />}
                         type="submit"
                         variant="contained"
                         loading={isPending}

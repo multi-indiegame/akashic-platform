@@ -16,7 +16,13 @@ import {
     Switch,
     Typography,
 } from "@mui/material";
-import { Launch, Share, X } from "@mui/icons-material";
+import {
+    Launch,
+    Share,
+    X,
+    Visibility,
+    VisibilityOff,
+} from "@mui/icons-material";
 import {
     resumeScoreboardPublication,
     revokeScoreboardPublication,
@@ -103,6 +109,7 @@ export function MyScoreboardSettings({
                                 統計に掲載しない設定です。ゲーム内で名前を使って参加しても、ランキングや称号には表示されません。
                             </Alert>
                             <Button
+                                startIcon={<Visibility />}
                                 variant="contained"
                                 onClick={handleResume}
                                 sx={{ alignSelf: "flex-start" }}
@@ -179,12 +186,10 @@ export function MyScoreboardSettings({
                                 </Stack>
                             )}
                             <Button
+                                startIcon={<VisibilityOff />}
                                 color="error"
                                 variant="outlined"
-                                onClick={(e) => {
-                                    e.currentTarget.blur();
-                                    setConfirmOpen(true);
-                                }}
+                                onClick={() => setConfirmOpen(true)}
                                 sx={{ alignSelf: "flex-start" }}
                             >
                                 統計への掲載をやめる

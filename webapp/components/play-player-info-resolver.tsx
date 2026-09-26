@@ -10,6 +10,7 @@ import {
     DialogTitle,
     TextField,
 } from "@mui/material";
+import { Person, PersonOutlined } from "@mui/icons-material";
 import { ResolvingPlayerInfoRequest } from "@/lib/client/akashic-plugins/coe-limited-plugin";
 import { useAuth } from "@/lib/client/useAuth";
 import { STORAGE_KEYS, useLocalStorage } from "@/lib/client/useLocalStorage";
@@ -102,6 +103,7 @@ export function PlayPlayerInfoResolver({
                     {hasScoreboard && <StatsNotice />}
                     <DialogActions>
                         <Button
+                            startIcon={<Person />}
                             variant="contained"
                             onClick={handleAccept}
                             sx={{
@@ -141,6 +143,7 @@ export function PlayPlayerInfoResolver({
                     )}
                     <DialogActions>
                         <Button
+                            startIcon={<Person />}
                             variant="contained"
                             onClick={handleAccept}
                             sx={{
@@ -153,6 +156,7 @@ export function PlayPlayerInfoResolver({
                                 : `ユーザー名 (${user.name})`}
                         </Button>
                         <Button
+                            startIcon={<PersonOutlined />}
                             variant="contained"
                             onClick={handleDeny}
                             sx={{
@@ -172,6 +176,7 @@ export function PlayPlayerInfoResolver({
                     </DialogContentText>
                     <DialogActions>
                         <Button
+                            startIcon={<PersonOutlined />}
                             variant="contained"
                             onClick={handleDeny}
                             sx={{

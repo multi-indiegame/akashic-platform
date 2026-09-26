@@ -3,12 +3,12 @@
 import { useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Alert, Container, Skeleton } from "@mui/material";
-import { GameDetailClient } from "@/components/game-detail";
+import { GameDetail } from "@/components/game-detail";
 import { useAuth } from "@/lib/client/useAuth";
 import { useFeedback } from "@/lib/client/useFeedback";
 import { useGame } from "@/lib/client/useGame";
 
-export default function GameDetail() {
+export default function GameDetailPage() {
     const { id } = useParams<{ id: string }>();
     const [user] = useAuth();
     const {
@@ -49,7 +49,7 @@ export default function GameDetail() {
     }
 
     return (
-        <GameDetailClient
+        <GameDetail
             gameInfo={gameInfo}
             feedbackList={feedbackList ?? []}
             isPublisher={isPublisher}

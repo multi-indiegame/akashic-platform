@@ -23,6 +23,9 @@ import {
     SpeakerNotesOff,
     Videocam,
     VideocamOff,
+    Add,
+    InfoOutlined,
+    RateReview,
 } from "@mui/icons-material";
 import { GameInfo, User } from "@/lib/types";
 import { UserInline } from "./user-inline";
@@ -375,6 +378,7 @@ export function ClosedPlayView({
                                 }}
                             >
                                 <Button
+                                    startIcon={<Add />}
                                     variant="outlined"
                                     onClick={() => setCreateDialogOpen(true)}
                                     sx={{
@@ -386,6 +390,7 @@ export function ClosedPlayView({
                                     部屋を作る
                                 </Button>
                                 <Button
+                                    startIcon={<InfoOutlined />}
                                     component={Link}
                                     href={`/game/${game.id}`}
                                     variant="outlined"
@@ -398,6 +403,7 @@ export function ClosedPlayView({
                                     詳細
                                 </Button>
                                 <Button
+                                    startIcon={<RateReview />}
                                     component={Link}
                                     href={`/game/${game.id}#feedback`}
                                     variant="outlined"

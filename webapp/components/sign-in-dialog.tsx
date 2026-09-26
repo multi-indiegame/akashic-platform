@@ -8,7 +8,7 @@ import {
     DialogTitle,
     IconButton,
 } from "@mui/material";
-import { Close } from "@mui/icons-material";
+import { Close, Login } from "@mui/icons-material";
 import { SignIn } from "./sign-in";
 
 export function SignInDialog({
@@ -36,7 +36,11 @@ export function SignInDialog({
     return (
         <>
             {trigger.action === "self" && (
-                <Button variant="contained" onClick={handleClick}>
+                <Button
+                    startIcon={<Login />}
+                    variant="contained"
+                    onClick={handleClick}
+                >
                     サインイン
                 </Button>
             )}

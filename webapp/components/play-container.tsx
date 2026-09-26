@@ -13,6 +13,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
+import { MeetingRoom } from "@mui/icons-material";
 import { usePlay } from "@/lib/client/usePlay";
 import { useAuth } from "@/lib/client/useAuth";
 import { PlayView } from "@/components/play-view";
@@ -86,7 +87,11 @@ export function PlayContainer() {
                                 autoFocus
                                 fullWidth
                             />
-                            <Button type="submit" variant="contained">
+                            <Button
+                                startIcon={<MeetingRoom />}
+                                type="submit"
+                                variant="contained"
+                            >
                                 入室する
                             </Button>
                         </Stack>

@@ -14,8 +14,9 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
-import { Leaderboard } from "@mui/icons-material";
+import { Leaderboard, Add, Settings, Article } from "@mui/icons-material";
 import { FeedbackPost, GameInfo, User } from "@/lib/types";
+import { verticalButtonSx } from "@/lib/client/theme";
 import { FeedbackPanel } from "./feedback-panel";
 import { GameStatsSummary } from "./game-stats-summary";
 import { CreditPanel } from "./credit-panel";
@@ -24,7 +25,7 @@ import { renderTextWithLinks } from "./text-with-links";
 import { PlayCreateDialog } from "./play-create-dialog";
 import { FavoriteButton } from "./favorite-button";
 
-export function GameDetailClient({
+export function GameDetail({
     gameInfo,
     feedbackList,
     isPublisher,
@@ -66,7 +67,7 @@ export function GameDetailClient({
                 <CardContent>
                     <Stack spacing={2}>
                         <Stack
-                            direction={{ xs: "column", sm: "row" }}
+                            direction={{ xs: "column", md: "row" }}
                             spacing={2}
                         >
                             <Avatar
@@ -134,20 +135,20 @@ export function GameDetailClient({
                                 >
                                     {renderTextWithLinks(gameInfo.description)}
                                 </Typography>
-                                <Stack
-                                    direction={{
-                                        xs: "column",
-                                        sm: "row",
-                                    }}
-                                    spacing={1}
+                                <Box
                                     sx={{
-                                        alignItems: {
-                                            xs: "stretch",
-                                            sm: "center",
+                                        display: { xs: "grid", md: "flex" },
+                                        gridTemplateColumns: {
+                                            xs: "1fr",
+                                            sm: "repeat(2, 1fr)",
                                         },
+                                        alignItems: { md: "center" },
+                                        gap: 1,
+                                        ...verticalButtonSx,
                                     }}
                                 >
                                     <Button
+                                        startIcon={<Add />}
                                         variant="outlined"
                                         onClick={handleOpenCreateDialog}
                                         sx={{
@@ -160,6 +161,7 @@ export function GameDetailClient({
                                     </Button>
                                     {gameInfo.hasScoreboard && (
                                         <Button
+                                            startIcon={<Leaderboard />}
                                             variant="outlined"
                                             component={Link}
                                             href={`/game/${gameInfo.id}/stats`}
@@ -176,6 +178,7 @@ export function GameDetailClient({
                                     )}
                                     {gameInfo.hasScoreboard && isPublisher && (
                                         <Button
+                                            startIcon={<Settings />}
                                             variant="outlined"
                                             component={Link}
                                             href={`/game/${gameInfo.id}/stats/edit`}
@@ -192,6 +195,7 @@ export function GameDetailClient({
                                     )}
                                     {isPublisher && (
                                         <Button
+                                            startIcon={<Article />}
                                             variant="outlined"
                                             component={Link}
                                             href={`/game/${gameInfo.id}/logs`}
@@ -206,7 +210,7 @@ export function GameDetailClient({
                                             ログを見る
                                         </Button>
                                     )}
-                                </Stack>
+                                </Box>
                                 <CreditPanel
                                     credit={gameInfo.credit}
                                     contentId={gameInfo.contentId}

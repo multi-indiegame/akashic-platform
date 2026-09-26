@@ -25,6 +25,7 @@ import {
     EditNote,
     FileUpload,
     Image as ImageIcon,
+    Publish,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import {
@@ -705,6 +706,7 @@ export function GameForm({
                             )}
                             <Box>
                                 <Button
+                                    startIcon={<Publish />}
                                     type="submit"
                                     variant="contained"
                                     size="large"

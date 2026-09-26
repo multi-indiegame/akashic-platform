@@ -42,6 +42,8 @@ import {
     VolumeOff,
     VolumeUp,
     X,
+    MoreTime,
+    AlternateEmail,
 } from "@mui/icons-material";
 import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import {
@@ -1306,6 +1308,7 @@ export function PlayView({
                         }}
                         action={
                             <Button
+                                startIcon={<MoreTime />}
                                 variant="contained"
                                 onClick={() => handleExtend()}
                                 disabled={extendLoading}
@@ -1645,6 +1648,7 @@ export function PlayView({
                                                 </Typography>
                                             </Stack>
                                             <Button
+                                                startIcon={<MoreTime />}
                                                 variant="contained"
                                                 onClick={handleExtend}
                                                 disabled={
@@ -1814,6 +1818,9 @@ export function PlayView({
                                                     variant="outlined"
                                                     action={
                                                         <Button
+                                                            startIcon={
+                                                                <AlternateEmail />
+                                                            }
                                                             variant="outlined"
                                                             onClick={() =>
                                                                 setHandleDialogOpen(

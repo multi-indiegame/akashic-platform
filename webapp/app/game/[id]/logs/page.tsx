@@ -16,7 +16,12 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
-import { ArrowBack, Download } from "@mui/icons-material";
+import {
+    ArrowBack,
+    Download,
+    ExpandLess,
+    ExpandMore,
+} from "@mui/icons-material";
 import { ContentLogEntry, ContentLogInfo } from "@/lib/types";
 import { useAuth } from "@/lib/client/useAuth";
 import { useGame } from "@/lib/client/useGame";
@@ -75,6 +80,7 @@ function PlayErrorDetails({
     return (
         <Box>
             <Button
+                startIcon={expanded ? <ExpandLess /> : <ExpandMore />}
                 variant="outlined"
                 size="small"
                 onClick={handleToggle}
@@ -83,7 +89,7 @@ function PlayErrorDetails({
                     color: theme.palette.warning.dark,
                 }}
             >
-                {expanded ? "▲ エラーログを隠す" : "▼ エラーログを表示"}
+                {expanded ? "エラーログを隠す" : "エラーログを表示"}
             </Button>
             {expanded && (
                 <Box sx={{ mt: 1 }}>
@@ -172,6 +178,7 @@ function ClientLogDetails({
     return (
         <Box>
             <Button
+                startIcon={expanded ? <ExpandLess /> : <ExpandMore />}
                 variant="outlined"
                 size="small"
                 onClick={handleClick}
@@ -181,8 +188,8 @@ function ClientLogDetails({
                 }}
             >
                 {expanded
-                    ? "▲ プレイヤーから報告されたログを隠す"
-                    : "▼ プレイヤーから報告されたログを表示"}
+                    ? "プレイヤーから報告されたログを隠す"
+                    : "プレイヤーから報告されたログを表示"}
             </Button>
             {expanded && (
                 <Box sx={{ mt: 1 }}>
@@ -601,6 +608,7 @@ export default function ContentLogs() {
 
                     {!isEnd && (
                         <Button
+                            startIcon={<ExpandMore />}
                             onClick={handleClickMore}
                             sx={{
                                 backgroundColor: theme.palette.background.paper,

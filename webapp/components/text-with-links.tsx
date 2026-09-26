@@ -2,7 +2,7 @@
 
 import { MouseEvent, useLayoutEffect, useRef, useState } from "react";
 import { Button, Link, Stack, Typography, useTheme } from "@mui/material";
-import { OpenInNew } from "@mui/icons-material";
+import { OpenInNew, ExpandLess, ExpandMore } from "@mui/icons-material";
 
 const URL_REGEX = /(https?:\/\/[^\s\u3000-\u9fff\uff00-\uffef<>'"]+)/g;
 const TRAILING_PUNCT = /[.,;:!?)>\]'"」）。、！？…]+$/;
@@ -59,6 +59,7 @@ export function GameDescription({
             </Typography>
             {isTruncated && (
                 <Button
+                    startIcon={expanded ? <ExpandLess /> : <ExpandMore />}
                     size="small"
                     onClick={(e) => onToggle(e, gameId)}
                     sx={{

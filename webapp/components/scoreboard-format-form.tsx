@@ -20,6 +20,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
+import { BarChart, NotInterested, Save, Add } from "@mui/icons-material";
 import type {
     ScoreFieldSetting,
     ScoreValueType,
@@ -250,26 +251,22 @@ export function ScoreboardFormatForm({
                         sx={{ flexWrap: "wrap", mt: 1 }}
                     >
                         <Button
+                            startIcon={<BarChart />}
                             size="small"
                             variant="outlined"
                             // WHY: すでに全部そうなっているときに押せると、
                             // 押しても何も起きない操作になる
                             disabled={allChartsOn}
-                            onClick={(e) => {
-                                e.currentTarget.blur();
-                                setBulkChart("on");
-                            }}
+                            onClick={() => setBulkChart("on")}
                         >
                             すべて棒グラフを出す
                         </Button>
                         <Button
+                            startIcon={<NotInterested />}
                             size="small"
                             variant="outlined"
                             disabled={allChartsOff}
-                            onClick={(e) => {
-                                e.currentTarget.blur();
-                                setBulkChart("off");
-                            }}
+                            onClick={() => setBulkChart("off")}
                         >
                             すべて棒グラフを出さない
                         </Button>
@@ -293,6 +290,7 @@ export function ScoreboardFormatForm({
                 }}
             >
                 <Button
+                    startIcon={<Save />}
                     variant="contained"
                     onClick={handleSave}
                     disabled={saving}
@@ -311,21 +309,22 @@ export function ScoreboardFormatForm({
                         {chartTargets} 件のランキングの設定をまとめて変えます。
                         保存するまでは反映されません。
                     </DialogContentText>
+                    <DialogActions>
+                        <Button
+                            variant="outlined"
+                            color="inherit"
+                            onClick={() => setBulkChart(undefined)}
+                        >
+                            キャンセル
+                        </Button>
+                        <Button
+                            variant="contained"
+                            onClick={() => applyBulkChart(bulkChart === "off")}
+                        >
+                            変更する
+                        </Button>
+                    </DialogActions>
                 </DialogContent>
-                <DialogActions>
-                    <Button
-                        variant="outlined"
-                        onClick={() => setBulkChart(undefined)}
-                    >
-                        キャンセル
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={() => applyBulkChart(bulkChart === "off")}
-                    >
-                        変更する
-                    </Button>
-                </DialogActions>
             </Dialog>
         </Stack>
     );
@@ -758,6 +757,7 @@ function AddKeyCard({
                             <MenuItem value="string">文字列</MenuItem>
                         </TextField>
                         <Button
+                            startIcon={<Add />}
                             variant="outlined"
                             disabled={
                                 trimmed.length === 0 || invalid || duplicated
@@ -766,7 +766,7 @@ function AddKeyCard({
                                 onAdd(trimmed, valueType);
                                 setKey("");
                             }}
-                            sx={{ mt: { sm: 0.5 } }}
+                            sx={{ mt: { sm: 0.5 }, flexShrink: 0 }}
                         >
                             追加
                         </Button>

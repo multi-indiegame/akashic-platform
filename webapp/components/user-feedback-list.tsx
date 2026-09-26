@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { UserFeedbackItem } from "@/lib/types";
 import { FeedbackReplyForm } from "./feedback-reply-form";
+import { ExpandMore } from "@mui/icons-material";
 
 export function UserFeedbackList({
     title,
@@ -268,7 +269,11 @@ export function UserFeedbackList({
                         ))}
                     </Stack>
                     {!isEnd && (
-                        <Button variant="outlined" onClick={onLoadMore}>
+                        <Button
+                            startIcon={<ExpandMore />}
+                            variant="outlined"
+                            onClick={onLoadMore}
+                        >
                             もっと読む
                         </Button>
                     )}

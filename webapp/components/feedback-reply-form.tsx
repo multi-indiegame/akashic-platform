@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { Alert, Button, Stack, TextField, Typography } from "@mui/material";
+import { Reply } from "@mui/icons-material";
 import {
     FeedbackFormState,
     postFeedbackReplyAction,
@@ -17,7 +18,12 @@ const initialState: FeedbackFormState = {
 function SubmitButton({ label }: { label: string }) {
     const { pending } = useFormStatus();
     return (
-        <Button variant="contained" type="submit" disabled={pending}>
+        <Button
+            startIcon={<Reply />}
+            variant="contained"
+            type="submit"
+            disabled={pending}
+        >
             {label}
         </Button>
     );

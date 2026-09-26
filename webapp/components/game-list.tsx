@@ -19,7 +19,7 @@ import {
     useMediaQuery,
     useTheme,
 } from "@mui/material";
-import { CheckBox, StarOutlined } from "@mui/icons-material";
+import { CheckBox, StarOutlined, ExpandMore } from "@mui/icons-material";
 import { GameInfo } from "@/lib/types";
 import { useGameList } from "@/lib/client/useGameList";
 import { useFavorites } from "@/lib/client/useFavorites";
@@ -359,6 +359,7 @@ export function GameList({
                 )}
                 {!isLoading && list != null && !isEmpty && !isEnd && (
                     <Button
+                        startIcon={<ExpandMore />}
                         onClick={handleClickMore}
                         sx={{
                             backgroundColor: theme.palette.background.paper,
@@ -459,6 +460,7 @@ export function GameList({
                                     sx={{ textAlign: "center" }}
                                 >
                                     <Button
+                                        startIcon={<ExpandMore />}
                                         onClick={handleClickMore}
                                         sx={{
                                             backgroundColor:

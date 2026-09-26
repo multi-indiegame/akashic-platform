@@ -11,6 +11,7 @@ import {
     DialogContentText,
     DialogTitle,
 } from "@mui/material";
+import { Delete } from "@mui/icons-material";
 import { deleteGame } from "@/lib/server/content-delete";
 import { messageKey, messages } from "@/lib/types";
 
@@ -67,7 +68,12 @@ export function GameDeleteDialog({ gameId }: { gameId: number }) {
 
     return (
         <>
-            <Button variant="outlined" color="error" onClick={handleClick}>
+            <Button
+                startIcon={<Delete />}
+                variant="outlined"
+                color="error"
+                onClick={handleClick}
+            >
                 ゲームを削除する
             </Button>
             <Dialog

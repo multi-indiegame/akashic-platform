@@ -4,6 +4,7 @@ import { MouseEvent, ReactNode, useState } from "react";
 import { format } from "date-fns";
 import {
     Avatar,
+    Box,
     Button,
     Paper,
     Skeleton,
@@ -18,10 +19,35 @@ import {
     useMediaQuery,
     useTheme,
 } from "@mui/material";
+import { ExpandMore } from "@mui/icons-material";
 import { useAuth } from "@/lib/client/useAuth";
 import { GameInfo } from "@/lib/types";
+import { verticalButtonSx } from "@/lib/client/theme";
 import { GameDescription } from "./text-with-links";
 import { FavoriteButton } from "./favorite-button";
+
+export function GameActions({
+    isTable,
+    children,
+}: {
+    isTable: boolean;
+    children: ReactNode;
+}) {
+    const theme = useTheme();
+    return (
+        <Stack
+            direction={isTable ? "column" : { xs: "column", sm: "row" }}
+            spacing={1}
+            sx={
+                isTable
+                    ? verticalButtonSx
+                    : { [theme.breakpoints.only("xs")]: verticalButtonSx }
+            }
+        >
+            {children}
+        </Stack>
+    );
+}
 
 function Loading() {
     return (
@@ -34,7 +60,6 @@ function Loading() {
 }
 
 function NoResult() {
-    const theme = useTheme();
     return (
         <TableRow>
             <TableCell colSpan={4}>
@@ -63,8 +88,6 @@ function GameTableCells({
     onToggleDescription: (e: MouseEvent, id: number) => void;
     withFavorite: boolean;
 }) {
-    const theme = useTheme();
-
     return list.map((game) => (
         <TableRow key={game.contentId} hover>
             <TableCell>
@@ -107,17 +130,11 @@ function GameTableCells({
             <TableCell
                 sx={{
                     whiteSpace: "nowrap",
+                    // WHY: 列幅を最長のボタン列に合わせ、ゲームごとにボタン幅がばらつかないようにする
+                    width: "1%",
                 }}
             >
-                <Stack
-                    direction={{ xs: "column", lg: "row" }}
-                    sx={{
-                        gap: 1,
-                        width: "max-content",
-                    }}
-                >
-                    {renderActions?.(game, true)}
-                </Stack>
+                {renderActions?.(game, true)}
             </TableCell>
             {withFavorite && (
                 <TableCell>
@@ -253,13 +270,16 @@ export function GameListTable({
                                         </Typography>
                                     </Stack>
                                     {renderActions && (
-                                        <Stack
-                                            direction="row"
-                                            spacing={1}
-                                            sx={{ width: "max-content" }}
+                                        <Box
+                                            sx={{
+                                                width: {
+                                                    xs: "100%",
+                                                    sm: "max-content",
+                                                },
+                                            }}
                                         >
                                             {renderActions(game, false)}
-                                        </Stack>
+                                        </Box>
                                     )}
                                 </Stack>
                             </Paper>
@@ -268,6 +288,7 @@ export function GameListTable({
                 )}
                 {!isLoading && list != null && !isEmpty && !isEnd && (
                     <Button
+                        startIcon={<ExpandMore />}
                         onClick={onLoadMore}
                         sx={{
                             backgroundColor: theme.palette.background.paper,
@@ -324,6 +345,7 @@ export function GameListTable({
                                     sx={{ textAlign: "center" }}
                                 >
                                     <Button
+                                        startIcon={<ExpandMore />}
                                         onClick={onLoadMore}
                                         sx={{
                                             backgroundColor:

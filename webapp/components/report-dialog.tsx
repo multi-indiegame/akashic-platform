@@ -15,6 +15,7 @@ import {
     RadioGroup,
     TextField,
 } from "@mui/material";
+import { Flag } from "@mui/icons-material";
 import {
     REPORT_DETAIL_MAX,
     REPORT_REASON_LABELS,
@@ -163,6 +164,7 @@ export function ReportDialog({
                             キャンセル
                         </Button>
                         <Button
+                            startIcon={<Flag />}
                             onClick={submit}
                             variant="contained"
                             color="error"

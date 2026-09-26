@@ -22,7 +22,15 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
-import { ImageNotSupported } from "@mui/icons-material";
+import {
+    Edit,
+    StopCircle,
+    Delete,
+    Add,
+    AddPhotoAlternate,
+    Undo,
+    Save,
+} from "@mui/icons-material";
 import type { ScoreTitleRank } from "@multi-indiegame/persist-schema";
 import {
     TITLE_RANKS,
@@ -243,6 +251,7 @@ export function ScoreboardTitleForm({
                             )}
                             <Stack direction="row" spacing={1}>
                                 <Button
+                                    startIcon={<Edit />}
                                     size="small"
                                     variant="outlined"
                                     onClick={() => setEditing(def)}
@@ -255,14 +264,18 @@ export function ScoreboardTitleForm({
                                     編集
                                 </Button>
                                 <Button
+                                    startIcon={
+                                        def.awardedCount > 0 ? (
+                                            <StopCircle />
+                                        ) : (
+                                            <Delete />
+                                        )
+                                    }
                                     size="small"
                                     color="error"
                                     variant="outlined"
                                     disabled={def.retired}
-                                    onClick={(e) => {
-                                        e.currentTarget.blur();
-                                        setRetiring(def);
-                                    }}
+                                    onClick={() => setRetiring(def)}
                                 >
                                     {def.awardedCount > 0
                                         ? "配布停止"
@@ -289,7 +302,11 @@ export function ScoreboardTitleForm({
                     justifyContent: "center",
                 }}
             >
-                <Button variant="contained" onClick={() => setEditing("new")}>
+                <Button
+                    startIcon={<Add />}
+                    variant="contained"
+                    onClick={() => setEditing("new")}
+                >
                     称号を追加する
                 </Button>
             </Paper>
@@ -538,6 +555,7 @@ function TitleDialog({
                             sx={{ width: 56, height: 56 }}
                         />
                         <Button
+                            startIcon={<AddPhotoAlternate />}
                             size="small"
                             variant="outlined"
                             component="label"
@@ -558,6 +576,7 @@ function TitleDialog({
                         </Button>
                         {image ? (
                             <Button
+                                startIcon={<Undo />}
                                 size="small"
                                 variant="outlined"
                                 color="error"
@@ -568,6 +587,7 @@ function TitleDialog({
                         ) : (
                             def?.imageURL && (
                                 <Button
+                                    startIcon={<Delete />}
                                     size="small"
                                     variant="outlined"
                                     color="error"
@@ -764,6 +784,7 @@ function TitleDialog({
                                 )}
                                 {rows.length > 1 && (
                                     <Button
+                                        startIcon={<Delete />}
                                         size="small"
                                         variant="outlined"
                                         color="error"
@@ -787,6 +808,7 @@ function TitleDialog({
                         </Stack>
                     ))}
                     <Button
+                        startIcon={<Add />}
                         size="small"
                         variant="outlined"
                         sx={{
@@ -874,6 +896,7 @@ function TitleDialog({
                         キャンセル
                     </Button>
                     <Button
+                        startIcon={<Save />}
                         variant="contained"
                         onClick={handleSave}
                         disabled={saving}
