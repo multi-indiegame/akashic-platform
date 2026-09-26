@@ -39,15 +39,7 @@ export async function fetchTitles(
             },
         },
     });
-    const sorted = rows.sort((a, b) => {
-        if (a.pinnedOrder != null || b.pinnedOrder != null) {
-            return (a.pinnedOrder ?? Infinity) - (b.pinnedOrder ?? Infinity);
-        }
-        if (a.def.priority !== b.def.priority) {
-            return a.def.priority - b.def.priority;
-        }
-        return a.awardedAt.getTime() - b.awardedAt.getTime();
-    });
+    const sorted = rows.sort(compareTitles);
     return sorted.slice(0, options.limit ?? DISPLAY_LIMIT).map((row) => ({
         defId: row.defId,
         gameId: row.gameId,
@@ -89,7 +81,7 @@ export async function fetchTitlesForUsers(
             },
         },
     });
-    for (const row of rows) {
+    for (const row of rows.sort(compareTitles)) {
         const list = result.get(row.userId) ?? [];
         list.push({
             defId: row.defId,
@@ -107,6 +99,27 @@ export async function fetchTitlesForUsers(
         result.set(userId, list.slice(0, DISPLAY_LIMIT));
     }
     return result;
+}
+
+function compareTitles(
+    a: {
+        pinnedOrder: number | null;
+        awardedAt: Date;
+        def: { priority: number };
+    },
+    b: {
+        pinnedOrder: number | null;
+        awardedAt: Date;
+        def: { priority: number };
+    },
+): number {
+    if (a.pinnedOrder != null || b.pinnedOrder != null) {
+        return (a.pinnedOrder ?? Infinity) - (b.pinnedOrder ?? Infinity);
+    }
+    if (a.def.priority !== b.def.priority) {
+        return a.def.priority - b.def.priority;
+    }
+    return a.awardedAt.getTime() - b.awardedAt.getTime();
 }
 
 /**

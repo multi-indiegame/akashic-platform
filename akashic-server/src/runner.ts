@@ -69,6 +69,7 @@ export class Runner {
     _startedAt?: number;
     _scoreRecords?: ScoreboardRecords;
     _lastScoreSeq = 0;
+    _scoreClosed = false;
 
     constructor(param: RunnerParameterObject) {
         this._param = param;
@@ -193,7 +194,9 @@ export class Runner {
     }
 
     acceptsScore() {
-        return this._playId != null && !this._ending;
+        // WHY: 終了処理に入っても stopPlay が済むまでは受け付ける。runner は
+        // 停止の中で、間引き待ちだった最後の記録を送ってくる
+        return this._playId != null && !this._scoreClosed;
     }
 
     /**
@@ -291,6 +294,7 @@ export class Runner {
                 err,
             );
         }
+        this._scoreClosed = true;
 
         if (notifyPlaylogServer) {
             try {

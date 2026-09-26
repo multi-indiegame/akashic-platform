@@ -1,4 +1,5 @@
 import { prisma, ScoreTitleRank } from "@multi-indiegame/persist-schema";
+import { lockOptOut } from "./optOut";
 
 /**
  * 称号の付与。
@@ -99,25 +100,49 @@ export async function awardTitles(
             bestByCategory.set(def.categoryKey, def);
         }
     }
-    for (const [categoryKey, def] of bestByCategory) {
+    const awards = [...bestByCategory].filter(([categoryKey, def]) => {
         const existing = heldByCategory.get(categoryKey);
-        if (existing && RANK_ORDER[existing.rank] >= RANK_ORDER[def.rank]) {
-            continue;
+        return !existing || RANK_ORDER[existing.rank] < RANK_ORDER[def.rank];
+    });
+    if (awards.length === 0) {
+        return;
+    }
+    const awarded = await prisma.$transaction(async (tx) => {
+        // WHY: 評価に使った記録は、掲載をやめる前に読んだものかもしれない
+        if (await lockOptOut(tx, userId)) {
+            return false;
         }
-        await prisma.scoreTitle.upsert({
-            where: {
-                userId_gameId_categoryKey: { userId, gameId, categoryKey },
-            },
-            create: {
-                userId,
-                gameId,
-                categoryKey,
-                rank: def.rank,
-                defId: def.id,
-            },
-            update: { rank: def.rank, defId: def.id, awardedAt: new Date() },
-        });
-        await notifyAwarded(userId, gameId, def.id, !!existing);
+        for (const [categoryKey, def] of awards) {
+            await tx.scoreTitle.upsert({
+                where: {
+                    userId_gameId_categoryKey: { userId, gameId, categoryKey },
+                },
+                create: {
+                    userId,
+                    gameId,
+                    categoryKey,
+                    rank: def.rank,
+                    defId: def.id,
+                },
+                update: {
+                    rank: def.rank,
+                    defId: def.id,
+                    awardedAt: new Date(),
+                },
+            });
+        }
+        return true;
+    });
+    if (!awarded) {
+        return;
+    }
+    for (const [categoryKey, def] of awards) {
+        await notifyAwarded(
+            userId,
+            gameId,
+            def.id,
+            heldByCategory.has(categoryKey),
+        );
     }
 }
 

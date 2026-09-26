@@ -1,4 +1,4 @@
-import { prisma } from "@multi-indiegame/persist-schema";
+import { Prisma, prisma } from "@multi-indiegame/persist-schema";
 import { publicContentBaseUrl } from "./akashic";
 import { fetchFormat, fieldSetting } from "@multi-indiegame/scoreboard-schema";
 import { MyGameStats, MyScoreboard, MyScoreRecord } from "../types";
@@ -121,29 +121,21 @@ async function fetchMyRecords(
         if (value == null) {
             continue;
         }
-        const byTrueCount = ranksByTrueCount(best, setting);
+        const column = rankColumn(best, setting);
         const [above, total] = await Promise.all([
             prisma.scoreBest.count({
                 where: {
                     gameId,
                     key: best.key,
-                    ...(byTrueCount
-                        ? { trueCount: { gt: value } }
-                        : setting.direction === "high"
-                          ? { maxValue: { gt: value } }
-                          : { minValue: { lt: value } }),
+                    ...column.present,
+                    [column.name]:
+                        setting.direction === "high"
+                            ? { gt: value }
+                            : { lt: value },
                 },
             }),
             prisma.scoreBest.count({
-                where: {
-                    gameId,
-                    key: best.key,
-                    ...(byTrueCount
-                        ? { trueCount: { gt: 0 } }
-                        : setting.direction === "high"
-                          ? { maxValue: { not: null } }
-                          : { minValue: { not: null } }),
-                },
+                where: { gameId, key: best.key, ...column.present },
             }),
         ]);
         records.push({
@@ -191,6 +183,35 @@ function representative(
             return row.count > 0 ? row.count : null;
         case "rate":
             return null;
+    }
+}
+
+/**
+ * 順位を数える列と、順位に数える行の条件。
+ *
+ * WHY: 統計ページと同じ代表値で比べる。表示している値と別の列で数えると、
+ * 見えている値と順位が食い違う
+ */
+function rankColumn(
+    row: BestRow,
+    setting: ReturnType<typeof fieldSetting>,
+): {
+    name: "maxValue" | "minValue" | "lastValue" | "sum" | "count" | "trueCount";
+    present: Prisma.ScoreBestWhereInput;
+} {
+    switch (setting.aggregate) {
+        case "latest":
+            return { name: "lastValue", present: { lastValue: { not: null } } };
+        case "sum":
+            return { name: "sum", present: { count: { gt: 0 } } };
+        case "count":
+            return ranksByTrueCount(row, setting)
+                ? { name: "trueCount", present: { trueCount: { gt: 0 } } }
+                : { name: "count", present: { count: { gt: 0 } } };
+        default:
+            return setting.direction === "high"
+                ? { name: "maxValue", present: { maxValue: { not: null } } }
+                : { name: "minValue", present: { minValue: { not: null } } };
     }
 }
 

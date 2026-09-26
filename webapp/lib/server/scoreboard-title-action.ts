@@ -248,7 +248,6 @@ export async function saveTitleDef(
     }
     try {
         const data = {
-            gameId,
             categoryKey,
             rank: input.rank,
             priority: input.priority,
@@ -259,13 +258,17 @@ export async function saveTitleDef(
             conditionHidden: !!input.conditionHidden,
         };
         if (input.id) {
-            await prisma.scoreTitleDef.update({
-                where: { id: input.id },
+            // WHY: 権限を確かめたのは gameId だけ。定義もそのゲームのものに限る
+            const { count } = await prisma.scoreTitleDef.updateMany({
+                where: { id: input.id, gameId },
                 // 取り下げた称号を直したときは、配布を再開したとみなす
                 data: { ...data, retiredAt: null },
             });
+            if (count === 0) {
+                return { ok: false, reason: "NotFound" };
+            }
         } else {
-            await prisma.scoreTitleDef.create({ data });
+            await prisma.scoreTitleDef.create({ data: { ...data, gameId } });
         }
         return { ok: true };
     } catch (err) {

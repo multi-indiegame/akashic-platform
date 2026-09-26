@@ -136,8 +136,13 @@ export async function fetchMonthlyArchive(
             builtAt: stored.builtAt ?? existing.createdAt.toISOString(),
         };
     }
+    // WHY: 一時的に読めなかっただけなら作り直さない。凍結後に反映された記録や
+    // 掲載の取りやめが混ざった内容で、凍結済みの中身を上書きしてしまう
+    if (stored !== "missing") {
+        return null;
+    }
     const built = await buildArchive(gameId, month);
-    if (!built && stored === "missing") {
+    if (!built) {
         // WHY: S3 の実体がライフサイクルポリシーで先に消えうる
         await prisma.scoreboardArchive.deleteMany({
             where: { gameId, month },
@@ -169,10 +174,9 @@ async function buildArchive(
             boolValue: true,
             endedAt: true,
         },
+        // WHY: 後から読んだ値を「最後の値」とするので、終わった順に並べる
+        orderBy: [{ endedAt: "asc" }, { id: "asc" }],
     });
-    if (values.length === 0) {
-        return null;
-    }
     const byKey = new Map<string, Map<string, ArchivedSubject>>();
     const entries = new Map<
         string,
@@ -227,7 +231,11 @@ async function buildArchive(
             record: { playerId: null, excluded: false },
         },
         select: { key: true, numValue: true, boolValue: true },
+        orderBy: [{ endedAt: "asc" }, { id: "asc" }],
     });
+    if (values.length === 0 && playValues.length === 0) {
+        return null;
+    }
     const playTotals = new Map<string, ArchivedPlayTotal>();
     for (const value of playValues) {
         const total = playTotals.get(value.key) ?? {
@@ -352,12 +360,27 @@ async function readArchive(
     }
 }
 
-/** 統計ページに出す、選べる月の一覧 */
+/**
+ * 統計ページに出す、選べる月の一覧
+ *
+ * WHY: 凍結はその月が開かれたときに行う。凍結済みの月だけを並べると、まだ
+ * 凍結していない月へたどり着けず、いつまでも凍結されない。生レコードが残る
+ * 閉じた月も並べる
+ */
 export async function listArchivedMonths(gameId: number): Promise<string[]> {
-    const rows = await prisma.scoreboardArchive.findMany({
-        where: { gameId },
-        orderBy: { month: "desc" },
-        select: { month: true },
-    });
-    return rows.map((row) => row.month);
+    const [archived, raw] = await Promise.all([
+        prisma.scoreboardArchive.findMany({
+            where: { gameId },
+            select: { month: true },
+        }),
+        prisma.$queryRaw<{ month: string }[]>`
+            SELECT DISTINCT to_char("endedAt", 'YYYY-MM') AS "month"
+            FROM "ScoreRecord"
+            WHERE "gameId" = ${gameId}
+              AND "endedAt" < ${monthRange(toMonth(new Date())).from}
+        `,
+    ]);
+    return [...new Set([...archived, ...raw].map((row) => row.month))].sort(
+        (a, b) => b.localeCompare(a),
+    );
 }

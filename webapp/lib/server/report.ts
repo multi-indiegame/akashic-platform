@@ -201,14 +201,24 @@ async function resolveScoreSubject(
 ): Promise<ResolvedTarget | null> {
     const subjectKey = decodeSubjectToken(subject);
     if (!subjectKey) return null;
-    const [name, game] = await Promise.all([
+    const [name, game, best, playCount] = await Promise.all([
         subjectDisplayName(subjectKey),
         prisma.game.findUnique({
             where: { id: gameId },
             select: { title: true },
         }),
+        // WHY: トークンはゲームに結び付いていない。別のゲームで得たトークンを
+        // 渡されると、載っていないゲームのランキングに載っていたと控えてしまう
+        prisma.scoreBest.findFirst({
+            where: { gameId, subjectKey },
+            select: { id: true },
+        }),
+        prisma.scorePlayCount.findUnique({
+            where: { gameId_subjectKey: { gameId, subjectKey } },
+            select: { id: true },
+        }),
     ]);
-    if (!name || !game) return null;
+    if (!name || !game || (!best && !playCount)) return null;
     const self = reporter.userId
         ? viewerSubjectKey({ authType: "oauth", id: reporter.userId })
         : reporter.guestId

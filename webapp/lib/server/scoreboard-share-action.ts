@@ -58,11 +58,16 @@ export async function revokeScoreboardPublication(): Promise<ScoreboardSettingRe
         return { ok: false, reason: auth.reason };
     }
     try {
-        await revokeSubject(`u:${auth.user.id}`);
-        await prisma.scoreTitle.deleteMany({ where: { userId: auth.user.id } });
-        await prisma.user.update({
-            where: { id: auth.user.id },
-            data: { scoreboardPublic: false, scoreboardOptOut: true },
+        const userId = auth.user.id;
+        await prisma.$transaction(async (tx) => {
+            // WHY: 利用者の行を先に更新して押さえる。突き合わせと称号の付与は
+            // 同じ行を押さえてから書くので、消した後に書き戻されない
+            await tx.user.update({
+                where: { id: userId },
+                data: { scoreboardPublic: false, scoreboardOptOut: true },
+            });
+            await revokeSubject(`u:${userId}`, tx);
+            await tx.scoreTitle.deleteMany({ where: { userId } });
         });
         return { ok: true };
     } catch (err) {

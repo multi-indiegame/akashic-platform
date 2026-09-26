@@ -1,5 +1,6 @@
 import { prisma } from "@multi-indiegame/persist-schema";
 import { ScoreFieldSetting, fetchFormat, fieldSetting } from "./format";
+import { TransactionClient, lockOptOut } from "./optOut";
 import { awardTitles } from "./title";
 
 /**
@@ -186,7 +187,7 @@ async function applyPlayRecord(record: {
             };
             const existing = await tx.scoreGameTotal.findUnique({
                 where,
-                select: { maxValue: true, minValue: true },
+                select: { maxValue: true, minValue: true, lastAt: true },
             });
             const num = value.numValue;
             const updatesMax =
@@ -218,10 +219,14 @@ async function applyPlayRecord(record: {
                         : {}),
                 },
                 update: {
-                    lastAt: record.endedAt,
-                    lastValue: num,
-                    lastStr: value.strValue,
-                    lastBool: value.boolValue,
+                    ...(isLatest(record.endedAt, existing?.lastAt)
+                        ? {
+                              lastAt: record.endedAt,
+                              lastValue: num,
+                              lastStr: value.strValue,
+                              lastBool: value.boolValue,
+                          }
+                        : {}),
                     recordCount: { increment: 1 },
                     ...(value.boolValue === true
                         ? { trueCount: { increment: 1 } }
@@ -244,6 +249,15 @@ async function applyPlayRecord(record: {
     });
 }
 
+/**
+ * 最後の値として上書きしてよいか。
+ *
+ * WHY: 同意の報告は遅れて届きうるので、反映の順序はプレイの終わった順と限らない
+ */
+function isLatest(endedAt: Date, lastAt: Date | null | undefined): boolean {
+    return lastAt == null || endedAt >= lastAt;
+}
+
 interface ApplyRecordParameterObject {
     recordId: number;
     gameId: number;
@@ -263,6 +277,10 @@ interface ApplyRecordParameterObject {
 
 async function applyRecord(param: ApplyRecordParameterObject): Promise<void> {
     await prisma.$transaction(async (tx) => {
+        // WHY: 突き合わせの冒頭で見た判定は古いことがある。書き込む直前に確かめ直す
+        if (param.userId && (await lockOptOut(tx, param.userId))) {
+            return;
+        }
         // WHY: 反映済みの印を先に立て、同じ条件で 1 件だけ動いたことを確かめる。
         // 同時に 2 回走っても、後から来たほうは 0 件になって加算しない
         const marked = await tx.scoreRecord.updateMany({
@@ -314,10 +332,6 @@ async function applyRecord(param: ApplyRecordParameterObject): Promise<void> {
     });
 }
 
-type TransactionClient = Parameters<
-    Parameters<typeof prisma.$transaction>[0]
->[0];
-
 async function applyValue(
     tx: TransactionClient,
     param: ApplyRecordParameterObject,
@@ -333,7 +347,7 @@ async function applyValue(
     };
     const existing = await tx.scoreBest.findUnique({
         where,
-        select: { maxValue: true, minValue: true },
+        select: { maxValue: true, minValue: true, lastAt: true },
     });
     const num = value.numValue;
     const updatesMax =
@@ -341,10 +355,14 @@ async function applyValue(
     const updatesMin =
         num != null && (existing?.minValue == null || num < existing.minValue);
     const data = {
-        lastAt: param.endedAt,
-        lastValue: num,
-        lastStr: value.strValue,
-        lastBool: value.boolValue,
+        ...(isLatest(param.endedAt, existing?.lastAt)
+            ? {
+                  lastAt: param.endedAt,
+                  lastValue: num,
+                  lastStr: value.strValue,
+                  lastBool: value.boolValue,
+              }
+            : {}),
         recordCount: { increment: 1 },
         ...(value.boolValue === true ? { trueCount: { increment: 1 } } : {}),
         ...(num != null
@@ -443,21 +461,26 @@ async function keepTopEntries(
  * WHY: `reflectedAt` は残す。「処理済み」の印なので、消すと次の突き合わせで
  * また掲載されてしまう。外したことを覚えておくために使う。
  */
-export async function revokeSubject(subjectKey: SubjectKey): Promise<void> {
-    await prisma.$transaction(async (tx) => {
-        // 歴代は増分で積んでいるので引き算では戻せない。その主体の分を丸ごと落とす
-        await tx.scoreBest.deleteMany({ where: { subjectKey } });
-        await tx.scoreTopEntry.deleteMany({ where: { subjectKey } });
-        await tx.scorePlayCount.deleteMany({ where: { subjectKey } });
-        await tx.scoreSubject.deleteMany({ where: { subjectKey } });
-        await tx.scoreValue.updateMany({
-            where: { subjectKey },
-            data: { subjectKey: null },
-        });
-        await tx.scoreRecord.updateMany({
-            where: { subjectKey },
-            data: { subjectKey: null },
-        });
+export async function revokeSubject(
+    subjectKey: SubjectKey,
+    tx?: TransactionClient,
+): Promise<void> {
+    if (!tx) {
+        await prisma.$transaction((tx) => revokeSubject(subjectKey, tx));
+        return;
+    }
+    // 歴代は増分で積んでいるので引き算では戻せない。その主体の分を丸ごと落とす
+    await tx.scoreBest.deleteMany({ where: { subjectKey } });
+    await tx.scoreTopEntry.deleteMany({ where: { subjectKey } });
+    await tx.scorePlayCount.deleteMany({ where: { subjectKey } });
+    await tx.scoreSubject.deleteMany({ where: { subjectKey } });
+    await tx.scoreValue.updateMany({
+        where: { subjectKey },
+        data: { subjectKey: null },
+    });
+    await tx.scoreRecord.updateMany({
+        where: { subjectKey },
+        data: { subjectKey: null },
     });
 }
 
