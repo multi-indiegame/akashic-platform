@@ -1132,6 +1132,7 @@ export function PlayView({
                 <PlayPlayerInfoResolver
                     request={requestPlayerInfo}
                     requireSignIn={requireSignIn}
+                    hasScoreboard={game.hasScoreboard}
                 />
             )}
             <PlayBanConfirmDialog

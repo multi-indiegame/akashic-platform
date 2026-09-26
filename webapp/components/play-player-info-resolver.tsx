@@ -26,9 +26,11 @@ function StatsNotice() {
 export function PlayPlayerInfoResolver({
     request,
     requireSignIn,
+    hasScoreboard,
 }: {
     request: ResolvingPlayerInfoRequest;
     requireSignIn: boolean;
+    hasScoreboard: boolean;
 }) {
     const [user] = useAuth();
     const [remainingSeconds, setRemainingSeconds] = useState(
@@ -97,7 +99,7 @@ export function PlayPlayerInfoResolver({
                         {remainingSeconds}秒)
                         ※未選択の場合もユーザー名で参加します。
                     </DialogContentText>
-                    <StatsNotice />
+                    {hasScoreboard && <StatsNotice />}
                     <DialogActions>
                         <Button
                             variant="contained"
@@ -119,7 +121,7 @@ export function PlayPlayerInfoResolver({
                         (残り
                         {remainingSeconds}秒) ※未選択の場合は匿名で参加します。
                     </DialogContentText>
-                    <StatsNotice />
+                    {hasScoreboard && <StatsNotice />}
                     {user.authType === "guest" && (
                         <TextField
                             autoFocus
