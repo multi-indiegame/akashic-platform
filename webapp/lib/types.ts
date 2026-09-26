@@ -479,10 +479,10 @@ export interface MyScoreRecord {
     heading: string;
     unit?: string;
     value: number;
-    /** その並びの中で自分が何位か */
-    rank: number;
-    /** 母数。順位だけでは伝わらないので添える */
-    total: number;
+    /** その並びの中で自分が何位か。分からないときは省く */
+    rank?: number;
+    /** 母数。順位だけでは伝わらないので添える。人数で数えられない並びでは省く */
+    total?: number;
     at?: Date;
 }
 

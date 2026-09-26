@@ -236,14 +236,18 @@ function RecordTable({ records }: { records: MyScoreRecord[] }) {
                             {record.unit ?? ""}
                         </TableCell>
                         <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                            {numberFormat.format(record.rank)} 位
-                            <Typography
-                                variant="caption"
-                                color="textSecondary"
-                                sx={{ ml: 0.5 }}
-                            >
-                                / {numberFormat.format(record.total)} 人
-                            </Typography>
+                            {record.rank != null
+                                ? `${numberFormat.format(record.rank)} 位`
+                                : "—"}
+                            {record.total != null && (
+                                <Typography
+                                    variant="caption"
+                                    color="textSecondary"
+                                    sx={{ ml: 0.5 }}
+                                >
+                                    / {numberFormat.format(record.total)} 人
+                                </Typography>
+                            )}
                         </TableCell>
                     </TableRow>
                 ))}

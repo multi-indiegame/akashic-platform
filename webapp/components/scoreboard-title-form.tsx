@@ -457,7 +457,12 @@ function TitleDialog({
                         size="small"
                         value={categoryKey}
                         onChange={(e) => setCategoryKey(e.target.value)}
-                        helperText="同じ分類の中では、いちばん上の段位だけが残ります。半角英数字と _ - :"
+                        disabled={!!def && def.awardedCount > 0}
+                        helperText={
+                            def && def.awardedCount > 0
+                                ? "すでに獲得した人がいるため、分類は変えられません。"
+                                : "同じ分類の中では、いちばん上の段位だけが残ります。半角英数字と _ - :"
+                        }
                         slotProps={{ htmlInput: { maxLength: 32 } }}
                     />
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>

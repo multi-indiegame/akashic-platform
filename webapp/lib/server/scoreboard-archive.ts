@@ -39,9 +39,8 @@ function getArchiveBucket() {
 
 const archiveKeyPrefix = process.env.S3_ARCHIVE_KEY_PREFIX ?? "";
 
-/** 主体ごとの集計。全損したときに歴代を組み直す材料でもある */
-export interface ArchivedSubject {
-    subjectKey: string;
+/** 1 つのキーの集計。月の中での最大・最小・最後の値と、その日時 */
+export interface ArchivedAggregate {
     max: number | null;
     min: number | null;
     sum: number;
@@ -49,6 +48,17 @@ export interface ArchivedSubject {
     last: number | null;
     recordCount: number;
     trueCount: number;
+    /**
+     * 日時（ISO 8601）。日時を出す設定のときに使う。持つ前に凍結した分には無い
+     */
+    maxAt?: string | null;
+    minAt?: string | null;
+    lastAt?: string | null;
+}
+
+/** 主体ごとの集計。全損したときに歴代を組み直す材料でもある */
+export interface ArchivedSubject extends ArchivedAggregate {
+    subjectKey: string;
 }
 
 export interface ArchivedKey {
@@ -59,15 +69,8 @@ export interface ArchivedKey {
 }
 
 /** プレイ自体の記録。主体がいないのでキーごとに 1 件 */
-export interface ArchivedPlayTotal {
+export interface ArchivedPlayTotal extends ArchivedAggregate {
     key: string;
-    max: number | null;
-    min: number | null;
-    sum: number;
-    count: number;
-    last: number | null;
-    recordCount: number;
-    trueCount: number;
 }
 
 export interface MonthlyArchive {
@@ -188,30 +191,10 @@ async function buildArchive(
         byKey.set(value.key, subjects);
         const subject = subjects.get(subjectKey) ?? {
             subjectKey,
-            max: null,
-            min: null,
-            sum: 0,
-            count: 0,
-            last: null,
-            recordCount: 0,
-            trueCount: 0,
+            ...emptyAggregate(),
         };
-        subject.recordCount++;
-        if (value.boolValue === true) {
-            subject.trueCount++;
-        }
+        accumulate(subject, value);
         if (value.numValue != null) {
-            subject.count++;
-            subject.sum += value.numValue;
-            subject.max =
-                subject.max == null
-                    ? value.numValue
-                    : Math.max(subject.max, value.numValue);
-            subject.min =
-                subject.min == null
-                    ? value.numValue
-                    : Math.min(subject.min, value.numValue);
-            subject.last = value.numValue;
             const list = entries.get(value.key) ?? [];
             list.push({
                 subjectKey,
@@ -230,7 +213,7 @@ async function buildArchive(
             endedAt: { gte: from, lt: to },
             record: { playerId: null, excluded: false },
         },
-        select: { key: true, numValue: true, boolValue: true },
+        select: { key: true, numValue: true, boolValue: true, endedAt: true },
         orderBy: [{ endedAt: "asc" }, { id: "asc" }],
     });
     if (values.length === 0 && playValues.length === 0) {
@@ -240,31 +223,9 @@ async function buildArchive(
     for (const value of playValues) {
         const total = playTotals.get(value.key) ?? {
             key: value.key,
-            max: null,
-            min: null,
-            sum: 0,
-            count: 0,
-            last: null,
-            recordCount: 0,
-            trueCount: 0,
+            ...emptyAggregate(),
         };
-        total.recordCount++;
-        if (value.boolValue === true) {
-            total.trueCount++;
-        }
-        if (value.numValue != null) {
-            total.count++;
-            total.sum += value.numValue;
-            total.max =
-                total.max == null
-                    ? value.numValue
-                    : Math.max(total.max, value.numValue);
-            total.min =
-                total.min == null
-                    ? value.numValue
-                    : Math.min(total.min, value.numValue);
-            total.last = value.numValue;
-        }
+        accumulate(total, value);
         playTotals.set(value.key, total);
     }
     const playCounts = await prisma.scoreRecord.groupBy({
@@ -296,6 +257,57 @@ async function buildArchive(
     };
     await writeArchive(gameId, month, format.version, archive);
     return archive;
+}
+
+function emptyAggregate(): ArchivedAggregate {
+    return {
+        max: null,
+        min: null,
+        sum: 0,
+        count: 0,
+        last: null,
+        recordCount: 0,
+        trueCount: 0,
+        maxAt: null,
+        minAt: null,
+        lastAt: null,
+    };
+}
+
+/**
+ * 終わった順に 1 件ずつ積む。
+ *
+ * WHY: 最大・最小が同じ値のときは先に達成したほうの日時を残す。歴代と揃える
+ */
+function accumulate(
+    aggregate: ArchivedAggregate,
+    value: {
+        numValue: number | null;
+        boolValue: boolean | null;
+        endedAt: Date;
+    },
+): void {
+    const at = value.endedAt.toISOString();
+    aggregate.recordCount++;
+    aggregate.lastAt = at;
+    if (value.boolValue === true) {
+        aggregate.trueCount++;
+    }
+    const num = value.numValue;
+    if (num == null) {
+        return;
+    }
+    aggregate.count++;
+    aggregate.sum += num;
+    if (aggregate.max == null || num > aggregate.max) {
+        aggregate.max = num;
+        aggregate.maxAt = at;
+    }
+    if (aggregate.min == null || num < aggregate.min) {
+        aggregate.min = num;
+        aggregate.minAt = at;
+    }
+    aggregate.last = num;
 }
 
 function toKey(gameId: number, month: string): string {

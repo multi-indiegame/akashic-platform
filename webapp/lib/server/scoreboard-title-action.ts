@@ -258,15 +258,39 @@ export async function saveTitleDef(
             conditionHidden: !!input.conditionHidden,
         };
         if (input.id) {
+            const id = input.id;
             // WHY: 権限を確かめたのは gameId だけ。定義もそのゲームのものに限る
-            const { count } = await prisma.scoreTitleDef.updateMany({
-                where: { id: input.id, gameId },
-                // 取り下げた称号を直したときは、配布を再開したとみなす
-                data: { ...data, retiredAt: null },
+            const current = await prisma.scoreTitleDef.findFirst({
+                where: { id, gameId },
+                select: {
+                    categoryKey: true,
+                    _count: { select: { titles: true } },
+                },
             });
-            if (count === 0) {
+            if (!current) {
                 return { ok: false, reason: "NotFound" };
             }
+            // WHY: 獲得済みの称号は分類を控えている。付け替えると、獲得者が
+            // 新しい分類ですでに持つ称号とぶつかりうるので、分類は変えさせない
+            if (
+                current._count.titles > 0 &&
+                current.categoryKey !== categoryKey
+            ) {
+                return { ok: false, reason: "InvalidParams" };
+            }
+            await prisma.$transaction(async (tx) => {
+                await tx.scoreTitleDef.update({
+                    where: { id },
+                    // 取り下げた称号を直したときは、配布を再開したとみなす
+                    data: { ...data, retiredAt: null },
+                });
+                // WHY: 獲得済みの称号も段位を控えている。表示と、次の付与での
+                // 比較が定義と食い違わないよう合わせる
+                await tx.scoreTitle.updateMany({
+                    where: { defId: id, rank: { not: input.rank } },
+                    data: { rank: input.rank },
+                });
+            });
         } else {
             await prisma.scoreTitleDef.create({ data: { ...data, gameId } });
         }

@@ -113,37 +113,35 @@ async function fetchMyRecords(
     });
     const records: MyScoreRecord[] = [];
     for (const best of bests) {
-        const setting = fieldSetting(format, best.key);
-        if (!isShownOnStats(setting)) {
+        const declared = fieldSetting(format, best.key);
+        if (!isShownOnStats(declared)) {
             continue;
         }
+        // WHY: 複数ランクインのときは 1 プレイ 1 件で並ぶので、自己ベストのプレイで見る
+        const setting =
+            declared.dedupe === "all"
+                ? { ...declared, aggregate: "best" as const }
+                : declared;
         const value = representative(best, setting);
         if (value == null) {
             continue;
         }
-        const column = rankColumn(best, setting);
-        const [above, total] = await Promise.all([
-            prisma.scoreBest.count({
-                where: {
-                    gameId,
-                    key: best.key,
-                    ...column.present,
-                    [column.name]:
-                        setting.direction === "high"
-                            ? { gt: value }
-                            : { lt: value },
-                },
-            }),
-            prisma.scoreBest.count({
-                where: { gameId, key: best.key, ...column.present },
-            }),
-        ]);
+        const { rank, total } =
+            setting.dedupe === "all"
+                ? await rankInEntries(
+                      gameId,
+                      best.key,
+                      subjectKey,
+                      value,
+                      setting,
+                  )
+                : await rankInSubjects(gameId, best, value, setting);
         records.push({
             key: best.key,
             heading: setting.label ?? best.key,
             unit: setting.unit,
             value,
-            rank: above + 1,
+            rank,
             total,
             at: setting.showTimestamp
                 ? (representativeAt(best, setting) ?? undefined)
@@ -151,6 +149,62 @@ async function fetchMyRecords(
         });
     }
     return records;
+}
+
+async function rankInSubjects(
+    gameId: number,
+    best: BestRow & { key: string },
+    value: number,
+    setting: ReturnType<typeof fieldSetting>,
+): Promise<{ rank: number; total: number }> {
+    const column = rankColumn(best, setting);
+    const [above, total] = await Promise.all([
+        prisma.scoreBest.count({
+            where: {
+                gameId,
+                key: best.key,
+                ...column.present,
+                [column.name]:
+                    setting.direction === "high"
+                        ? { gt: value }
+                        : { lt: value },
+            },
+        }),
+        prisma.scoreBest.count({
+            where: { gameId, key: best.key, ...column.present },
+        }),
+    ]);
+    return { rank: above + 1, total };
+}
+
+/**
+ * 複数ランクインのときの順位。統計ページと同じく、残している上位のプレイの中で数える。
+ *
+ * WHY: 1 人が複数の順位を占めうるので、人数の母数は添えない。上位に残って
+ * いなければ、正しい順位が分からないので出さない
+ */
+async function rankInEntries(
+    gameId: number,
+    key: string,
+    subjectKey: string,
+    value: number,
+    setting: ReturnType<typeof fieldSetting>,
+): Promise<{ rank?: number; total?: undefined }> {
+    const kept = await prisma.scoreTopEntry.findFirst({
+        where: { gameId, key, subjectKey, value },
+        select: { id: true },
+    });
+    if (!kept) {
+        return {};
+    }
+    const above = await prisma.scoreTopEntry.count({
+        where: {
+            gameId,
+            key,
+            value: setting.direction === "high" ? { gt: value } : { lt: value },
+        },
+    });
+    return { rank: above + 1 };
 }
 
 type BestRow = {

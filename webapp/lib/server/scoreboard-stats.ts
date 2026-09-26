@@ -14,7 +14,11 @@ import {
     playFieldSetting,
 } from "@multi-indiegame/scoreboard-schema";
 import { isShownOnStats } from "../share/score-value-type";
-import { fetchMonthlyArchive, listArchivedMonths } from "./scoreboard-archive";
+import {
+    ArchivedAggregate,
+    fetchMonthlyArchive,
+    listArchivedMonths,
+} from "./scoreboard-archive";
 import { encodeSubjectToken } from "./score-subject";
 
 /** 直近としてさかのぼる日数。月初にランキングが空にならないようローリングで持つ */
@@ -720,16 +724,7 @@ async function fromArchive(
                       setting,
                       archived.subjects.map((subject) => ({
                           subjectKey: subject.subjectKey,
-                          max: subject.max,
-                          maxAt: null,
-                          min: subject.min,
-                          minAt: null,
-                          sum: subject.sum,
-                          count: subject.count,
-                          last: subject.last,
-                          lastAt: null,
-                          recordCount: subject.recordCount,
-                          trueCount: subject.trueCount,
+                          ...fromArchivedAggregate(subject),
                       })),
                   );
         if (section) {
@@ -759,19 +754,7 @@ async function fromArchive(
         }
         const record = toPlayRecord(
             total.key,
-            {
-                subjectKey: "",
-                max: total.max,
-                maxAt: null,
-                min: total.min,
-                minAt: null,
-                sum: total.sum,
-                count: total.count,
-                last: total.last,
-                lastAt: null,
-                recordCount: total.recordCount,
-                trueCount: total.trueCount,
-            },
+            { subjectKey: "", ...fromArchivedAggregate(total) },
             setting,
         );
         if (record) {
@@ -788,6 +771,25 @@ async function fromArchive(
         playRanking,
         sections,
         playRecords,
+    };
+}
+
+function fromArchivedAggregate(
+    aggregate: ArchivedAggregate,
+): Omit<SubjectAggregate, "subjectKey"> {
+    const toDate = (at: string | null | undefined) =>
+        at ? new Date(at) : null;
+    return {
+        max: aggregate.max,
+        maxAt: toDate(aggregate.maxAt),
+        min: aggregate.min,
+        minAt: toDate(aggregate.minAt),
+        sum: aggregate.sum,
+        count: aggregate.count,
+        last: aggregate.last,
+        lastAt: toDate(aggregate.lastAt),
+        recordCount: aggregate.recordCount,
+        trueCount: aggregate.trueCount,
     };
 }
 

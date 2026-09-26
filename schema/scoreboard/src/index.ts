@@ -74,6 +74,8 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
                     strValue: true,
                     boolValue: true,
                 },
+                // WHY: 集計行を押さえる順をそろえ、同時に反映したときのデッドロックを避ける
+                orderBy: { key: "asc" },
             },
         },
     });
@@ -185,68 +187,100 @@ async function applyPlayRecord(record: {
             const where = {
                 gameId_key: { gameId: record.gameId, key: value.key },
             };
-            const existing = await tx.scoreGameTotal.findUnique({
+            const existing = await lockGameTotal(tx, record.gameId, value.key);
+            await tx.scoreGameTotal.update({
                 where,
-                select: { maxValue: true, minValue: true, lastAt: true },
-            });
-            const num = value.numValue;
-            const updatesMax =
-                num != null &&
-                (existing?.maxValue == null || num > existing.maxValue);
-            const updatesMin =
-                num != null &&
-                (existing?.minValue == null || num < existing.minValue);
-            await tx.scoreGameTotal.upsert({
-                where,
-                create: {
-                    gameId: record.gameId,
-                    key: value.key,
-                    lastAt: record.endedAt,
-                    lastValue: num,
-                    lastStr: value.strValue,
-                    lastBool: value.boolValue,
-                    recordCount: 1,
-                    trueCount: value.boolValue === true ? 1 : 0,
-                    ...(num != null
-                        ? {
-                              count: 1,
-                              sum: num,
-                              maxValue: num,
-                              maxAt: record.endedAt,
-                              minValue: num,
-                              minAt: record.endedAt,
-                          }
-                        : {}),
-                },
-                update: {
-                    ...(isLatest(record.endedAt, existing?.lastAt)
-                        ? {
-                              lastAt: record.endedAt,
-                              lastValue: num,
-                              lastStr: value.strValue,
-                              lastBool: value.boolValue,
-                          }
-                        : {}),
-                    recordCount: { increment: 1 },
-                    ...(value.boolValue === true
-                        ? { trueCount: { increment: 1 } }
-                        : {}),
-                    ...(num != null
-                        ? {
-                              count: { increment: 1 },
-                              sum: { increment: num },
-                              ...(updatesMax
-                                  ? { maxValue: num, maxAt: record.endedAt }
-                                  : {}),
-                              ...(updatesMin
-                                  ? { minValue: num, minAt: record.endedAt }
-                                  : {}),
-                          }
-                        : {}),
-                },
+                data: aggregateUpdate(existing, record.endedAt, value),
             });
         }
     });
+}
+
+type LockedAggregate = {
+    maxValue: number | null;
+    minValue: number | null;
+    lastAt: Date | null;
+};
+
+/**
+ * ゲーム全体の集計行を、無ければ作ったうえで押さえる。
+ *
+ * WHY: 最大・最小・最後の値は、読んだ値と比べてから書く。同じゲームの部屋が
+ * 同時に終わると、押さえずに読んだ側が他方の結果を古い値で上書きしてしまう
+ */
+async function lockGameTotal(
+    tx: TransactionClient,
+    gameId: number,
+    key: string,
+): Promise<LockedAggregate> {
+    await tx.$executeRaw`
+        INSERT INTO "ScoreGameTotal" ("gameId", "key", "updatedAt")
+        VALUES (${gameId}, ${key}, now())
+        ON CONFLICT ("gameId", "key") DO NOTHING
+    `;
+    const rows = await tx.$queryRaw<LockedAggregate[]>`
+        SELECT "maxValue", "minValue", "lastAt" FROM "ScoreGameTotal"
+        WHERE "gameId" = ${gameId} AND "key" = ${key}
+        FOR UPDATE
+    `;
+    return rows[0];
+}
+
+/** 主体ごとの集計行を、無ければ作ったうえで押さえる。{@link lockGameTotal} と同じ理由 */
+async function lockBest(
+    tx: TransactionClient,
+    gameId: number,
+    key: string,
+    subjectKey: SubjectKey,
+): Promise<LockedAggregate> {
+    await tx.$executeRaw`
+        INSERT INTO "ScoreBest" ("gameId", "key", "subjectKey", "updatedAt")
+        VALUES (${gameId}, ${key}, ${subjectKey}, now())
+        ON CONFLICT ("gameId", "key", "subjectKey") DO NOTHING
+    `;
+    const rows = await tx.$queryRaw<LockedAggregate[]>`
+        SELECT "maxValue", "minValue", "lastAt" FROM "ScoreBest"
+        WHERE "gameId" = ${gameId} AND "key" = ${key} AND "subjectKey" = ${subjectKey}
+        FOR UPDATE
+    `;
+    return rows[0];
+}
+
+/** 押さえた集計行へ、1 件の値を積む更新 */
+function aggregateUpdate(
+    existing: LockedAggregate,
+    endedAt: Date,
+    value: {
+        numValue: number | null;
+        strValue: string | null;
+        boolValue: boolean | null;
+    },
+) {
+    const num = value.numValue;
+    return {
+        ...(isLatest(endedAt, existing.lastAt)
+            ? {
+                  lastAt: endedAt,
+                  lastValue: num,
+                  lastStr: value.strValue,
+                  lastBool: value.boolValue,
+              }
+            : {}),
+        recordCount: { increment: 1 },
+        ...(value.boolValue === true ? { trueCount: { increment: 1 } } : {}),
+        ...(num != null
+            ? {
+                  count: { increment: 1 },
+                  sum: { increment: num },
+                  ...(existing.maxValue == null || num > existing.maxValue
+                      ? { maxValue: num, maxAt: endedAt }
+                      : {}),
+                  ...(existing.minValue == null || num < existing.minValue
+                      ? { minValue: num, minAt: endedAt }
+                      : {}),
+              }
+            : {}),
+    };
 }
 
 /**
@@ -345,66 +379,18 @@ async function applyValue(
             subjectKey: param.subjectKey,
         },
     };
-    const existing = await tx.scoreBest.findUnique({
-        where,
-        select: { maxValue: true, minValue: true, lastAt: true },
-    });
-    const num = value.numValue;
-    const updatesMax =
-        num != null && (existing?.maxValue == null || num > existing.maxValue);
-    const updatesMin =
-        num != null && (existing?.minValue == null || num < existing.minValue);
-    const data = {
-        ...(isLatest(param.endedAt, existing?.lastAt)
-            ? {
-                  lastAt: param.endedAt,
-                  lastValue: num,
-                  lastStr: value.strValue,
-                  lastBool: value.boolValue,
-              }
-            : {}),
-        recordCount: { increment: 1 },
-        ...(value.boolValue === true ? { trueCount: { increment: 1 } } : {}),
-        ...(num != null
-            ? {
-                  count: { increment: 1 },
-                  sum: { increment: num },
-                  ...(updatesMax
-                      ? { maxValue: num, maxAt: param.endedAt }
-                      : {}),
-                  ...(updatesMin
-                      ? { minValue: num, minAt: param.endedAt }
-                      : {}),
-              }
-            : {}),
-    };
-    if (num != null) {
-        await keepTopEntries(tx, param, value.key, num, setting);
+    const existing = await lockBest(
+        tx,
+        param.gameId,
+        value.key,
+        param.subjectKey,
+    );
+    if (value.numValue != null) {
+        await keepTopEntries(tx, param, value.key, value.numValue, setting);
     }
-    await tx.scoreBest.upsert({
+    await tx.scoreBest.update({
         where,
-        create: {
-            gameId: param.gameId,
-            key: value.key,
-            subjectKey: param.subjectKey,
-            lastAt: param.endedAt,
-            lastValue: num,
-            lastStr: value.strValue,
-            lastBool: value.boolValue,
-            recordCount: 1,
-            trueCount: value.boolValue === true ? 1 : 0,
-            ...(num != null
-                ? {
-                      count: 1,
-                      sum: num,
-                      maxValue: num,
-                      maxAt: param.endedAt,
-                      minValue: num,
-                      minAt: param.endedAt,
-                  }
-                : {}),
-        },
-        update: data,
+        data: aggregateUpdate(existing, param.endedAt, value),
     });
 }
 
