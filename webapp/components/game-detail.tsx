@@ -134,7 +134,19 @@ export function GameDetailClient({
                                 >
                                     {renderTextWithLinks(gameInfo.description)}
                                 </Typography>
-                                <Stack direction="row" spacing={1}>
+                                <Stack
+                                    direction={{
+                                        xs: "column",
+                                        sm: "row",
+                                    }}
+                                    spacing={1}
+                                    sx={{
+                                        alignItems: {
+                                            xs: "stretch",
+                                            sm: "center",
+                                        },
+                                    }}
+                                >
                                     <Button
                                         variant="outlined"
                                         onClick={handleOpenCreateDialog}
@@ -160,6 +172,22 @@ export function GameDetailClient({
                                             }}
                                         >
                                             統計を見る
+                                        </Button>
+                                    )}
+                                    {gameInfo.hasScoreboard && isPublisher && (
+                                        <Button
+                                            variant="outlined"
+                                            component={Link}
+                                            href={`/game/${gameInfo.id}/stats/edit`}
+                                            sx={{
+                                                borderColor:
+                                                    theme.palette.text
+                                                        .secondary,
+                                                color: theme.palette.text
+                                                    .secondary,
+                                            }}
+                                        >
+                                            見せ方を設定
                                         </Button>
                                     )}
                                     {isPublisher && (
@@ -202,10 +230,7 @@ export function GameDetailClient({
                             みんなの記録
                         </Typography>
                     </Stack>
-                    <GameStatsSummary
-                        gameId={gameInfo.id}
-                        canEdit={isPublisher}
-                    />
+                    <GameStatsSummary gameId={gameInfo.id} />
                 </Box>
             )}
 

@@ -10,7 +10,7 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
-import { Leaderboard, Settings } from "@mui/icons-material";
+import { Leaderboard } from "@mui/icons-material";
 import { useGameStats } from "@/lib/client/useGameStats";
 import {
     PlayRecordCard,
@@ -25,13 +25,7 @@ const ENTRY_LIMIT = 3;
 /**
  * ゲーム詳細に出す統計。
  */
-export function GameStatsSummary({
-    gameId,
-    canEdit,
-}: {
-    gameId: number;
-    canEdit: boolean;
-}) {
+export function GameStatsSummary({ gameId }: { gameId: number }) {
     const theme = useTheme();
     const { isLoading, stats, error } = useGameStats(String(gameId), "all");
 
@@ -45,10 +39,6 @@ export function GameStatsSummary({
         stats.sections.length === 0 &&
         stats.playRanking.length === 0 &&
         stats.playRecords.length === 0;
-    const outlinedSx = {
-        borderColor: theme.palette.text.secondary,
-        color: theme.palette.text.secondary,
-    };
     return (
         <Stack spacing={2}>
             {empty ? (
@@ -88,21 +78,13 @@ export function GameStatsSummary({
                     component={Link}
                     href={`/game/${gameId}/stats`}
                     startIcon={<Leaderboard />}
-                    sx={outlinedSx}
+                    sx={{
+                        borderColor: theme.palette.text.secondary,
+                        color: theme.palette.text.secondary,
+                    }}
                 >
                     統計ページを見る
                 </Button>
-                {canEdit && (
-                    <Button
-                        variant="outlined"
-                        component={Link}
-                        href={`/game/${gameId}/stats/edit`}
-                        startIcon={<Settings />}
-                        sx={outlinedSx}
-                    >
-                        見せ方を設定
-                    </Button>
-                )}
             </Stack>
         </Stack>
     );
