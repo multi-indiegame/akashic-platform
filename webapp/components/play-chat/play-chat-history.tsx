@@ -9,6 +9,7 @@ import {
     CircularProgress,
     Stack,
     Typography,
+    useTheme,
 } from "@mui/material";
 import { ArrowDownward } from "@mui/icons-material";
 import { formatDistance } from "date-fns";
@@ -116,6 +117,7 @@ export function PlayChatHistory({
 }: {
     messages: PlayChatMessageInfo[];
 }) {
+    const theme = useTheme();
     const { isLoading, error, refresh, isGameMaster, playId } =
         usePlayChatContext();
     const mute = useMute("chat", refresh);
@@ -180,8 +182,10 @@ export function PlayChatHistory({
                     maxHeight: { xs: "30vh", sm: "35vh" },
                     px: { xs: 1.5, sm: 2 },
                     py: 1,
-                    backgroundColor: (theme) =>
-                        alpha(theme.palette.background.paper, 0.96),
+                    backgroundColor: alpha(
+                        theme.palette.background.paper,
+                        0.96,
+                    ),
                 }}
             >
                 {isLoading ? (
