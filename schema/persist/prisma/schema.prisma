@@ -339,6 +339,9 @@ model PlayParticipant {
 
   @@unique([playId, playerId])
   @@index([playId])
+  /// 統計のゲスト主体（`g:<playerId>`）から guest_id を引き、ミュート・通報の
+  /// 対象へ落とすのに使う
+  @@index([playerId])
 }
 
 /// 利用者からの通報。管理 UI は設けず、psql と通報メールで捌く。
@@ -428,6 +431,8 @@ enum ReportTargetType {
   PLAY_CHAT_MESSAGE
   PLAY
   USER
+  /// 統計のランキングに載った主体。targetId は subjectKey（`u:`/`g:`）
+  SCORE_SUBJECT
 }
 
 enum ReportReason {

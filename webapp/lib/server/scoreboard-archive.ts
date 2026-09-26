@@ -75,6 +75,11 @@ export interface MonthlyArchive {
     month: string;
     formatVersion: number;
     format: ScoreboardFormatDefinition;
+    /**
+     * 凍結した日時（ISO 8601）。これより後に作り直された主体は、掲載を取りやめる
+     * 前の記録の持ち主とみなして伏せる
+     */
+    builtAt: string;
     playCounts: { subjectKey: string; count: number }[];
     keys: ArchivedKey[];
     /** 投稿者の設定で出すかが決まる。凍結の時点では絞らない */
@@ -117,14 +122,19 @@ export async function fetchMonthlyArchive(
     }
     const existing = await prisma.scoreboardArchive.findUnique({
         where: { gameId_month: { gameId, month } },
-        select: { s3Key: true },
+        select: { s3Key: true, createdAt: true },
     });
     if (!existing) {
         return await buildArchive(gameId, month);
     }
     const stored = await readArchive(existing.s3Key);
     if (stored && stored !== "missing") {
-        return stored;
+        // WHY: builtAt を持つ前に凍結した分は、台帳を作った日時で代える。
+        // 凍結と同じ処理の中で作っているので、ずれは書き込みにかかる時間だけ
+        return {
+            ...stored,
+            builtAt: stored.builtAt ?? existing.createdAt.toISOString(),
+        };
     }
     const built = await buildArchive(gameId, month);
     if (!built && stored === "missing") {
@@ -141,6 +151,8 @@ async function buildArchive(
     month: string,
 ): Promise<MonthlyArchive | null> {
     const { from, to } = monthRange(month);
+    // WHY: 値を読む前の時点にする。読んでいる最中に作り直された主体も伏せる側に倒す
+    const builtAt = new Date().toISOString();
     // WHY: その月の終わりに有効だった版で固める。あとで投稿者が設定を変えても、
     // 過去の月の見え方は変わらない
     const format = await fetchFormatAt(gameId, to);
@@ -262,6 +274,7 @@ async function buildArchive(
         month,
         formatVersion: format.version,
         format,
+        builtAt,
         playCounts: playCounts.map((row) => ({
             subjectKey: row.subjectKey!,
             count: row._count._all,

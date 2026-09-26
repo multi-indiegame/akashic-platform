@@ -247,7 +247,8 @@ export type ReportSource = "board" | "chat";
 export type ReportTargetInput =
     | { kind: "message"; source: ReportSource; messageId: number }
     | { kind: "play"; playId: number }
-    | { kind: "user"; userId: string };
+    | { kind: "user"; userId: string }
+    | { kind: "scoreSubject"; gameId: number; subject: string };
 
 export type ReportFormState = {
     ok: boolean;
@@ -510,10 +511,25 @@ export const RECORD_KEY_PATTERN = /^[a-zA-Z0-9_:-]{1,32}$/;
 export interface ScoreEntry {
     rank: number;
     name: string;
+    /**
+     * 主体を指す不透明なトークン。同じ主体なら常に同じ値になる。
+     * ミュート・通報の対象指定に使う
+     */
+    subject?: string;
     userId?: string;
     iconURL?: string;
     value: number;
     at?: Date;
+}
+
+/** 統計の主体に対する、閲覧者から見たモデレーション状態 */
+export interface StatsSubjectModeration {
+    /** 未サインイン利用者の端末内ミュートで相手を指す匿名キー。特定できない相手は持たない */
+    anonKey?: string;
+    /** サーバー側 (サインイン利用者) のミュート判定結果 */
+    muted: boolean;
+    /** 閲覧者自身。自分をミュート・通報できないよう UI で判定に使う */
+    isSelf: boolean;
 }
 
 export interface ScoreSection {

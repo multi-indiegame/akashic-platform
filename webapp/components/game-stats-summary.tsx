@@ -18,6 +18,7 @@ import {
     SectionCard,
     StatsGrid,
 } from "./game-stats";
+import { StatsModerationProvider } from "./stats-moderation";
 
 /** ゲーム詳細に出す順位の数 */
 const ENTRY_LIMIT = 3;
@@ -25,7 +26,13 @@ const ENTRY_LIMIT = 3;
 /**
  * ゲーム詳細に出す統計。
  */
-export function GameStatsSummary({ gameId }: { gameId: number }) {
+export function GameStatsSummary({
+    gameId,
+    title,
+}: {
+    gameId: number;
+    title: string;
+}) {
     const theme = useTheme();
     const { isLoading, stats, error } = useGameStats(String(gameId), "all");
 
@@ -50,27 +57,36 @@ export function GameStatsSummary({ gameId }: { gameId: number }) {
                     </CardContent>
                 </Card>
             ) : (
-                <StatsGrid>
-                    {stats.playRecords.length > 0 && (
-                        <PlayRecordCard records={stats.playRecords} />
-                    )}
-                    {stats.playRanking.length > 0 && (
-                        <RankingCard
-                            heading="遊んだ回数"
-                            unit="回"
-                            entries={stats.playRanking.slice(0, ENTRY_LIMIT)}
-                            showChart={!stats.playRankingChartHidden}
-                        />
-                    )}
-                    {stats.sections.map((section) => (
-                        <SectionCard
-                            key={section.key}
-                            section={section}
-                            showChart={!section.chartHidden}
-                            limit={ENTRY_LIMIT}
-                        />
-                    ))}
-                </StatsGrid>
+                <StatsModerationProvider
+                    gameId={gameId}
+                    title={title}
+                    stats={stats}
+                >
+                    <StatsGrid>
+                        {stats.playRecords.length > 0 && (
+                            <PlayRecordCard records={stats.playRecords} />
+                        )}
+                        {stats.playRanking.length > 0 && (
+                            <RankingCard
+                                heading="遊んだ回数"
+                                unit="回"
+                                entries={stats.playRanking.slice(
+                                    0,
+                                    ENTRY_LIMIT,
+                                )}
+                                showChart={!stats.playRankingChartHidden}
+                            />
+                        )}
+                        {stats.sections.map((section) => (
+                            <SectionCard
+                                key={section.key}
+                                section={section}
+                                showChart={!section.chartHidden}
+                                limit={ENTRY_LIMIT}
+                            />
+                        ))}
+                    </StatsGrid>
+                </StatsModerationProvider>
             )}
             <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                 <Button

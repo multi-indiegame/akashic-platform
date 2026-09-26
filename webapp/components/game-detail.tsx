@@ -234,7 +234,10 @@ export function GameDetail({
                             みんなの記録
                         </Typography>
                     </Stack>
-                    <GameStatsSummary gameId={gameInfo.id} />
+                    <GameStatsSummary
+                        gameId={gameInfo.id}
+                        title={gameInfo.title}
+                    />
                 </Box>
             )}
 

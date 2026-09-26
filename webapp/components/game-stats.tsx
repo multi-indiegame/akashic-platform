@@ -25,6 +25,12 @@ import {
     StatsPeriod,
 } from "@/lib/types";
 import { UserInline } from "./user-inline";
+import {
+    MutedEntry,
+    ScoreEntryMenu,
+    StatsModerationProvider,
+    useStatsModerationContext,
+} from "./stats-moderation";
 
 const numberFormat = new Intl.NumberFormat("ja-JP", {
     maximumFractionDigits: 2,
@@ -108,28 +114,34 @@ export function GameStatsView({
                     </CardContent>
                 </Card>
             ) : (
-                // WHY: 1 列に積むと縦に伸びて見比べられない。広い画面では 2 列に
-                // 並べ、狭い画面では 1 列に落とす
-                <StatsGrid>
-                    {stats.playRecords.length > 0 && (
-                        <PlayRecordCard records={stats.playRecords} />
-                    )}
-                    {stats.playRanking.length > 0 && (
-                        <RankingCard
-                            heading="遊んだ回数"
-                            unit="回"
-                            entries={stats.playRanking}
-                            showChart={!stats.playRankingChartHidden}
-                        />
-                    )}
-                    {stats.sections.map((section) => (
-                        <SectionCard
-                            key={section.key}
-                            section={section}
-                            showChart={!section.chartHidden}
-                        />
-                    ))}
-                </StatsGrid>
+                <StatsModerationProvider
+                    gameId={stats.gameId}
+                    title={title}
+                    stats={stats}
+                >
+                    {/* WHY: 1 列に積むと縦に伸びて見比べられない。広い画面では
+                    2 列に並べ、狭い画面では 1 列に落とす */}
+                    <StatsGrid>
+                        {stats.playRecords.length > 0 && (
+                            <PlayRecordCard records={stats.playRecords} />
+                        )}
+                        {stats.playRanking.length > 0 && (
+                            <RankingCard
+                                heading="遊んだ回数"
+                                unit="回"
+                                entries={stats.playRanking}
+                                showChart={!stats.playRankingChartHidden}
+                            />
+                        )}
+                        {stats.sections.map((section) => (
+                            <SectionCard
+                                key={section.key}
+                                section={section}
+                                showChart={!section.chartHidden}
+                            />
+                        ))}
+                    </StatsGrid>
+                </StatsModerationProvider>
             )}
             <Typography variant="caption" color="textSecondary">
                 ここに表示されるのは、ゲーム内で名前を使って参加した人の記録だけです。匿名で参加した場合は表示されません。
@@ -314,9 +326,10 @@ export function RankingCard({
                     </>
                 )}
                 <Stack divider={<Divider flexItem />}>
-                    {entries.map((entry) => (
-                        <EntryRow
-                            key={`${entry.rank}-${entry.name}`}
+                    {entries.map((entry, index) => (
+                        <RankingEntry
+                            // WHY: 非表示にしたユーザーは名前もトークンも同じになり、同順位だと重なる
+                            key={`${entry.rank}-${entry.subject ?? index}`}
                             entry={entry}
                             unit={unit}
                             ratio={
@@ -348,15 +361,45 @@ function Summary({ label, value }: { label: string; value: string }) {
     );
 }
 
-function EntryRow({
+function RankingEntry({
     entry,
     unit,
     ratio,
 }: {
     entry: ScoreEntry;
     unit?: string;
+    ratio?: number;
+}) {
+    const moderation = useStatsModerationContext();
+    const row = (
+        <EntryRow
+            entry={entry}
+            unit={unit}
+            ratio={ratio}
+            menu={
+                moderation && (
+                    <ScoreEntryMenu entry={entry} moderation={moderation} />
+                )
+            }
+        />
+    );
+    if (moderation?.isMuted(entry)) {
+        return <MutedEntry rank={entry.rank}>{row}</MutedEntry>;
+    }
+    return row;
+}
+
+function EntryRow({
+    entry,
+    unit,
+    ratio,
+    menu,
+}: {
+    entry: ScoreEntry;
+    unit?: string;
     /** 1 位に対する長さ。棒グラフを出さないときは undefined */
     ratio?: number;
+    menu?: ReactNode;
 }) {
     const theme = useTheme();
     return (
@@ -439,6 +482,7 @@ function EntryRow({
                     </Box>
                 </Stack>
             )}
+            {menu}
         </Stack>
     );
 }

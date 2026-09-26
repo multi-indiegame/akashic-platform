@@ -43,6 +43,9 @@ function buildFormData(
         fd.set("messageId", `${target.messageId}`);
     } else if (target.kind === "play") {
         fd.set("playId", `${target.playId}`);
+    } else if (target.kind === "scoreSubject") {
+        fd.set("gameId", `${target.gameId}`);
+        fd.set("subject", target.subject);
     } else {
         fd.set("userId", target.userId);
     }

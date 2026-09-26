@@ -15,6 +15,7 @@ import {
 } from "@multi-indiegame/scoreboard-schema";
 import { isShownOnStats } from "../share/score-value-type";
 import { fetchMonthlyArchive, listArchivedMonths } from "./scoreboard-archive";
+import { encodeSubjectToken } from "./score-subject";
 
 /** 直近としてさかのぼる日数。月初にランキングが空にならないようローリングで持つ */
 const RECENT_DAYS = 30;
@@ -592,23 +593,46 @@ async function buildPlayRanking(
     );
 }
 
-async function withNames(section: ScoreSection): Promise<ScoreSection> {
-    return { ...section, entries: await resolveNames(section.entries) };
+async function withNames(
+    section: ScoreSection,
+    builtAt?: Date,
+): Promise<ScoreSection> {
+    return {
+        ...section,
+        entries: await resolveNames(section.entries, builtAt),
+    };
 }
 
 /**
  * 主体の鍵を表示名に解決する。
  *
  * WHY: サインイン利用者の名前は控えず、そのつど `User` から引く。改名や退会が
- * ランキングにも自動で反映される。引けない相手は退会したものとして扱う。
+ * ランキングにも自動で反映される。
+ *
+ * WHY: 主体が引けないのは掲載を取りやめた相手。凍結したアーカイブには鍵が
+ * 残っているが、名前だけでなくトークンも渡さない。トークンがあるとミュートや
+ * 通報で相手を指せてしまい、取りやめた人をまだ追えることになる。
+ *
+ * WHY: アーカイブを引くときは凍結した日時（builtAt）を渡す。取りやめたあと掲載を
+ * 再開すると主体は作り直されるので、凍結より後にできた主体は、凍結時点の主体とは
+ * 別物（取りやめる前の記録）とみなして同じく伏せる。凍結時点で載っていた主体は
+ * その時点で存在していたので、月をまたいで遅れて反映された記録でも誤って伏せない。
  */
-async function resolveNames(entries: ScoreEntry[]): Promise<ScoreEntry[]> {
+async function resolveNames(
+    entries: ScoreEntry[],
+    builtAt?: Date,
+): Promise<ScoreEntry[]> {
     if (entries.length === 0) {
         return [];
     }
     const subjects = await prisma.scoreSubject.findMany({
         where: { subjectKey: { in: entries.map((entry) => entry.name) } },
-        select: { subjectKey: true, userId: true, guestName: true },
+        select: {
+            subjectKey: true,
+            userId: true,
+            guestName: true,
+            createdAt: true,
+        },
     });
     const userIds = subjects
         .map((subject) => subject.userId)
@@ -625,10 +649,14 @@ async function resolveNames(entries: ScoreEntry[]): Promise<ScoreEntry[]> {
     );
     return entries.map((entry) => {
         const subject = bySubject.get(entry.name);
-        const user = subject?.userId ? userById.get(subject.userId) : undefined;
+        if (!subject || (builtAt && subject.createdAt > builtAt)) {
+            return { ...entry, name: "非表示にしたユーザー" };
+        }
+        const user = subject.userId ? userById.get(subject.userId) : undefined;
         return {
             ...entry,
-            name: user?.name ?? subject?.guestName ?? "退会したユーザー",
+            name: user?.name ?? subject.guestName ?? "退会したユーザー",
+            subject: encodeSubjectToken(entry.name),
             userId: user?.id,
             iconURL: user?.image ?? undefined,
         };
@@ -670,6 +698,7 @@ async function fromArchive(
     if (!archive) {
         return empty;
     }
+    const builtAt = new Date(archive.builtAt);
     const sections: ScoreSection[] = [];
     for (const archived of archive.keys) {
         const setting = fieldSetting(archive.format, archived.key);
@@ -704,7 +733,7 @@ async function fromArchive(
                       })),
                   );
         if (section) {
-            sections.push(await withNames(section));
+            sections.push(await withNames(section, builtAt));
         }
     }
     const playRanking = archive.format.playRanking.hidden
@@ -720,6 +749,7 @@ async function fromArchive(
                           value: row.count,
                       })),
               ),
+              builtAt,
           );
     const playRecords: ScoreTotal[] = [];
     for (const total of archive.playTotals ?? []) {

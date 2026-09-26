@@ -47,6 +47,12 @@ function parseTarget(formData: FormData) {
         if (!userId) return null;
         return { kind: "user" as const, userId };
     }
+    if (kind === "scoreSubject") {
+        const gameId = parseInt(formData.get("gameId")?.toString() ?? "");
+        const subject = formData.get("subject")?.toString();
+        if (!Number.isSafeInteger(gameId) || !subject) return null;
+        return { kind: "scoreSubject" as const, gameId, subject };
+    }
     return null;
 }
 
