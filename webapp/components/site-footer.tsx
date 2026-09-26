@@ -26,7 +26,7 @@ export function SiteFooter() {
                 <Stack>
                     <SiteCustomFooter />
                     <Stack
-                        direction={{ xs: "column", md: "row" }}
+                        direction={{ xs: "column", lg: "row" }}
                         spacing={{
                             xs: 0,
                             md: 1,
