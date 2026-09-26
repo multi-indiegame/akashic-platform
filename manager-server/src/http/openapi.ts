@@ -73,14 +73,15 @@ export const openapi = {
         },
         "/score-records/delete": {
             get: {
-                summary: "Delete archived raw score records from DB",
+                summary:
+                    "Archive months not yet archived, then delete raw score records from DB",
                 parameters: [
                     {
                         name: "retentionDays",
                         minimum: 1,
                         default: 90,
                         description:
-                            "Records older than this many days are deleted, but only for months already archived",
+                            "Records older than this many days are deleted, but only for months archived (months not yet archived are archived first)",
                         in: "query",
                         required: false,
                         schema: { type: "string" },
@@ -251,6 +252,8 @@ export const openapi = {
                     "cutoff",
                     "deleted",
                     "months",
+                    "archived",
+                    "skipped",
                 ],
                 properties: {
                     ok: { type: "boolean", enum: [true] },
@@ -263,6 +266,18 @@ export const openapi = {
                     months: {
                         type: "array",
                         description: "Pruned months as `<gameId>:<YYYY-MM>`",
+                        items: { type: "string" },
+                    },
+                    archived: {
+                        type: "array",
+                        description:
+                            "Months archived in this run as `<gameId>:<YYYY-MM>`",
+                        items: { type: "string" },
+                    },
+                    skipped: {
+                        type: "array",
+                        description:
+                            "Months kept because they could not be archived, as `<gameId>:<YYYY-MM>`",
                         items: { type: "string" },
                     },
                 },

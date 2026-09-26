@@ -12,7 +12,7 @@ if (!hmacSecret) {
     throw new Error("HMAC_SECRET is required");
 }
 
-function createDrainSignature(rawBody: string) {
+function createSignature(rawBody: string) {
     const timestamp = Date.now().toString();
     const requestId = randomUUID();
     const signature = createHmac("sha256", hmacSecret!)
@@ -21,16 +21,20 @@ function createDrainSignature(rawBody: string) {
     return { timestamp, requestId, signature };
 }
 
-async function postDrainToWebapp(body: { enabled: boolean; reason?: string }) {
+async function postSignedToWebapp(
+    path: string,
+    headerPrefix: string,
+    body: unknown,
+) {
     const rawBody = JSON.stringify(body);
-    const { timestamp, requestId, signature } = createDrainSignature(rawBody);
-    const response = await fetch(`${WEBAPP_URL}/api/internal/drain`, {
+    const { timestamp, requestId, signature } = createSignature(rawBody);
+    const response = await fetch(`${WEBAPP_URL}${path}`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
-            "x-drain-timestamp": timestamp,
-            "x-drain-id": requestId,
-            "x-drain-signature": signature,
+            [`${headerPrefix}-timestamp`]: timestamp,
+            [`${headerPrefix}-id`]: requestId,
+            [`${headerPrefix}-signature`]: signature,
         },
         body: rawBody,
     });
@@ -46,6 +50,50 @@ async function postDrainToWebapp(body: { enabled: boolean; reason?: string }) {
             status: response.status,
             data: { raw: text },
         };
+    }
+}
+
+async function postDrainToWebapp(body: { enabled: boolean; reason?: string }) {
+    return await postSignedToWebapp("/api/internal/drain", "x-drain", body);
+}
+
+/**
+ * 月別アーカイブへの凍結を webapp に行わせる。
+ *
+ * - `archived`: 凍結済み
+ * - `empty`: アーカイブに載せる情報が無い
+ * - `failed`: 凍結できなかった
+ *
+ */
+async function archiveScoreboardOnWebapp(
+    gameId: number,
+    month: string,
+): Promise<"archived" | "empty" | "failed"> {
+    try {
+        const response = await postSignedToWebapp(
+            "/api/internal/scoreboard-archive",
+            "x-internal",
+            { gameId, month },
+        );
+        const result = response.data?.result;
+        if (
+            response.status === 200 &&
+            (result === "archived" || result === "empty")
+        ) {
+            return result;
+        }
+        console.warn(
+            `failed to archive scoreboard (gameId = ${gameId}, month = ${month})`,
+            response.status,
+            response.data,
+        );
+        return "failed";
+    } catch (err) {
+        console.warn(
+            `failed to archive scoreboard (gameId = ${gameId}, month = ${month})`,
+            err,
+        );
+        return "failed";
     }
 }
 
@@ -253,33 +301,63 @@ export class HttpServer {
                     Date.now() - retentionDays * 24 * 60 * 60 * 1000,
                 );
 
+                // 月がまるごと保持期間を過ぎたものだけを対象にする
+                const cutoffMonth = new Date(
+                    Date.UTC(cutoff.getUTCFullYear(), cutoff.getUTCMonth(), 1),
+                );
+
                 try {
-                    // WHY: 生レコードを消してよいのは、その月の集計を凍結し終えた
-                    // 分だけ。凍結していない月を消すと、月別の統計を二度と組み立て
-                    // られなくなる
-                    const archives = await prisma.scoreboardArchive.findMany({
-                        select: { gameId: true, month: true },
-                    });
+                    const targets = await prisma.$queryRaw<
+                        { gameId: number; month: string }[]
+                    >`
+                        SELECT DISTINCT "gameId", to_char("endedAt", 'YYYY-MM') AS "month"
+                        FROM "ScoreRecord"
+                        WHERE "endedAt" < ${cutoffMonth}
+                        ORDER BY "gameId", "month"
+                    `;
+                    const archived = new Set(
+                        (
+                            await prisma.scoreboardArchive.findMany({
+                                select: { gameId: true, month: true },
+                            })
+                        ).map(
+                            (archive) => `${archive.gameId}:${archive.month}`,
+                        ),
+                    );
                     let deleted = 0;
                     const months: string[] = [];
-                    for (const archive of archives) {
-                        const [year, mon] = archive.month
-                            .split("-")
-                            .map(Number);
-                        const from = new Date(Date.UTC(year, mon - 1, 1));
-                        const to = new Date(Date.UTC(year, mon, 1));
-                        if (to > cutoff) {
-                            continue;
+                    const archivedNow: string[] = [];
+                    const skipped: string[] = [];
+                    for (const { gameId, month } of targets) {
+                        const id = `${gameId}:${month}`;
+                        // WHY: 生レコードを消してよいのは、その月の集計を凍結し終えたか、
+                        // 凍結すべき情報が無い分だけ。
+                        if (!archived.has(id)) {
+                            const result = await archiveScoreboardOnWebapp(
+                                gameId,
+                                month,
+                            );
+                            if (result === "failed") {
+                                skipped.push(id);
+                                continue;
+                            }
+                            if (result === "archived") {
+                                archivedNow.push(id);
+                            }
                         }
+                        const [year, mon] = month.split("-").map(Number);
                         const { count } = await prisma.scoreRecord.deleteMany({
                             where: {
-                                gameId: archive.gameId,
-                                endedAt: { gte: from, lt: to },
+                                gameId,
+                                endedAt: {
+                                    gte: new Date(Date.UTC(year, mon - 1, 1)),
+                                    lt: new Date(Date.UTC(year, mon, 1)),
+                                },
                             },
                         });
                         if (count > 0) {
                             deleted += count;
-                            months.push(`${archive.gameId}:${archive.month}`);
+                            months.push(id);
                         }
                     }
                     res.json({
@@ -288,6 +366,8 @@ export class HttpServer {
                         cutoff: cutoff.toISOString(),
                         deleted,
                         months,
+                        archived: archivedNow,
+                        skipped,
                     });
                 } catch (err) {
                     res.status(500).json({

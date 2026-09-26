@@ -15,6 +15,7 @@ import { logSafe } from "./log-safe";
  * 閉じた月の集計を凍結して置いておく。
  *
  * WHY: 生成は**その月のページが初めて開かれたとき**。 次からは S3 を返す。
+ * 開かれないまま生レコードを消す時期が来た月は、manager-server が消す前に凍結させる。
  *
  * WHY: 凍結するのは集計済みの値と主体の鍵だけで、**表示名は入れない**。
  * 改名・退会・掲載の取りやめが、過去の月にも効くようにするため。
@@ -154,6 +155,32 @@ export async function fetchMonthlyArchive(
     return built;
 }
 
+/**
+ * その月を凍結し、結果を返す。
+ *
+ * - `archived`: 凍結済み
+ * - `empty`: アーカイブに載せる情報が無い。生レコードを消しても失うものは無い
+ * - `failed`: 凍結できなかった
+ *
+ * WHY: 凍結はその月のページが開かれたときに行うので、誰も開かない月は凍結
+ * されないまま生レコードの保持期間を過ぎうる。生レコードを消す前に呼ぶ
+ */
+export async function ensureMonthlyArchive(
+    gameId: number,
+    month: string,
+): Promise<"archived" | "empty" | "failed"> {
+    const archive = await fetchMonthlyArchive(gameId, month);
+    // WHY: S3 への書き込みに失敗しても組み立てた結果は返ってくるので、台帳で確かめる
+    const stored = await prisma.scoreboardArchive.findUnique({
+        where: { gameId_month: { gameId, month } },
+        select: { id: true },
+    });
+    if (stored) {
+        return "archived";
+    }
+    return archive ? "failed" : "empty";
+}
+
 async function buildArchive(
     gameId: number,
     month: string,
@@ -216,7 +243,23 @@ async function buildArchive(
         select: { key: true, numValue: true, boolValue: true, endedAt: true },
         orderBy: [{ endedAt: "asc" }, { id: "asc" }],
     });
-    if (values.length === 0 && playValues.length === 0) {
+    const playCounts = await prisma.scoreRecord.groupBy({
+        by: ["subjectKey"],
+        where: {
+            gameId,
+            // WHY: 歴代（ScorePlayCount）と揃え、サインイン利用者だけ数える
+            subjectKey: { startsWith: "u:" },
+            endedAt: { gte: from, lt: to },
+        },
+        _count: { _all: true },
+    });
+    // WHY: 載せる情報が 1 つも無いときだけ凍結しない。値が 1 つも受け付けられ
+    // なかった記録でも、掲載に同意したサインイン利用者の分はプレイ回数に数える
+    if (
+        values.length === 0 &&
+        playValues.length === 0 &&
+        playCounts.length === 0
+    ) {
         return null;
     }
     const playTotals = new Map<string, ArchivedPlayTotal>();
@@ -228,16 +271,6 @@ async function buildArchive(
         accumulate(total, value);
         playTotals.set(value.key, total);
     }
-    const playCounts = await prisma.scoreRecord.groupBy({
-        by: ["subjectKey"],
-        where: {
-            gameId,
-            // WHY: 歴代（ScorePlayCount）と揃え、サインイン利用者だけ数える
-            subjectKey: { startsWith: "u:" },
-            endedAt: { gte: from, lt: to },
-        },
-        _count: { _all: true },
-    });
     const archive: MonthlyArchive = {
         gameId,
         month,
