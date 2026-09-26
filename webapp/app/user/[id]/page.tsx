@@ -166,13 +166,20 @@ function UserNameForm({
         <form action={action}>
             <Stack spacing={2}>
                 <input type="hidden" name="userId" value={userId} />
-                <TextField
-                    label="ユーザー名"
-                    name="name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    fullWidth
-                />
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 2, sm: 1 }}
+                    sx={{ alignItems: { xs: "stretch", sm: "flex-start" } }}
+                >
+                    <TextField
+                        label="ユーザー名"
+                        name="name"
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        fullWidth
+                    />
+                    <UserNameSubmitButton />
+                </Stack>
                 {!state.ok && state.submitted && (
                     <Alert severity="error" variant="outlined">
                         {state.message}
@@ -183,7 +190,6 @@ function UserNameForm({
                         ユーザー名を更新しました。
                     </Alert>
                 )}
-                <UserNameSubmitButton />
             </Stack>
         </form>
     );
@@ -197,6 +203,7 @@ function UserNameSubmitButton() {
             type="submit"
             variant="contained"
             disabled={pending}
+            sx={{ flexShrink: 0, height: { sm: 56 } }}
         >
             変更
         </Button>
@@ -234,16 +241,23 @@ function UserHandleForm({
     return (
         <form action={action}>
             <Stack spacing={2}>
-                <TextField
-                    label="あなたの部屋ID"
-                    name="handle"
-                    value={handle}
-                    onChange={(e) => setHandle(e.target.value)}
-                    placeholder="例: user12345"
-                    helperText="2〜20文字の英小文字・数字・ _ ・ - が使えます。先頭は英数字にしてください。"
-                    fullWidth
-                    slotProps={{ htmlInput: { maxLength: 20 } }}
-                />
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 2, sm: 1 }}
+                    sx={{ alignItems: { xs: "stretch", sm: "flex-start" } }}
+                >
+                    <TextField
+                        label="あなたの部屋ID"
+                        name="handle"
+                        value={handle}
+                        onChange={(e) => setHandle(e.target.value)}
+                        placeholder="例: user12345"
+                        helperText="2〜20文字の英小文字・数字・ _ ・ - が使えます。先頭は英数字にしてください。"
+                        fullWidth
+                        slotProps={{ htmlInput: { maxLength: 20 } }}
+                    />
+                    <UserHandleSubmitButton />
+                </Stack>
                 {!state.ok && state.submitted && (
                     <Alert severity="error" variant="outlined">
                         {state.message}
@@ -254,7 +268,6 @@ function UserHandleForm({
                         あなたの部屋IDを更新しました。
                     </Alert>
                 )}
-                <UserHandleSubmitButton />
             </Stack>
         </form>
     );
@@ -268,6 +281,7 @@ function UserHandleSubmitButton() {
             type="submit"
             variant="contained"
             disabled={pending}
+            sx={{ flexShrink: 0, height: { sm: 56 } }}
         >
             変更
         </Button>
