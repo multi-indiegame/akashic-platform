@@ -376,7 +376,7 @@ export interface UserProfile {
      * 自分自身の場合のみ値が格納。サインイン中のプロパイダ
      */
     provider?: string;
-    /** 自分自身の場合のみ値が格納。統計の共有ページを公開しているか */
+    /** 統計の共有ページを公開しているか */
     scoreboardPublic?: boolean;
     /** 自分自身の場合のみ値が格納。統計へ掲載しないと決めているか */
     scoreboardOptOut?: boolean;

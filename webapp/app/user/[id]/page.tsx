@@ -579,6 +579,60 @@ export default function UserPage() {
                                     </Stack>
                                 </>
                             )}
+                            {!isOwner &&
+                                ((profile.titles &&
+                                    profile.titles.length > 0) ||
+                                    profile.scoreboardPublic) && (
+                                    <>
+                                        <Divider />
+                                        <Stack spacing={2}>
+                                            <Typography variant="h6">
+                                                記録と称号
+                                            </Typography>
+                                            {profile.titles &&
+                                                profile.titles.length > 0 && (
+                                                    <TitleBadges
+                                                        titles={profile.titles}
+                                                        size="medium"
+                                                    />
+                                                )}
+                                            {profile.scoreboardPublic && (
+                                                <>
+                                                    <Typography
+                                                        variant="body2"
+                                                        color="textSecondary"
+                                                    >
+                                                        {profile.name}{" "}
+                                                        さんが遊んだゲームの記録と、集めた称号をまとめて見られます。
+                                                    </Typography>
+                                                    <Box>
+                                                        <Button
+                                                            variant="outlined"
+                                                            component={Link}
+                                                            href={`/user/${profile.id}/stats`}
+                                                            startIcon={
+                                                                <Leaderboard />
+                                                            }
+                                                            sx={{
+                                                                borderColor:
+                                                                    theme
+                                                                        .palette
+                                                                        .primary
+                                                                        .light,
+                                                                color: theme
+                                                                    .palette
+                                                                    .primary
+                                                                    .light,
+                                                            }}
+                                                        >
+                                                            記録と称号を見る
+                                                        </Button>
+                                                    </Box>
+                                                </>
+                                            )}
+                                        </Stack>
+                                    </>
+                                )}
                         </Stack>
                     </CardContent>
                 </Card>

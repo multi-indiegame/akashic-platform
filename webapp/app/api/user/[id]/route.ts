@@ -35,8 +35,7 @@ export async function GET(
         });
     }
     let provider: string | undefined;
-    // WHY: 公開設定と掲載の可否は本人だけが知ればよい。他人には返さない
-    let scoreboardPublic: boolean | undefined;
+    // WHY: 掲載の可否は本人だけが知ればよい。他人には返さない
     let scoreboardOptOut: boolean | undefined;
     const session = await auth();
     if (session?.user?.id === id) {
@@ -50,7 +49,6 @@ export async function GET(
                 },
             })
         )?.provider;
-        scoreboardPublic = user.scoreboardPublic;
         scoreboardOptOut = user.scoreboardOptOut;
     }
     // WHY: 称号はチャットなどでも出している公開情報。プロフィールでも見せる
@@ -64,7 +62,7 @@ export async function GET(
             handle: user.handle ?? undefined,
             image: user.image ?? undefined,
             provider,
-            scoreboardPublic,
+            scoreboardPublic: user.scoreboardPublic,
             scoreboardOptOut,
         },
     });
