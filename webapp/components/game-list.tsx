@@ -182,8 +182,8 @@ export function GameList({
     const { isLoading, list, page, setPage, isEmpty, isEnd } =
         useGameList(debouncedKeyword);
     const [expandedSet, setExpandedSet] = useState<Set<number>>(new Set());
-    const { data: favorites } = useFavorites();
     const withFavorites = !!user && user.authType !== "guest";
+    const { data: favorites } = useFavorites(withFavorites);
 
     const filteredFavorites = debouncedKeyword
         ? (favorites ?? []).filter(
