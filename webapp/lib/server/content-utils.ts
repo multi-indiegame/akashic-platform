@@ -14,7 +14,7 @@ import {
     checkGameJsonEnvironment,
     formatValue,
     getGameJsonEnvironment,
-} from "../game-json";
+} from "../share/game-json";
 import { getContentExternal } from "./content-get-external";
 
 export interface GameForm {

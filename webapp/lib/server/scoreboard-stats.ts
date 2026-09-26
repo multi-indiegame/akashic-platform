@@ -13,7 +13,7 @@ import {
     fieldSetting,
     playFieldSetting,
 } from "@multi-indiegame/scoreboard-schema";
-import { isShownOnStats } from "../score-value-type";
+import { isShownOnStats } from "../share/score-value-type";
 import { fetchMonthlyArchive, listArchivedMonths } from "./scoreboard-archive";
 
 /** 直近としてさかのぼる日数。月初にランキングが空にならないようローリングで持つ */

@@ -1,5 +1,5 @@
 import type { NicoliveSupportedModes } from "@akashic/game-configuration";
-import type { GameJsonEnvironmentError } from "./game-json";
+import type { GameJsonEnvironmentError } from "./share/game-json";
 import type {
     NotificationType,
     ReportReason,

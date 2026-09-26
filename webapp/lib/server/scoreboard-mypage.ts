@@ -2,7 +2,7 @@ import { prisma } from "@multi-indiegame/persist-schema";
 import { publicContentBaseUrl } from "./akashic";
 import { fetchFormat, fieldSetting } from "@multi-indiegame/scoreboard-schema";
 import { MyGameStats, MyScoreboard, MyScoreRecord } from "../types";
-import { isShownOnStats } from "../score-value-type";
+import { isShownOnStats } from "../share/score-value-type";
 import { fetchTitles } from "./scoreboard-title";
 
 /** 一覧に並べるゲームの数 */

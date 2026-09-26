@@ -11,7 +11,7 @@ import {
     rebuildTopEntries,
 } from "@multi-indiegame/scoreboard-schema";
 import { RECORD_KEY_PATTERN } from "../types";
-import { affectsTopEntries } from "../scoreboard-rebuild";
+import { affectsTopEntries } from "../share/scoreboard-rebuild";
 import { getSignedInUser } from "./auth";
 import { isWriteBlocked } from "./drain-state";
 import { logSafe } from "./log-safe";

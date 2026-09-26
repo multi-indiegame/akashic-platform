@@ -42,7 +42,7 @@ import {
     checkGameJsonEnvironment,
     describeGameJsonEnvironmentError,
     describeGameJsonEnvironmentWarning,
-} from "@/lib/game-json";
+} from "@/lib/share/game-json";
 import { registerContent } from "@/lib/server/content-register";
 import { editContent } from "@/lib/server/content-edit";
 import { useAuth } from "@/lib/client/useAuth";

@@ -25,7 +25,7 @@ import {
     TITLE_RANK_COLOR,
     TITLE_RANK_LIGHT_COLOR,
     titleRankLabel,
-} from "@/lib/title-rank";
+} from "@/lib/share/title-rank";
 import { useTitleRankImageUrl } from "@/lib/client/useTitleRankImageUrl";
 import {
     TitleConditionsResponse,

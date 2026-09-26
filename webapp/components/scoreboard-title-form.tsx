@@ -28,18 +28,18 @@ import {
     TITLE_RANKS,
     TITLE_RANK_COLOR,
     titleRankLabel,
-} from "@/lib/title-rank";
+} from "@/lib/share/title-rank";
 import {
     TitleFieldNames,
     TitleKeyTypes,
     conditionWarning,
     describeConditions,
-} from "@/lib/title-condition";
+} from "@/lib/share/title-condition";
 import {
     describeTypeCounts,
     presentTypes,
     typeLabel,
-} from "@/lib/score-value-type";
+} from "@/lib/share/score-value-type";
 import {
     TitleDefRow,
     TitleEditorData,

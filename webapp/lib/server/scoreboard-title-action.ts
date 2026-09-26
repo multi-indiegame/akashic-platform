@@ -24,7 +24,7 @@ import {
     TitleFieldNames,
     TitleKeyTypes,
     describeConditions,
-} from "../title-condition";
+} from "../share/title-condition";
 
 const NAME_MAX_LENGTH = 20;
 const IMAGE_CREDIT_MAX_LENGTH = 200;

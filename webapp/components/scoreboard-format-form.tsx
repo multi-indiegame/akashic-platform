@@ -25,12 +25,12 @@ import type {
     ScoreValueType,
 } from "@multi-indiegame/scoreboard-schema";
 import { RECORD_KEY_PATTERN } from "@/lib/types";
-import { affectsTopEntries } from "@/lib/scoreboard-rebuild";
+import { affectsTopEntries } from "@/lib/share/scoreboard-rebuild";
 import {
     describeTypeCounts,
     presentTypes,
     typeLabel,
-} from "@/lib/score-value-type";
+} from "@/lib/share/score-value-type";
 import {
     FieldCandidate,
     FormatEditorData,
