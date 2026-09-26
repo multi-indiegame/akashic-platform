@@ -10,6 +10,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
+import { Send } from "@mui/icons-material";
 import {
     CONTACT_BODY_MAX,
     CONTACT_NAME_MAX,
@@ -24,6 +25,7 @@ function SubmitButton() {
     const { pending } = useFormStatus();
     return (
         <Button
+            startIcon={<Send />}
             type="submit"
             variant="contained"
             disabled={pending}

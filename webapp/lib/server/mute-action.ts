@@ -4,6 +4,13 @@ import { prisma } from "@multi-indiegame/persist-schema";
 import { getAuth } from "./auth";
 import { buildLabelSnapshot, countMutes, MUTE_LIMIT } from "./mute";
 import { authorizePlayChat } from "./play-chat";
+import {
+    decodeSubjectToken,
+    guestSubjectKey,
+    resolveSubjectTargets,
+    subjectDisplayName,
+    viewerSubjectKey,
+} from "./score-subject";
 
 export type MuteFormState = {
     ok: boolean;
@@ -182,6 +189,127 @@ export async function unmuteAuthorAction(
     await prisma.mute.deleteMany({
         where: { ownerId: user.id, ...target },
     });
+    return success();
+}
+
+/**
+ * 統計のランキングに載った相手を解決する。ミュートは部屋チャットと同じ
+ * 相手（userId か guest_id）に付けるので、どちらで付けても両方に効く。
+ */
+async function findScoreSubject(formData: FormData) {
+    const gameId = parseInt(formData.get("gameId")?.toString() ?? "");
+    const subjectKey = decodeSubjectToken(
+        formData.get("subject")?.toString() ?? "",
+    );
+    if (!Number.isSafeInteger(gameId) || !subjectKey) {
+        return null;
+    }
+    const target = (await resolveSubjectTargets([subjectKey])).get(subjectKey);
+    return { gameId, subjectKey, target };
+}
+
+export async function muteScoreSubjectAction(
+    prevState: MuteFormState,
+    formData: FormData,
+): Promise<MuteFormState> {
+    const user = await getAuth();
+    if (user?.authType !== "oauth") {
+        return failure("ミュートの保存にはサインインが必要です。");
+    }
+
+    const found = await findScoreSubject(formData);
+    if (!found) {
+        return failure("入力内容を確認してください。");
+    }
+    if (found.subjectKey === viewerSubjectKey(user)) {
+        return failure("自分自身はミュートできません。");
+    }
+    const [name, game] = await Promise.all([
+        subjectDisplayName(found.subjectKey),
+        prisma.game.findUnique({
+            where: { id: found.gameId },
+            select: { title: true },
+        }),
+    ]);
+    if (!name || !game) {
+        return failure("対象が見つかりませんでした。");
+    }
+    if (!found.target) {
+        return failure("この相手はミュートできません。");
+    }
+
+    if ((await countMutes(user.id)) >= MUTE_LIMIT) {
+        return failure(
+            `ミュートは ${MUTE_LIMIT} 件までです。設定画面から不要なものを解除してください。`,
+        );
+    }
+
+    const target = found.target.authorId
+        ? { targetUserId: found.target.authorId }
+        : { targetGuestId: found.target.guestId };
+    const existing = await prisma.mute.findFirst({
+        where: { ownerId: user.id, ...target },
+        select: { id: true },
+    });
+    if (existing) {
+        return success();
+    }
+
+    try {
+        await prisma.mute.create({
+            data: {
+                ownerId: user.id,
+                ...target,
+                labelSnapshot: buildLabelSnapshot(
+                    name,
+                    `「${game.title}」の統計`,
+                ),
+            },
+        });
+    } catch (err) {
+        console.warn("failed to create mute", err);
+        return failure(
+            "予期しないエラーが発生しました。時間をおいてリトライしてください。",
+        );
+    }
+    return success();
+}
+
+export async function unmuteScoreSubjectAction(
+    prevState: MuteFormState,
+    formData: FormData,
+): Promise<MuteFormState> {
+    const user = await getAuth();
+    if (user?.authType !== "oauth") {
+        return failure("サインインが必要です。");
+    }
+
+    const subjectKey = decodeSubjectToken(
+        formData.get("subject")?.toString() ?? "",
+    );
+    if (!subjectKey) {
+        return failure("入力内容を確認してください。");
+    }
+    if (subjectKey.startsWith("u:")) {
+        await prisma.mute.deleteMany({
+            where: { ownerId: user.id, targetUserId: subjectKey.slice(2) },
+        });
+        return success();
+    }
+    // WHY: 参加の記録が消えて guest_id を引けない相手でも、ミュート一覧の
+    // guest_id から派生させれば突き合わせられる。表示側の判定と揃える
+    const guestMutes = await prisma.mute.findMany({
+        where: { ownerId: user.id, targetGuestId: { not: null } },
+        select: { id: true, targetGuestId: true },
+    });
+    const ids = guestMutes
+        .filter((mute) => guestSubjectKey(mute.targetGuestId!) === subjectKey)
+        .map((mute) => mute.id);
+    if (ids.length > 0) {
+        await prisma.mute.deleteMany({
+            where: { ownerId: user.id, id: { in: ids } },
+        });
+    }
     return success();
 }
 

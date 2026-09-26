@@ -17,6 +17,7 @@ import {
     TextField,
     Typography,
 } from "@mui/material";
+import { Add } from "@mui/icons-material";
 import { GameInfo, messageKey, messages, User } from "@/lib/types";
 import { registerPlay } from "@/lib/server/play-register";
 import { STORAGE_KEYS, useLocalStorage } from "@/lib/client/useLocalStorage";
@@ -255,6 +256,7 @@ export function PlayCreateDialog({
                 </Stack>
                 <DialogActions>
                     <Button
+                        startIcon={<Add />}
                         variant="contained"
                         onClick={handleSubmit}
                         disabled={sending}

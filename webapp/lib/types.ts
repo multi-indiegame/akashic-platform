@@ -1,9 +1,10 @@
 import type { NicoliveSupportedModes } from "@akashic/game-configuration";
-import type { GameJsonEnvironmentError } from "./game-json";
+import type { GameJsonEnvironmentError } from "./share/game-json";
 import type {
     NotificationType,
     ReportReason,
     ReportTargetType,
+    ScoreTitleRank,
 } from "@multi-indiegame/persist-schema";
 
 const authTypes = ["guest", "oauth"] as const;
@@ -48,6 +49,10 @@ export interface GameInfo {
     };
     contentId: number;
     isFavorited: boolean;
+    /** 称号の画像に添えるクレジット。ゲームのクレジットと一緒に出す */
+    titleCredits?: { name: string; credit: string }[];
+    /** コンテンツが scoreboard を宣言しているか。統計の入口を出すかを決める。 */
+    hasScoreboard: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -242,7 +247,8 @@ export type ReportSource = "board" | "chat";
 export type ReportTargetInput =
     | { kind: "message"; source: ReportSource; messageId: number }
     | { kind: "play"; playId: number }
-    | { kind: "user"; userId: string };
+    | { kind: "user"; userId: string }
+    | { kind: "scoreSubject"; gameId: number; subject: string };
 
 export type ReportFormState = {
     ok: boolean;
@@ -328,6 +334,8 @@ export const PLAY_CHAT_NAME_MAX = 16;
 export interface PlayChatMessageInfo {
     id: number;
     author: MessageAuthorInfo;
+    /** このゲームで投稿者が獲得した称号。最大 4 件 */
+    titles?: TitleBadge[];
     body: string;
     createdAt: Date;
     /** サーバー側 (サインイン利用者) のミュート判定結果 */
@@ -361,12 +369,18 @@ export interface NotificationInfo {
 export interface UserProfile {
     id: string;
     name: string;
+    /** 代表の称号。集めた中から数件だけ */
+    titles?: TitleBadge[];
     handle?: string;
     image?: string;
     /**
      * 自分自身の場合のみ値が格納。サインイン中のプロパイダ
      */
     provider?: string;
+    /** 統計の共有ページを公開しているか */
+    scoreboardPublic?: boolean;
+    /** 自分自身の場合のみ値が格納。統計へ掲載しないと決めているか */
+    scoreboardOptOut?: boolean;
 }
 
 export type UserNameFormState = {
@@ -397,6 +411,7 @@ export const supportedExternalPlugins = [
     "coe",
     "coeLimited",
     "playerBan",
+    "scoreboard",
 ];
 export const supportedAkashicVersions = ["3"];
 export const supportedAkashicModes: NicoliveSupportedModes[] = [
@@ -426,8 +441,7 @@ export type ContentErrorResponse =
       }
     | ({ ok: false } & GameJsonEnvironmentError);
 export type ContentResponse =
-    | { ok: true; contentId: number }
-    | ContentErrorResponse;
+    { ok: true; contentId: number } | ContentErrorResponse;
 
 const deleteGameErrReasons = [
     "InvalidParams",
@@ -438,20 +452,154 @@ const deleteGameErrReasons = [
 ] as const;
 export type DeleteGameErrorType = (typeof deleteGameErrReasons)[number];
 export type DeleteGameResponse =
-    | { ok: true }
-    | { ok: false; reason: DeleteGameErrorType };
+    { ok: true } | { ok: false; reason: DeleteGameErrorType };
 
 const gameErrReasons = ["InvalidParams", "NotFound", "InternalError"] as const;
 export type GameErrorType = (typeof gameErrReasons)[number];
+export const titleRanks = [
+    "NONE",
+    "BRONZE",
+    "SILVER",
+    "GOLD",
+] satisfies ScoreTitleRank[];
+
+export interface TitleBadge {
+    defId: number;
+    gameId: number;
+    gameTitle: string;
+    categoryKey: string;
+    name: string;
+    rank: ScoreTitleRank;
+    imageURL?: string;
+    awardedAt: Date;
+}
+
+export interface MyScoreRecord {
+    key: string;
+    heading: string;
+    unit?: string;
+    value: number;
+    /** その並びの中で自分が何位か。分からないときは省く */
+    rank?: number;
+    /** 母数。順位だけでは伝わらないので添える。人数で数えられない並びでは省く */
+    total?: number;
+    at?: Date;
+}
+
+export interface MyGameStats {
+    gameId: number;
+    title: string;
+    iconURL?: string;
+    publisher: { id: string; name: string; image?: string };
+    playCount: number;
+    roomCount: number;
+    lastPlayedAt: Date;
+    records: MyScoreRecord[];
+}
+
+export interface MyScoreboard {
+    games: MyGameStats[];
+    titles: TitleBadge[];
+}
+
+/** 統計の期間。歴代か、直近 30 日か */
+export type StatsPeriod = "all" | "recent" | "month";
+
+/** @multi-indiegame/akashic-scoreboard の RECORD_KEY_PATTERN */
+export const RECORD_KEY_PATTERN = /^[a-zA-Z0-9_:-]{1,32}$/;
+
+export interface ScoreEntry {
+    rank: number;
+    name: string;
+    /**
+     * 主体を指す不透明なトークン。同じ主体なら常に同じ値になる。
+     * ミュート・通報の対象指定に使う
+     */
+    subject?: string;
+    userId?: string;
+    iconURL?: string;
+    value: number;
+    at?: Date;
+}
+
+/** 統計の主体に対する、閲覧者から見たモデレーション状態 */
+export interface StatsSubjectModeration {
+    /** 未サインイン利用者の端末内ミュートで相手を指す匿名キー。特定できない相手は持たない */
+    anonKey?: string;
+    /** サーバー側 (サインイン利用者) のミュート判定結果 */
+    muted: boolean;
+    /** 閲覧者自身。自分をミュート・通報できないよう UI で判定に使う */
+    isSelf: boolean;
+}
+
+export interface ScoreSection {
+    key: string;
+    /** このランキングだけ棒グラフを出さないか */
+    chartHidden?: boolean;
+    /** 投稿者が付けた見出し。未設定ならキー名 */
+    heading: string;
+    unit?: string;
+    kind: "ranking" | "rate";
+    entries: ScoreEntry[];
+    summary?: {
+        /** 記録した主体の数。「何人の中での順位か」を伝える */
+        subjects: number;
+        /** 数値の記録だけの平均。回数や真偽値では出さない */
+        average?: number;
+    };
+    rate?: {
+        achieved: number;
+        total: number;
+    };
+}
+
+/** プレイ自体の記録。順位が付くものではないので 1 キー 1 行で見せる */
+export interface ScoreTotal {
+    key: string;
+    heading: string;
+    unit?: string;
+    /** 割合で出すときは持たない */
+    value?: number;
+    at?: Date;
+    rate?: {
+        achieved: number;
+        total: number;
+    };
+}
+
+export interface GameStats {
+    gameId: number;
+    period: StatsPeriod;
+    /** period が "month" のときの対象月（`YYYY-MM`） */
+    month?: string;
+    /** 凍結したときのフォーマットの版 */
+    formatVersion?: number;
+    /** 選べる月の一覧（新しい順）。凍結済みの月だけが並ぶ */
+    months: string[];
+    /** 「遊んだ回数」で棒グラフを止めているか */
+    playRankingChartHidden: boolean;
+    playRanking: ScoreEntry[];
+    sections: ScoreSection[];
+    /** 投稿者が載せると決めた、プレイ自体の記録 */
+    playRecords: ScoreTotal[];
+}
+
+const gameStatsErrReasons = [
+    "InvalidParams",
+    "NotFound",
+    "InternalError",
+] as const;
+export type GameStatsErrorType = (typeof gameStatsErrReasons)[number];
+export type GameStatsResponse =
+    { ok: true; data: GameStats } | { ok: false; reason: GameStatsErrorType };
+
 export type GameResponse =
-    | { ok: true; data: GameInfo }
-    | { ok: false; reason: GameErrorType };
+    { ok: true; data: GameInfo } | { ok: false; reason: GameErrorType };
 
 const favoriteErrReasons = ["Unauthorized", "InternalError"] as const;
 export type FavoriteErrorType = (typeof favoriteErrReasons)[number];
 export type FavoriteListResponse =
-    | { ok: true; data: GameInfo[] }
-    | { ok: false; reason: FavoriteErrorType };
+    { ok: true; data: GameInfo[] } | { ok: false; reason: FavoriteErrorType };
 
 const playErrReasons = [
     "InvalidParams",
@@ -484,6 +632,8 @@ interface BasePlayViewInfo {
         name: string;
         iconURL?: string;
         handle?: string;
+        /** この部屋のゲームで獲得した称号。最大 4 件 */
+        titles?: TitleBadge[];
     };
     createdAt: Date;
 }
@@ -506,8 +656,7 @@ export interface ClosedPlayViewInfo extends BasePlayViewInfo {
 }
 
 export type PlayResponse =
-    | { ok: true; data: PlayViewInfo }
-    | { ok: false; reason: PlayErrorType };
+    { ok: true; data: PlayViewInfo } | { ok: false; reason: PlayErrorType };
 
 const playParticipantsErrReasons = ["InvalidParams", "InternalError"] as const;
 export type PlayParticipantsErrorType =
@@ -540,8 +689,7 @@ export type LiveInfo = {
 const liveErrReasons = ["NotFound", "InternalError"] as const;
 export type LiveErrorType = (typeof liveErrReasons)[number];
 export type LiveResponse =
-    | { ok: true; data: LiveInfo }
-    | { ok: false; reason: LiveErrorType };
+    { ok: true; data: LiveInfo } | { ok: false; reason: LiveErrorType };
 
 const feedbackErrReasons = [
     "InvalidParams",
@@ -579,8 +727,7 @@ const userHandleErrReasons = [
 ] as const;
 export type UserHandleErrorType = (typeof userHandleErrReasons)[number];
 export type UserHandleResponse =
-    | { ok: true; handle: string }
-    | { ok: false; reason: UserHandleErrorType };
+    { ok: true; handle: string } | { ok: false; reason: UserHandleErrorType };
 
 const contentLogListErrReasons = [
     "InvalidParams",
@@ -602,8 +749,7 @@ const contentLogErrReasons = [
 ] as const;
 export type ContentLogErrorType = (typeof contentLogErrReasons)[number];
 export type ContentLogResponse =
-    | string
-    | { ok: false; reason: ContentLogErrorType };
+    string | { ok: false; reason: ContentLogErrorType };
 
 const notificationErrReasons = ["NotAuthorized", "InternalError"] as const;
 export type NotificationErrorType = (typeof notificationErrReasons)[number];

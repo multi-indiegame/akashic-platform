@@ -24,3 +24,24 @@
 
 - retetionDays: 保持日数
 - includeErrored: エラーログも消すか
+
+## 記録の削除
+
+エンドポイント: `/score-records/delete`
+
+一定期間経過した、統計の生レコード (ScoreRecord, ScoreValue) を削除します。
+削除するのは月別アーカイブへ凍結済みの月だけです。凍結していない月は、保持日数を
+過ぎていても残します。歴代の記録と回数は別のテーブルへ積んであるため、生レコードを
+消しても失われません。
+
+- retentionDays: 保持日数 (既定値: 環境変数 `SCORE_RAW_RETENTION_DAYS`、未設定なら 90)
+
+## 月別アーカイブの削除
+
+エンドポイント: `/score-archives/delete`
+
+一定期間経過した月別アーカイブ (ScoreboardArchive) のレコードを削除します。
+削除した月は統計ページの月別の選択肢に出なくなります。
+S3 上の実体は削除しないため、S3 のライフサイクルポリシーで消してください。
+
+- retentionMonths: 保持月数。今月を除き、直近この月数分を残します (既定値: 環境変数 `SCORE_ARCHIVE_RETENTION_MONTHS`、未設定なら 48)

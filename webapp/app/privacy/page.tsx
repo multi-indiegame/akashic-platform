@@ -59,6 +59,9 @@ export default function PrivacyPolicyPage() {
                             投稿コンテンツおよび編集履歴
                         </ListItem>
                         <ListItem sx={{ display: "list-item" }}>
+                            ゲームのプレイ結果（ゲームが記録した数値等）および参加時に入力された名前
+                        </ListItem>
+                        <ListItem sx={{ display: "list-item" }}>
                             端末情報、アクセスログ、Cookie 等
                         </ListItem>
                     </List>
@@ -80,31 +83,40 @@ export default function PrivacyPolicyPage() {
                     また、メールアドレスを取得または参照するための公開APIは提供しておらず、本人を含む第三者が本サービスを通じて当該情報を取得することはできません。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    4. 第三者提供
+                    4. プレイ記録の公開
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                    ゲーム内で名前の入力を求められた際に名前で参加した場合、その名前とプレイ結果を、ゲームごとの統計として本サービス上で公開することがあります。
+                    匿名で参加した場合、名前が公開されることはありません。
+                    公開されるのは参加時の名前とプレイ結果に限られ、メールアドレス等の他の情報が公開されることはありません。
+                    公開の取りやめたい場合はマイページから設定できます。
+                </Typography>
+                <Typography variant="h6" component="h2">
+                    5. 第三者提供
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     法令に基づく場合を除き、利用者の同意なく個人情報を第三者に提供しません。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    5. 安全管理
+                    6. 安全管理
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     個人情報の漏えい、滅失、毀損を防止するため、合理的な安全管理措置を講じます。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    6. Cookie 等の利用
+                    7. Cookie 等の利用
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     本サービスは、利便性向上や利用状況の分析のためにCookie等を利用する場合があります。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    7. 本ポリシーの変更
+                    8. 本ポリシーの変更
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     本ポリシーは必要に応じて改定することがあります。改定後は本サービス上に表示した時点で効力を生じます。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    8. お問い合わせ・開示等の請求窓口
+                    9. お問い合わせ・開示等の請求窓口
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     個人情報の開示・訂正・削除等のご請求、その他本ポリシーに関するお問い合わせは、
@@ -119,7 +131,7 @@ export default function PrivacyPolicyPage() {
                     よりご連絡ください。運営者が内容を確認のうえ、必要に応じてメールで対応します。
                 </Typography>
                 <Typography variant="body2">
-                    2026年2月4日 制定, 2026年7月26日 改定
+                    2026年2月4日 制定, 2026年7月26日 改定, 2026年9月24日 改定
                 </Typography>
             </Stack>
         </Container>

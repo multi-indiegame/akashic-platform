@@ -505,7 +505,12 @@ function LatestGamesSection({ games }: { games: GameInfo[] }) {
                 <Typography variant="h5" component="h2">
                     新着ゲーム
                 </Typography>
-                <Button component={Link} href="/new-play" size="large">
+                <Button
+                    startIcon={<SportsEsports />}
+                    component={Link}
+                    href="/new-play"
+                    size="large"
+                >
                     ゲーム一覧を見る
                 </Button>
             </Stack>

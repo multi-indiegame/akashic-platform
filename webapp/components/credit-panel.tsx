@@ -19,9 +19,12 @@ import { useLicense } from "@/lib/client/useLicense";
 export function CreditPanel({
     credit,
     contentId,
+    titleCredits,
 }: {
     credit?: string;
     contentId: number;
+    /** 称号の画像に添えるクレジット。ゲームのクレジットと同じ場所に並べる */
+    titleCredits?: { name: string; credit: string }[];
 }) {
     const theme = useTheme();
     const [open, setOpen] = useState(false);
@@ -57,7 +60,27 @@ export function CreditPanel({
                             </Typography>
                         </Box>
                     )}
-                    {credit && license && <Divider />}
+                    {titleCredits && titleCredits.length > 0 && (
+                        <>
+                            {credit && <Divider />}
+                            <Box>
+                                <Typography variant="subtitle2">
+                                    称号の画像
+                                </Typography>
+                                {titleCredits.map((title) => (
+                                    <Typography
+                                        key={title.name}
+                                        variant="body2"
+                                        sx={{ whiteSpace: "pre-wrap" }}
+                                    >
+                                        {title.name}: {title.credit}
+                                    </Typography>
+                                ))}
+                            </Box>
+                        </>
+                    )}
+                    {(credit || (titleCredits && titleCredits.length > 0)) &&
+                        license && <Divider />}
                     {isLoading && (
                         <Container maxWidth="md" sx={{ py: 2 }}>
                             <Skeleton variant="rectangular" height={240} />

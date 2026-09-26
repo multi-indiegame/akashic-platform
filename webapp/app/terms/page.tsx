@@ -77,25 +77,35 @@ export default function TermsPage() {
                     利用者は、自らが権利を有するコンテンツのみを投稿できます。投稿コンテンツの権利は原則として利用者に帰属しますが、本サービスの運営に必要な範囲で無償利用する権利を運営者に許諾するものとします。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    5. 免責事項
+                    5. プレイ記録と統計
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                    本サービスは、ゲームのプレイ結果を記録し、ゲームごとの統計として公開することがあります。
+                    ゲーム内で名前の入力を求められた際に名前で参加した場合、その名前および記録が統計に掲載されることに同意したものとみなします。
+                    匿名で参加した場合、名前は掲載されません。
+                    掲載を取りやめたい場合は、マイページから設定できます。
+                    なお、記録の内容は各ゲームの投稿者が定めるものであり、運営者はその正確性を保証しません。
+                </Typography>
+                <Typography variant="h6" component="h2">
+                    6. 免責事項
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     本サービスは、提供する情報や機能の完全性・正確性を保証しません。利用者に生じた損害について、運営者は一切の責任を負いません。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    6. 通報と対応
+                    7. 通報と対応
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     利用者は、他の利用者の投稿・部屋・アカウントが本規約に違反すると考える場合、本サービス上の通報機能により運営者へ報告できます。運営者は、通報の有無にかかわらず、違反または不適切と判断した投稿・部屋・アカウントについて、削除・利用制限・入室制限（BAN）等の措置を、事前の通知なく講じることがあります。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    7. 規約の変更
+                    8. 規約の変更
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     運営者は、必要と判断した場合には、本規約を変更することができます。変更後の規約は本サービス上に表示した時点から効力を生じます。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    8. お問い合わせ
+                    9. お問い合わせ
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     本規約に関するお問い合わせは、
@@ -103,7 +113,7 @@ export default function TermsPage() {
                     よりご連絡ください。
                 </Typography>
                 <Typography variant="body2">
-                    2026年2月4日 制定, 2026年7月26日 改定
+                    2026年2月4日 制定, 2026年7月26日 改定, 2026年9月24日 改定
                 </Typography>
             </Stack>
         </Container>

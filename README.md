@@ -207,6 +207,9 @@ npm run run -w ./manager-server
   - [`./webapp/public/image/icon.png`](./webapp/public/image/icon.png), [`./webapp/public/favicon.ico`](./webapp/public/favicon.ico)
     - Copyright (c) 2015-present Ionic (http://ionic.io/)
     - Licensed under [The MIT License](./LICENSE_icon)
+  - [`./webapp/public/image/rank/`](./webapp/public/image/rank/)
+    - M PLUS 1 / Copyright 2021 The M PLUS Project Authors
+    - Licensed under [SIL Open Font License 1.1](https://openfontlicense.org/)
 
 > [!IMPORTANT]
 >

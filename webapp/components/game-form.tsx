@@ -25,6 +25,7 @@ import {
     EditNote,
     FileUpload,
     Image as ImageIcon,
+    Publish,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import {
@@ -42,7 +43,7 @@ import {
     checkGameJsonEnvironment,
     describeGameJsonEnvironmentError,
     describeGameJsonEnvironmentWarning,
-} from "@/lib/game-json";
+} from "@/lib/share/game-json";
 import { registerContent } from "@/lib/server/content-register";
 import { editContent } from "@/lib/server/content-edit";
 import { useAuth } from "@/lib/client/useAuth";
@@ -705,6 +706,7 @@ export function GameForm({
                             )}
                             <Box>
                                 <Button
+                                    startIcon={<Publish />}
                                     type="submit"
                                     variant="contained"
                                     size="large"

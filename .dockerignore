@@ -10,6 +10,7 @@
 /schema/amflow/client/dist
 /schema/amflow/common/dist
 /schema/amflow/server/dist
+/schema/scoreboard/dist
 /schema/persist/.env
 /schema/persist/dist
 /schema/persist/src/generated

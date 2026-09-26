@@ -10,6 +10,7 @@ import {
     DialogContentText,
     DialogTitle,
 } from "@mui/material";
+import { ExitToApp } from "@mui/icons-material";
 import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 
 export function PlayEndNotification({ reason }: { reason: PlayEndReason }) {
@@ -50,7 +51,12 @@ export function PlayEndNotification({ reason }: { reason: PlayEndReason }) {
                     {toMessage(reason)}
                 </DialogContentText>
                 <DialogActions>
-                    <Button variant="contained" component={Link} href="/">
+                    <Button
+                        startIcon={<ExitToApp />}
+                        variant="contained"
+                        component={Link}
+                        href="/"
+                    >
                         退出する
                     </Button>
                 </DialogActions>

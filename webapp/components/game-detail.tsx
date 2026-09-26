@@ -14,15 +14,18 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
+import { Leaderboard, Add, Settings, Article } from "@mui/icons-material";
 import { FeedbackPost, GameInfo, User } from "@/lib/types";
+import { verticalButtonSx } from "@/lib/client/theme";
 import { FeedbackPanel } from "./feedback-panel";
+import { GameStatsSummary } from "./game-stats-summary";
 import { CreditPanel } from "./credit-panel";
 import { UserInline } from "./user-inline";
 import { renderTextWithLinks } from "./text-with-links";
 import { PlayCreateDialog } from "./play-create-dialog";
 import { FavoriteButton } from "./favorite-button";
 
-export function GameDetailClient({
+export function GameDetail({
     gameInfo,
     feedbackList,
     isPublisher,
@@ -50,7 +53,7 @@ export function GameDetailClient({
 
     if (error || !gameInfo) {
         return (
-            <Container maxWidth="md" sx={{ py: 2 }}>
+            <Container maxWidth="lg" sx={{ py: 2 }}>
                 <Alert severity="error" variant="outlined">
                     {error ?? "ゲーム情報の取得に失敗しました。"}
                 </Alert>
@@ -59,12 +62,12 @@ export function GameDetailClient({
     }
 
     return (
-        <Container maxWidth="md" sx={{ py: 2 }}>
+        <Container maxWidth="lg" sx={{ py: 2 }}>
             <Card>
                 <CardContent>
                     <Stack spacing={2}>
                         <Stack
-                            direction={{ xs: "column", sm: "row" }}
+                            direction={{ xs: "column", md: "row" }}
                             spacing={2}
                         >
                             <Avatar
@@ -132,8 +135,20 @@ export function GameDetailClient({
                                 >
                                     {renderTextWithLinks(gameInfo.description)}
                                 </Typography>
-                                <Stack direction="row" spacing={1}>
+                                <Box
+                                    sx={{
+                                        display: { xs: "grid", md: "flex" },
+                                        gridTemplateColumns: {
+                                            xs: "1fr",
+                                            sm: "repeat(2, 1fr)",
+                                        },
+                                        alignItems: { md: "center" },
+                                        gap: 1,
+                                        ...verticalButtonSx,
+                                    }}
+                                >
                                     <Button
+                                        startIcon={<Add />}
                                         variant="outlined"
                                         onClick={handleOpenCreateDialog}
                                         sx={{
@@ -144,8 +159,43 @@ export function GameDetailClient({
                                     >
                                         部屋を作る
                                     </Button>
+                                    {gameInfo.hasScoreboard && (
+                                        <Button
+                                            startIcon={<Leaderboard />}
+                                            variant="outlined"
+                                            component={Link}
+                                            href={`/game/${gameInfo.id}/stats`}
+                                            sx={{
+                                                borderColor:
+                                                    theme.palette.text
+                                                        .secondary,
+                                                color: theme.palette.text
+                                                    .secondary,
+                                            }}
+                                        >
+                                            統計を見る
+                                        </Button>
+                                    )}
+                                    {gameInfo.hasScoreboard && isPublisher && (
+                                        <Button
+                                            startIcon={<Settings />}
+                                            variant="outlined"
+                                            component={Link}
+                                            href={`/game/${gameInfo.id}/stats/edit`}
+                                            sx={{
+                                                borderColor:
+                                                    theme.palette.text
+                                                        .secondary,
+                                                color: theme.palette.text
+                                                    .secondary,
+                                            }}
+                                        >
+                                            見せ方を設定
+                                        </Button>
+                                    )}
                                     {isPublisher && (
                                         <Button
+                                            startIcon={<Article />}
                                             variant="outlined"
                                             component={Link}
                                             href={`/game/${gameInfo.id}/logs`}
@@ -160,16 +210,36 @@ export function GameDetailClient({
                                             ログを見る
                                         </Button>
                                     )}
-                                </Stack>
+                                </Box>
                                 <CreditPanel
                                     credit={gameInfo.credit}
                                     contentId={gameInfo.contentId}
+                                    titleCredits={gameInfo.titleCredits}
                                 />
                             </Stack>
                         </Stack>
                     </Stack>
                 </CardContent>
             </Card>
+
+            {gameInfo.hasScoreboard && (
+                <Box id="stats" sx={{ mt: 3 }}>
+                    <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ alignItems: "center", mb: 2 }}
+                    >
+                        <Leaderboard fontSize="large" />
+                        <Typography variant="h5" component="h2">
+                            みんなの記録
+                        </Typography>
+                    </Stack>
+                    <GameStatsSummary
+                        gameId={gameInfo.id}
+                        title={gameInfo.title}
+                    />
+                </Box>
+            )}
 
             <Box id="feedback" sx={{ mt: 3 }}>
                 <Typography variant="h5" component="h2" sx={{ mb: 2 }}>

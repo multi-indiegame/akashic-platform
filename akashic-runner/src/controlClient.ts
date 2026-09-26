@@ -3,6 +3,7 @@ import type {
     PlayEndedRequest,
 } from "@multi-indiegame/runner-ipc-schema";
 import { LogSender } from "./logSender";
+import { ScoreSender } from "./scoreSender";
 
 export class ControlClient {
     _baseUrl: string;
@@ -39,6 +40,10 @@ export class ControlClient {
 
     openLogSender(playId: number) {
         return new LogSender(this._baseUrl, this._token, playId);
+    }
+
+    openScoreSender(playId: number) {
+        return new ScoreSender(this._baseUrl, this._token, playId);
     }
 
     async reportPlayEnded(payload: PlayEndedRequest) {

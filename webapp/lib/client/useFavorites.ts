@@ -15,8 +15,11 @@ const fetcher = async (url: string): Promise<GameInfo[]> => {
     return res.data;
 };
 
-export function useFavorites() {
-    const { isLoading, data, error } = useSWR("/api/favorites", fetcher);
+export function useFavorites(enabled: boolean) {
+    const { isLoading, data, error } = useSWR(
+        enabled ? "/api/favorites" : null,
+        fetcher,
+    );
     return {
         isLoading,
         data,

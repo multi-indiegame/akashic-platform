@@ -118,6 +118,13 @@ export async function registerPlay({
                 gameMasterId,
                 playerUserId: gmUserId,
                 playerName,
+                scoreboard:
+                    (
+                        await prisma.content.findUnique({
+                            where: { id: contentId },
+                            select: { scoreboard: true },
+                        })
+                    )?.scoreboard ?? false,
                 playName: !!playName
                     ? playName
                     : await fetchDefaultPlayName(contentId),

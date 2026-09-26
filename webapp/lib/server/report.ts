@@ -1,6 +1,11 @@
 import { prisma, ReportTargetType } from "@multi-indiegame/persist-schema";
 import { GUEST_NAME } from "../types";
 import { authorizePlayChat } from "./play-chat";
+import {
+    decodeSubjectToken,
+    subjectDisplayName,
+    viewerSubjectKey,
+} from "./score-subject";
 
 const GLOBAL_WINDOW_SECONDS = parseInt(
     process.env.REPORT_RATE_GLOBAL_WINDOW_SECONDS ?? "60",
@@ -18,8 +23,7 @@ const MEDIUM_MAX = parseInt(process.env.REPORT_RATE_MEDIUM_MAX ?? "30");
 const SNAPSHOT_MAX = 500;
 
 export type ReportRateResult =
-    | { ok: true }
-    | { ok: false; retryAfterSeconds: number };
+    { ok: true } | { ok: false; retryAfterSeconds: number };
 
 type ReporterKeys = { reporterId?: string; reporterGuestId?: string };
 
@@ -98,9 +102,13 @@ export async function resolveReportTarget(
     input:
         | { kind: "message"; source: "board" | "chat"; messageId: number }
         | { kind: "play"; playId: number }
-        | { kind: "user"; userId: string },
+        | { kind: "user"; userId: string }
+        | { kind: "scoreSubject"; gameId: number; subject: string },
     reporter: { userId?: string; guestId?: string },
 ): Promise<ResolvedTarget | null> {
+    if (input.kind === "scoreSubject") {
+        return await resolveScoreSubject(input.gameId, input.subject, reporter);
+    }
     if (input.kind === "message") {
         if (input.source === "board") {
             const m = await prisma.boardMessage.findUnique({
@@ -178,6 +186,49 @@ export async function resolveReportTarget(
         targetId: user.id,
         bodySnapshot: `ユーザー: ${user.name ?? GUEST_NAME}${user.handle ? ` (@${user.handle})` : ""}`,
         isSelf: user.id === reporter.userId,
+    };
+}
+
+/**
+ * WHY: 統計の表示名は、サインイン利用者なら User.name、ゲストなら参加時に
+ * 自称した名前で、どちらも後から変わりうる。通報時点でどのゲームのランキングに
+ * どの名前で載っていたかを控えておく。
+ */
+async function resolveScoreSubject(
+    gameId: number,
+    subject: string,
+    reporter: { userId?: string; guestId?: string },
+): Promise<ResolvedTarget | null> {
+    const subjectKey = decodeSubjectToken(subject);
+    if (!subjectKey) return null;
+    const [name, game, best, playCount] = await Promise.all([
+        subjectDisplayName(subjectKey),
+        prisma.game.findUnique({
+            where: { id: gameId },
+            select: { title: true },
+        }),
+        // WHY: トークンはゲームに結び付いていない。別のゲームで得たトークンを
+        // 渡されると、載っていないゲームのランキングに載っていたと控えてしまう
+        prisma.scoreBest.findFirst({
+            where: { gameId, subjectKey },
+            select: { id: true },
+        }),
+        prisma.scorePlayCount.findUnique({
+            where: { gameId_subjectKey: { gameId, subjectKey } },
+            select: { id: true },
+        }),
+    ]);
+    if (!name || !game || (!best && !playCount)) return null;
+    const self = reporter.userId
+        ? viewerSubjectKey({ authType: "oauth", id: reporter.userId })
+        : reporter.guestId
+          ? viewerSubjectKey({ authType: "guest", id: reporter.guestId })
+          : undefined;
+    return {
+        targetType: ReportTargetType.SCORE_SUBJECT,
+        targetId: subjectKey,
+        bodySnapshot: `統計(gameId=${gameId}) / ゲーム「${game.title}」/ 表示名: ${truncate(name)}`,
+        isSelf: subjectKey === self,
     };
 }
 

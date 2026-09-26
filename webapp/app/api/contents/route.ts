@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
                 select: {
                     id: true,
                     icon: true,
+                    scoreboard: true,
                     updatedAt: true,
                 },
                 orderBy: {
@@ -89,9 +90,10 @@ export async function GET(req: NextRequest) {
             createdAt: true,
         },
     });
+    const auth = await getAuth();
     const favoritedGameIds = new Set(
         await getFavoriteList(
-            await getAuth(),
+            auth,
             result.map((game) => game.id),
         ),
     );
@@ -126,6 +128,7 @@ export async function GET(req: NextRequest) {
                         license: await fetchLicense(versions[0].id),
                         contentId: versions[0].id,
                         isFavorited: favoritedGameIds.has(id),
+                        hasScoreboard: versions[0].scoreboard,
                         createdAt,
                         updatedAt: versions[0].updatedAt,
                     }) satisfies GameInfo,

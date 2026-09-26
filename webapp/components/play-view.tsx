@@ -32,6 +32,7 @@ import {
     Fullscreen,
     FullscreenExit,
     HelpOutlined,
+    Leaderboard,
     Lock,
     NoAccounts,
     OpenInNew,
@@ -42,9 +43,16 @@ import {
     VolumeOff,
     VolumeUp,
     X,
+    MoreTime,
+    AlternateEmail,
 } from "@mui/icons-material";
 import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
-import { BAN_IN_GAME_CONFIRM_PENDING_MAX, GameInfo, User } from "@/lib/types";
+import {
+    BAN_IN_GAME_CONFIRM_PENDING_MAX,
+    GameInfo,
+    TitleBadge,
+    User,
+} from "@/lib/types";
 import { useAkashic } from "@/lib/client/useAkashic";
 import { useCustomData } from "@/lib/client/useCustomData";
 import { usePlayLeaveGuard } from "@/lib/client/usePlayLeaveGuard";
@@ -60,6 +68,7 @@ import type {
 import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
 import { extendPlay } from "@/lib/server/play-extend";
 import { banPlayerInGameAction } from "@/lib/server/ban-in-game-action";
+import { reportNameConsent } from "@/lib/server/play-participant-action";
 import { uploadPlayShareScreenshot } from "@/lib/server/play-share";
 import {
     BanConfirmRequest,
@@ -71,6 +80,7 @@ import { PlayEndNotification } from "./play-end-notification";
 import { PlayPlayerInfoResolver } from "./play-player-info-resolver";
 import { CreditPanel } from "./credit-panel";
 import { UserInline } from "./user-inline";
+import { TitleBadges } from "./title-badges";
 import { ClientLogDialog } from "./client-log-dialog";
 import { TroubleshootButton } from "./troubleshoot-button";
 import { FavoriteButton } from "./favorite-button";
@@ -168,6 +178,7 @@ export function PlayView({
         name: string;
         iconURL?: string;
         handle?: string;
+        titles?: TitleBadge[];
     };
     isGameMaster: boolean;
     contentWidth: number;
@@ -611,6 +622,19 @@ export function PlayView({
                     if (accepted && name) {
                         setPlayerName(name);
                     }
+                    // ゲームを待たせないよう完了を待たない。
+                    reportNameConsent(Number(playId), accepted, name).then(
+                        (res) => {
+                            if (!res.ok) {
+                                console.warn(
+                                    `failed to report name consent: ${res.reason}`,
+                                );
+                            }
+                        },
+                        (err) => {
+                            console.warn("failed to report name consent", err);
+                        },
+                    );
                 },
             });
         }
@@ -1111,6 +1135,7 @@ export function PlayView({
                 <PlayPlayerInfoResolver
                     request={requestPlayerInfo}
                     requireSignIn={requireSignIn}
+                    hasScoreboard={game.hasScoreboard}
                 />
             )}
             <PlayBanConfirmDialog
@@ -1284,6 +1309,7 @@ export function PlayView({
                         }}
                         action={
                             <Button
+                                startIcon={<MoreTime />}
                                 variant="contained"
                                 onClick={() => handleExtend()}
                                 disabled={extendLoading}
@@ -1453,6 +1479,18 @@ export function PlayView({
                                                 avatarSize={32}
                                                 openInNewWindow
                                             />
+                                            {gameMaster.titles &&
+                                                gameMaster.titles.length >
+                                                    0 && (
+                                                    <TitleBadges
+                                                        titles={
+                                                            gameMaster.titles
+                                                        }
+                                                        variant="compact"
+                                                        iconSize={40}
+                                                        openInNewWindow
+                                                    />
+                                                )}
                                             {!isGameMaster && (
                                                 <>
                                                     <Box sx={{ flexGrow: 1 }} />
@@ -1611,6 +1649,7 @@ export function PlayView({
                                                 </Typography>
                                             </Stack>
                                             <Button
+                                                startIcon={<MoreTime />}
                                                 variant="contained"
                                                 onClick={handleExtend}
                                                 disabled={
@@ -1780,6 +1819,9 @@ export function PlayView({
                                                     variant="outlined"
                                                     action={
                                                         <Button
+                                                            startIcon={
+                                                                <AlternateEmail />
+                                                            }
                                                             variant="outlined"
                                                             onClick={() =>
                                                                 setHandleDialogOpen(
@@ -1797,6 +1839,9 @@ export function PlayView({
                                                                     .primary
                                                                     .light,
                                                                 py: 1,
+                                                                whiteSpace:
+                                                                    "nowrap",
+                                                                flexShrink: 0,
                                                             }}
                                                         >
                                                             設定する
@@ -1987,10 +2032,32 @@ export function PlayView({
                                 </Stack>
                                 <Stack
                                     direction="row"
+                                    useFlexGap
+                                    spacing={1}
                                     sx={{
                                         justifyContent: "flex-end",
+                                        flexWrap: "wrap",
                                     }}
                                 >
+                                    {game.hasScoreboard && (
+                                        <Button
+                                            component={Link}
+                                            href={`/game/${game.id}/stats`}
+                                            target="_blank"
+                                            variant="outlined"
+                                            startIcon={<Leaderboard />}
+                                            endIcon={<OpenInNew />}
+                                            sx={{
+                                                borderColor:
+                                                    theme.palette.text
+                                                        .secondary,
+                                                color: theme.palette.text
+                                                    .secondary,
+                                            }}
+                                        >
+                                            統計を見る
+                                        </Button>
+                                    )}
                                     <Button
                                         component={Link}
                                         href={`/game/${game.id}#feedback`}

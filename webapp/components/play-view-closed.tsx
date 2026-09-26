@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import {
     Alert,
     Avatar,
+    Box,
     Button,
     Card,
     CardContent,
@@ -23,8 +24,13 @@ import {
     SpeakerNotesOff,
     Videocam,
     VideocamOff,
+    Add,
+    InfoOutlined,
+    Leaderboard,
+    RateReview,
 } from "@mui/icons-material";
 import { GameInfo, User } from "@/lib/types";
+import { verticalButtonSx } from "@/lib/client/theme";
 import { UserInline } from "./user-inline";
 import { CreditPanel } from "./credit-panel";
 import { renderTextWithLinks } from "./text-with-links";
@@ -367,14 +373,21 @@ export function ClosedPlayView({
                                     />
                                 </Stack>
                             </Stack>
-                            <Stack
-                                direction={{ xs: "column", sm: "row" }}
-                                spacing={1}
+                            <Box
                                 sx={{
-                                    justifyContent: "flex-end",
+                                    display: { xs: "grid", md: "flex" },
+                                    gridTemplateColumns: {
+                                        xs: "1fr",
+                                        sm: "repeat(2, 1fr)",
+                                    },
+                                    alignItems: { md: "center" },
+                                    justifyContent: { md: "flex-end" },
+                                    gap: 1,
+                                    ...verticalButtonSx,
                                 }}
                             >
                                 <Button
+                                    startIcon={<Add />}
                                     variant="outlined"
                                     onClick={() => setCreateDialogOpen(true)}
                                     sx={{
@@ -386,6 +399,7 @@ export function ClosedPlayView({
                                     部屋を作る
                                 </Button>
                                 <Button
+                                    startIcon={<InfoOutlined />}
                                     component={Link}
                                     href={`/game/${game.id}`}
                                     variant="outlined"
@@ -397,7 +411,23 @@ export function ClosedPlayView({
                                 >
                                     詳細
                                 </Button>
+                                {game.hasScoreboard && (
+                                    <Button
+                                        startIcon={<Leaderboard />}
+                                        component={Link}
+                                        href={`/game/${game.id}/stats`}
+                                        variant="outlined"
+                                        sx={{
+                                            borderColor:
+                                                theme.palette.text.secondary,
+                                            color: theme.palette.text.secondary,
+                                        }}
+                                    >
+                                        統計を見る
+                                    </Button>
+                                )}
                                 <Button
+                                    startIcon={<RateReview />}
                                     component={Link}
                                     href={`/game/${game.id}#feedback`}
                                     variant="outlined"
@@ -409,7 +439,7 @@ export function ClosedPlayView({
                                 >
                                     フィードバックを送る
                                 </Button>
-                            </Stack>
+                            </Box>
                         </Stack>
                     </CardContent>
                 </Card>

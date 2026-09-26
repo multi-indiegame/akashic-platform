@@ -25,6 +25,7 @@ import { usePlayChatContext } from "@/lib/client/usePlayChatContext";
 import { useMute } from "@/lib/client/useMute";
 import { PlayChatHistory } from "./play-chat-history";
 import { PlayChatToast } from "./play-chat-toast";
+import { TitleBadges } from "../title-badges";
 
 const ROW_HEIGHT = 34;
 const SPEED_PX_PER_SEC = 140;
@@ -102,6 +103,14 @@ const FlowingComment = memo(function FlowingComment({
             >
                 {item.message.author.name}
             </Typography>
+            {item.message.titles && item.message.titles.length > 0 && (
+                <TitleBadges
+                    titles={item.message.titles}
+                    variant="compact"
+                    iconSize={24}
+                    disableDetail
+                />
+            )}
             <Typography variant="body1" sx={{ color: "#fff" }}>
                 {item.message.body}
             </Typography>

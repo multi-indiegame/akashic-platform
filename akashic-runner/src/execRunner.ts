@@ -4,6 +4,7 @@ import { RunnerV3 } from "@akashic/headless-driver";
 import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import type {
     PlayEndOrigin,
+    ScoreboardLimits as IpcScoreboardLimits,
     StartPlayRequest,
     StopPlayResponse,
 } from "@multi-indiegame/runner-ipc-schema";
@@ -12,9 +13,28 @@ import {
     Session,
     SessionLike,
 } from "@multi-indiegame/playlog-client";
+import { ScoreboardPlugin } from "@multi-indiegame/akashic-scoreboard-plugin";
+import type { ScoreboardLimits as PluginScoreboardLimits } from "@multi-indiegame/akashic-scoreboard-plugin";
 import type { ControlClient } from "./controlClient";
 import type { LogSender } from "./logSender";
+import type { ScoreSender } from "./scoreSender";
 import { playStorage } from "./logger";
+
+/**
+ * IPC で受け取った上限を、そのまま拡張ライブラリへ渡してよいか検める。
+ *
+ * WHY: IPC の型はプロセス間で交わす JSON の取り決めで、拡張ライブラリの型とは
+ * 別に定めている（akashic-server にコンテンツ側の拡張を依存させないため）。
+ * だが上限だけは、受け取った値をそのままプラグインへ渡している。項目名が
+ * 食い違っても構造的型付けでは通ってしまい、**上限がエラーなしに効かなくなる**。
+ * 双方向の代入で確かめ、ずれたらここでビルドを落とす。
+ */
+type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const _scoreboardLimitsMatchPlugin: Exact<
+    Required<IpcScoreboardLimits>,
+    Required<PluginScoreboardLimits>
+> = true;
+void _scoreboardLimitsMatchPlugin;
 
 // `akashic-gameview` の ProtocolType と同じ。
 const ProtocolType = {
@@ -28,6 +48,7 @@ export class ExecRunner {
     _session?: SessionLike;
     _onPlayEndBound: (reason: PlayEndReason) => void;
     _logSender?: LogSender;
+    _scoreSender?: ScoreSender;
     _crashing = false;
     _errorLogged = false;
     _reported = false;
@@ -41,6 +62,9 @@ export class ExecRunner {
     async start() {
         const playId = this._param.playId;
         this._logSender = this._control.openLogSender(playId);
+        if (this._param.scoreboard) {
+            this._scoreSender = this._control.openScoreSender(playId);
+        }
         await playStorage.run(
             { playId, logSink: this._logSender },
             async () => {
@@ -73,6 +97,12 @@ export class ExecRunner {
             await this._closeSession(this._session);
             this._session = undefined;
         }
+        // 未送出の記録を送り切ってから応答する。これで StopPlayResponse を返す
+        // 時点で、最新の記録が akashic-server に届いている。
+        if (this._scoreSender) {
+            await this._scoreSender.close();
+            this._scoreSender = undefined;
+        }
         // 未送出のログを送り切ってから応答する。ここまでのログが content-log に載る。
         if (this._logSender) {
             await this._logSender.close();
@@ -83,6 +113,44 @@ export class ExecRunner {
             crashed: this._crashing,
             errorLogged: this._errorLogged,
         } as StopPlayResponse;
+    }
+
+    /**
+     * アクティブインスタンスの `g.game.external` に入れる値を作る。
+     *
+     * WHY: 拡張ライブラリ側も `g.game.isActiveInstance()` で報告元を絞るので
+     * 二重だが、宣言していないコンテンツに生やさなければ、そもそも無駄な
+     * 処理も通信も起きない。
+     */
+    _createExternalValue() {
+        const scoreSender = this._scoreSender;
+        if (!scoreSender) {
+            return {};
+        }
+        const plugin = new ScoreboardPlugin({
+            limits: this._param.scoreboard?.limits,
+            backend: {
+                record: (subject, patch, rejected) => {
+                    if (rejected.length > 0) {
+                        // WHY: 黙って消すと、投稿者が「値は送っているのに
+                        // 記録されない」で行き詰まる。調査の手がかりを残す
+                        for (const entry of rejected) {
+                            console.warn("scoreboard の値を破棄しました", {
+                                playId: this._param.playId,
+                                key: entry.key,
+                                reason: entry.reason,
+                            });
+                        }
+                    }
+                    if (subject.kind === "play") {
+                        scoreSender.updatePlay(patch);
+                    } else {
+                        scoreSender.updatePlayer(subject.playerId, patch);
+                    }
+                },
+            },
+        });
+        return { scoreboard: plugin.createExternal() };
     }
 
     _openSession(playId: number, playToken: string) {
@@ -165,7 +233,7 @@ export class ExecRunner {
             executionMode: "active",
             trusted: true,
             external: {},
-            externalValue: {},
+            externalValue: this._createExternalValue(),
             loadFileHandler: (url, encoding, cb) => {
                 if (
                     !url.startsWith(this._param.assetBaseUrl) &&

@@ -16,6 +16,7 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
+import { MeetingRoom } from "@mui/icons-material";
 import { useAuth } from "@/lib/client/useAuth";
 import { useCopyToClipboard } from "@/lib/client/useCopyToClipboard";
 import { useLive } from "@/lib/client/useLive";
@@ -321,7 +322,11 @@ export function LiveContainer({ handle }: { handle: string }) {
                                     autoFocus
                                     fullWidth
                                 />
-                                <Button type="submit" variant="contained">
+                                <Button
+                                    startIcon={<MeetingRoom />}
+                                    type="submit"
+                                    variant="contained"
+                                >
                                     入室する
                                 </Button>
                             </Stack>
