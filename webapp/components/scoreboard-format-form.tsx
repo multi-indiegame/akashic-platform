@@ -25,6 +25,7 @@ import type {
     ScoreValueType,
 } from "@multi-indiegame/scoreboard-schema";
 import { RECORD_KEY_PATTERN } from "@/lib/types";
+import { affectsTopEntries } from "@/lib/scoreboard-rebuild";
 import {
     FieldCandidate,
     FormatEditorData,
@@ -42,6 +43,13 @@ export function ScoreboardFormatForm({
         Object.fromEntries(
             data.candidates.map((c) => [c.key, { ...c.setting }]),
         ),
+    );
+    // WHY: 積み直すかは保存済みの設定との差で決まる。保存後は画面を読み直さない
+    // ので、保存に成功した時点の設定を比較元として持ち直す
+    const [savedFields, setSavedFields] = useState<{
+        [key: string]: ScoreFieldSetting;
+    }>(() =>
+        Object.fromEntries(data.candidates.map((c) => [c.key, c.setting])),
     );
     const [playFields, setPlayFields] = useState(() =>
         Object.fromEntries(
@@ -90,6 +98,9 @@ export function ScoreboardFormatForm({
             playRankingChartHidden,
         );
         setSaving(false);
+        if (res.ok) {
+            setSavedFields(fields);
+        }
         setMessage(
             res.ok
                 ? { severity: "success", text: "保存しました。" }
@@ -152,13 +163,6 @@ export function ScoreboardFormatForm({
 
     return (
         <Stack spacing={2}>
-            <Alert variant="outlined" severity="warning">
-                「1 プレイ 1
-                件」のキーで上位の決め方を変えたとき、または複数ランクインの設定を変えたときは、そのキーの歴代ランキングを残っている記録から積み直します。
-                古い記録は消えているため、
-                <strong>それより前のランクインは失われます</strong>。
-                それ以外の変更では積み直しません。
-            </Alert>
             {candidates.length === 0 && (
                 <Alert variant="outlined" severity="info">
                     このゲームの記録はまだ 1
@@ -170,6 +174,7 @@ export function ScoreboardFormatForm({
                     key={candidate.key}
                     candidate={candidate}
                     setting={fields[candidate.key]}
+                    saved={savedFields[candidate.key]}
                     onChange={(patch) => update(candidate.key, patch)}
                 />
             ))}
@@ -324,11 +329,14 @@ export function ScoreboardFormatForm({
 function FieldCard({
     candidate,
     setting,
+    saved,
     onChange,
     forPlayRecord = false,
 }: {
     candidate: FieldCandidate;
     setting: ScoreFieldSetting;
+    /** 保存済みの設定。ないときは積み直しの対象にならない */
+    saved?: ScoreFieldSetting;
     onChange: (patch: Partial<ScoreFieldSetting>) => void;
     /** プレイ自体の記録の設定か。出せる選択肢が違う */
     forPlayRecord?: boolean;
@@ -345,6 +353,7 @@ function FieldCard({
     // WHY: 真偽値の場合でも割合でなく回数で出すときは単位を付けられるように
     const showUnit = isNumber || (isBoolean && !byRate);
     const diagnosis = diagnose(candidate, setting);
+    const rebuilds = !!saved && affectsTopEntries(saved, setting);
     // 申告した種類と、実際に登録されている種類が食い違っているか
     const mismatched =
         !!setting.valueType &&
@@ -496,6 +505,14 @@ function FieldCard({
                                 <MenuItem value="all">1 プレイ 1 件</MenuItem>
                             </TextField>
                         </Stack>
+                    )}
+                    {rebuilds && (
+                        <Alert variant="outlined" severity="warning">
+                            保存すると、このキーの歴代ランキングを残っている記録から積み直します。
+                            古い記録は消えているため、
+                            <strong>それより前のランクインは失われます</strong>
+                            。
+                        </Alert>
                     )}
                     <Stack direction="row" spacing={2}>
                         {isNumber && (

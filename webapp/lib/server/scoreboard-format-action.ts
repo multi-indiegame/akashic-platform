@@ -11,6 +11,7 @@ import {
     rebuildTopEntries,
 } from "@multi-indiegame/scoreboard-schema";
 import { RECORD_KEY_PATTERN } from "../types";
+import { affectsTopEntries } from "../scoreboard-rebuild";
 import { getSignedInUser } from "./auth";
 import { isWriteBlocked } from "./drain-state";
 import { logSafe } from "./log-safe";
@@ -114,23 +115,6 @@ export async function saveScoreboardFormat(
         );
         return { ok: false, reason: "InternalError" };
     }
-}
-
-/**
- * 複数ランクインの上位 N 件の持ち方が変わるか。
- *
- * WHY: 積み直すと生レコードより前の上位記録を失うので、必要なときに限る。
- * 見出し・単位・代表値は表示時の選び方が変わるだけで、積み方には効かない。
- * 1 人 1 件だけのキーは主体ごとの歴代から引くので、向きを変えても積み直さない
- */
-function affectsTopEntries(
-    before: ScoreFieldSetting,
-    after: ScoreFieldSetting,
-): boolean {
-    if (before.dedupe !== after.dedupe) {
-        return true;
-    }
-    return after.dedupe === "all" && before.direction !== after.direction;
 }
 
 /**
