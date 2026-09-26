@@ -523,7 +523,6 @@ export default function UserPage() {
                                             profile.titles.length > 0 && (
                                                 <TitleBadges
                                                     titles={profile.titles}
-                                                    size="medium"
                                                 />
                                             )}
                                         <Typography
@@ -593,7 +592,6 @@ export default function UserPage() {
                                                 profile.titles.length > 0 && (
                                                     <TitleBadges
                                                         titles={profile.titles}
-                                                        size="medium"
                                                     />
                                                 )}
                                             {profile.scoreboardPublic && (
@@ -677,7 +675,7 @@ export default function UserPage() {
                                         color: theme.palette.text.secondary,
                                     }}
                                 >
-                                    統計の設定
+                                    統計・称号の設定
                                 </Button>
                             )}
                             {isOwner && (

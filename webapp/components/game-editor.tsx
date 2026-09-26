@@ -76,7 +76,7 @@ export function GameEditor() {
                                     color: theme.palette.text.secondary,
                                 }}
                             >
-                                統計の設定
+                                統計・称号の設定
                             </Button>
                         )}
                         <Button

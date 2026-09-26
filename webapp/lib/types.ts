@@ -463,6 +463,7 @@ export const titleRanks = [
 ] satisfies ScoreTitleRank[];
 
 export interface TitleBadge {
+    defId: number;
     gameId: number;
     gameTitle: string;
     categoryKey: string;

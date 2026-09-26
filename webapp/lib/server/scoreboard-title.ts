@@ -23,6 +23,7 @@ export async function fetchTitles(
         },
         orderBy: [{ pinnedOrder: { sort: "asc", nulls: "last" } }],
         select: {
+            defId: true,
             gameId: true,
             categoryKey: true,
             rank: true,
@@ -48,6 +49,7 @@ export async function fetchTitles(
         return a.awardedAt.getTime() - b.awardedAt.getTime();
     });
     return sorted.slice(0, options.limit ?? DISPLAY_LIMIT).map((row) => ({
+        defId: row.defId,
         gameId: row.gameId,
         gameTitle: row.game.title,
         categoryKey: row.categoryKey,
@@ -71,6 +73,7 @@ export async function fetchTitlesForUsers(
         where: { userId: { in: [...new Set(userIds)] }, gameId },
         select: {
             userId: true,
+            defId: true,
             gameId: true,
             categoryKey: true,
             rank: true,
@@ -89,6 +92,7 @@ export async function fetchTitlesForUsers(
     for (const row of rows) {
         const list = result.get(row.userId) ?? [];
         list.push({
+            defId: row.defId,
             gameId: row.gameId,
             gameTitle: row.game.title,
             categoryKey: row.categoryKey,

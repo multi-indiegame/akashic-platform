@@ -691,25 +691,29 @@ enum ScoreTitleRank {
 /// WHY: カテゴリとラベル（段位）に分ける。同じカテゴリで段位だけ違う称号を
 /// 並べて持たせず、到達した最上位だけを見せるため。
 model ScoreTitleDef {
-  id          Int            @id @default(autoincrement())
-  gameId      Int
+  id              Int            @id @default(autoincrement())
+  gameId          Int
   /// 何についての称号か（例: "score"、"allclear"）
-  categoryKey String
-  rank        ScoreTitleRank @default(NONE)
+  categoryKey     String
+  rank            ScoreTitleRank @default(NONE)
   /// 表示順。小さいほど先に出る
-  priority    Int            @default(0)
-  name        String
+  priority        Int            @default(0)
+  name            String
   /// 投稿者がアップロードした画像。`games/<gameId>/titles/` 以下に置く
-  imageKey    String?
+  imageKey        String?
   /// 画像の出どころ。表示が求められる素材のために持つ
-  imageCredit String?
+  imageCredit     String?
   /// 付与の条件
-  condition   Json
+  condition       Json
+  /// 称号の詳細に出す獲得条件の説明。無ければ付与の条件から組み立てる
+  conditionText   String?
+  /// 獲得条件を公開しない
+  conditionHidden Boolean        @default(false)
   /// 取り下げた時刻。取り下げた後は新たに付与しない。
   ///
   /// WHY: 消してしまうと、すでに獲得した人の称号まで消える。投稿者が公開をやめても
   /// 配布済み分が残るようにする。
-  retiredAt   DateTime?
+  retiredAt       DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

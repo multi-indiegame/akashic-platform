@@ -7,12 +7,14 @@ import {
     Button,
     Card,
     CardContent,
+    Checkbox,
     Chip,
     Dialog,
     DialogActions,
     DialogContent,
     DialogContentText,
     DialogTitle,
+    FormControlLabel,
     MenuItem,
     Paper,
     Stack,
@@ -22,6 +24,12 @@ import {
 } from "@mui/material";
 import { ImageNotSupported } from "@mui/icons-material";
 import type { ScoreTitleRank } from "@multi-indiegame/persist-schema";
+import {
+    TITLE_RANKS,
+    TITLE_RANK_COLOR,
+    titleRankLabel,
+} from "@/lib/title-rank";
+import { TitleFieldNames, describeConditions } from "@/lib/title-condition";
 import {
     TitleDefRow,
     TitleEditorData,
@@ -44,19 +52,7 @@ interface ConditionRow {
     value: number;
 }
 
-const RANKS: { value: ScoreTitleRank; label: string }[] = [
-    { value: "NONE", label: "段位なし" },
-    { value: "BRONZE", label: "ブロンズ" },
-    { value: "SILVER", label: "シルバー" },
-    { value: "GOLD", label: "ゴールド" },
-];
-
-const RANK_COLOR: { [key in ScoreTitleRank]: string | undefined } = {
-    NONE: undefined,
-    BRONZE: "#9C6B3F",
-    SILVER: "#6E7A88",
-    GOLD: "#A8801C",
-};
+const CONDITION_TEXT_MAX_LENGTH = 100;
 
 const emptyRow = (field: string): ConditionRow => ({
     target: "field",
@@ -99,7 +95,7 @@ export function ScoreboardTitleForm({
                               ? "配布を停止しました。すでに獲得した人の称号は残ります。"
                               : "称号を削除しました。",
                   }
-                : { severity: "error", text: "変更できませんでした。" },
+                : { severity: "error", text: "変更に失敗しました。" },
         );
         if (res.ok) {
             location.reload();
@@ -134,11 +130,7 @@ export function ScoreboardTitleForm({
                                 <Stack spacing={0}>
                                     <Avatar
                                         src={def.imageURL}
-                                        alt={
-                                            RANKS.find(
-                                                (r) => r.value === def.rank,
-                                            )?.label ?? def.rank
-                                        }
+                                        alt={titleRankLabel(def.rank)}
                                         variant="rounded"
                                         sx={{ width: 100, height: 100 }}
                                         slotProps={{
@@ -171,17 +163,15 @@ export function ScoreboardTitleForm({
                                         >
                                             <Chip
                                                 size="small"
-                                                label={
-                                                    RANKS.find(
-                                                        (r) =>
-                                                            r.value ===
-                                                            def.rank,
-                                                    )?.label ?? def.rank
-                                                }
+                                                label={titleRankLabel(def.rank)}
                                                 sx={{
-                                                    color: RANK_COLOR[def.rank],
+                                                    color: TITLE_RANK_COLOR[
+                                                        def.rank
+                                                    ],
                                                     borderColor:
-                                                        RANK_COLOR[def.rank],
+                                                        TITLE_RANK_COLOR[
+                                                            def.rank
+                                                        ],
                                                 }}
                                             />
                                         </Avatar>
@@ -206,9 +196,23 @@ export function ScoreboardTitleForm({
                                     {def.awardedCount} 人
                                 </Typography>
                             </Stack>
-                            <Typography variant="body2" color="textSecondary">
-                                {describe(def)}
+                            <Typography
+                                variant="body2"
+                                color="textSecondary"
+                                sx={{ whiteSpace: "pre-wrap" }}
+                            >
+                                {def.conditionText ??
+                                    describe(def, data.fields)}
                             </Typography>
+                            {def.conditionHidden && (
+                                <Chip
+                                    size="small"
+                                    variant="outlined"
+                                    label="獲得条件非公開"
+                                    color="info"
+                                    sx={{ alignSelf: "flex-start" }}
+                                />
+                            )}
                             <Stack direction="row" spacing={1}>
                                 <Button
                                     size="small"
@@ -265,6 +269,7 @@ export function ScoreboardTitleForm({
                 <TitleDialog
                     gameId={gameId}
                     keys={data.keys}
+                    fields={data.fields}
                     def={editing === "new" ? undefined : editing}
                     onClose={() => setEditing(undefined)}
                 />
@@ -279,7 +284,7 @@ export function ScoreboardTitleForm({
                     <DialogContentText>
                         {retiring && retiring.awardedCount > 0 ? (
                             <>
-                                これから条件を満たした人には付かなくなります。
+                                これから条件を満たした人には付与されなくなります。
                                 <strong>
                                     すでに獲得した {retiring.awardedCount}{" "}
                                     人の称号は残ります。
@@ -316,11 +321,13 @@ export function ScoreboardTitleForm({
 function TitleDialog({
     gameId,
     keys,
+    fields,
     def,
     onClose,
 }: {
     gameId: number;
     keys: string[];
+    fields: TitleFieldNames;
     def?: TitleDefRow;
     onClose: () => void;
 }) {
@@ -335,6 +342,19 @@ function TitleDialog({
     );
     const [image, setImage] = useState<File>();
     const [imageCredit, setImageCredit] = useState(def?.imageCredit ?? "");
+    const [customConditionText, setCustomConditionText] = useState(
+        !!def?.conditionText,
+    );
+    const [conditionText, setConditionText] = useState(
+        def?.conditionText ?? "",
+    );
+    const [conditionHidden, setConditionHidden] = useState(
+        def?.conditionHidden ?? false,
+    );
+    const autoConditionText = describeConditions(
+        rows.map(toCondition),
+        fields,
+    ).join("\n");
     const [removingImage, startRemoveImageTransition] = useTransition();
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string>();
@@ -345,7 +365,20 @@ function TitleDialog({
         );
     }
 
+    function handleCustomConditionText(checked: boolean) {
+        setCustomConditionText(checked);
+        if (checked && !conditionText.trim()) {
+            setConditionText(
+                autoConditionText.slice(0, CONDITION_TEXT_MAX_LENGTH),
+            );
+        }
+    }
+
     async function handleSave() {
+        if (customConditionText && !conditionText.trim()) {
+            setError("獲得条件の説明を入力してください。");
+            return;
+        }
         setSaving(true);
         setError(undefined);
         const res = await saveTitleDef(gameId, {
@@ -356,6 +389,8 @@ function TitleDialog({
             priority,
             imageCredit,
             condition: { all: rows.map(toCondition) },
+            conditionText: customConditionText ? conditionText : "",
+            conditionHidden,
         });
         if (res.ok && image && def?.id) {
             // WHY: 画像は id が決まってからでないと置き場所が決まらない
@@ -431,7 +466,7 @@ function TitleDialog({
                                 setRank(e.target.value as ScoreTitleRank)
                             }
                         >
-                            {RANKS.map((r) => (
+                            {TITLE_RANKS.map((r) => (
                                 <MenuItem key={r.value} value={r.value}>
                                     {r.label}
                                 </MenuItem>
@@ -528,7 +563,7 @@ function TitleDialog({
                         </Typography>
                     )}
                     <Typography variant="caption" color="textSecondary">
-                        1MB 以下。指定しないときは段位の絵を使います。
+                        1MB 以下。
                     </Typography>
                     <Typography variant="subtitle2">付与の条件</Typography>
                     {rows.map((row, index) => (
@@ -593,7 +628,7 @@ function TitleDialog({
                                             数として比べる
                                         </MenuItem>
                                         <MenuItem value="true">
-                                            達成していれば付ける
+                                            達成していれば付与する
                                         </MenuItem>
                                     </TextField>
                                 </>
@@ -703,6 +738,59 @@ function TitleDialog({
                     <Typography variant="caption" color="textSecondary">
                         条件をすべて満たしたときに付きます。
                     </Typography>
+                    <Typography variant="subtitle2">
+                        獲得条件の見せ方
+                    </Typography>
+                    <Stack>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={conditionHidden}
+                                    onChange={(e) =>
+                                        setConditionHidden(e.target.checked)
+                                    }
+                                />
+                            }
+                            label="獲得条件を公開しない"
+                        />
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={customConditionText}
+                                    disabled={conditionHidden}
+                                    onChange={(e) =>
+                                        handleCustomConditionText(
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                            }
+                            label="説明をカスタマイズする"
+                        />
+                    </Stack>
+                    <TextField
+                        label="獲得条件の説明"
+                        size="small"
+                        multiline
+                        minRows={2}
+                        disabled={conditionHidden || !customConditionText}
+                        value={
+                            customConditionText
+                                ? conditionText
+                                : autoConditionText
+                        }
+                        onChange={(e) => setConditionText(e.target.value)}
+                        helperText={
+                            conditionHidden
+                                ? "称号の詳細では、獲得条件を「非公開」と表示します。"
+                                : customConditionText
+                                  ? "称号の詳細に、この説明を獲得条件として表示します。"
+                                  : "付与の条件から自動的に作成された説明です。称号の詳細に表示されます。"
+                        }
+                        slotProps={{
+                            htmlInput: { maxLength: CONDITION_TEXT_MAX_LENGTH },
+                        }}
+                    />
                     {error && (
                         <Alert variant="outlined" severity="error">
                             {error}
@@ -764,48 +852,9 @@ function toRows(def: TitleDefRow): ConditionRow[] {
     return rows.length > 0 ? rows : [emptyRow("")];
 }
 
-/** WHY: 条件を日本語で言い換える。JSON のままだと投稿者が読めない */
-function describe(def: TitleDefRow): string {
+function describe(def: TitleDefRow, fields: TitleFieldNames): string {
     if (def.condition.all.length === 0) {
         return "条件が設定されていません。";
     }
-    return def.condition.all
-        .map((condition) => {
-            if ("stat" in condition) {
-                return `遊んだ回数が ${condition.value} ${opLabel(condition.op)}`;
-            }
-            if (typeof condition.value === "boolean") {
-                return `${condition.field} を達成`;
-            }
-            return `${condition.field} の${ofLabel(condition.of)}が ${condition.value} ${opLabel(condition.op)}`;
-        })
-        .join(" / ");
-}
-
-function opLabel(op: string): string {
-    switch (op) {
-        case ">=":
-            return "以上";
-        case ">":
-            return "より大きい";
-        case "<=":
-            return "以下";
-        case "<":
-            return "より小さい";
-        default:
-            return "ちょうど";
-    }
-}
-
-function ofLabel(of?: string): string {
-    switch (of) {
-        case "latest":
-            return "最新の値";
-        case "sum":
-            return "合計";
-        case "count":
-            return "回数";
-        default:
-            return "最良値";
-    }
+    return describeConditions(def.condition.all, fields).join(" / ");
 }

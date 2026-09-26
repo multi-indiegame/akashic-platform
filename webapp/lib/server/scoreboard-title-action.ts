@@ -3,7 +3,10 @@
 import { prisma } from "@multi-indiegame/persist-schema";
 import type { ScoreTitleRank } from "@multi-indiegame/persist-schema";
 import {
+    ScoreboardFormatDefinition,
     TitleCondition,
+    fetchFormat,
+    fieldSetting,
     normalizeCondition,
 } from "@multi-indiegame/scoreboard-schema";
 import { RECORD_KEY_PATTERN, titleRanks } from "../types";
@@ -17,9 +20,11 @@ import {
 import { getSignedInUser } from "./auth";
 import { isWriteBlocked } from "./drain-state";
 import { logSafe } from "./log-safe";
+import { TitleFieldNames, describeConditions } from "../title-condition";
 
 const NAME_MAX_LENGTH = 20;
 const IMAGE_CREDIT_MAX_LENGTH = 200;
+const CONDITION_TEXT_MAX_LENGTH = 100;
 const CATEGORY_MAX_LENGTH = 32;
 
 const titleErrReasons = [
@@ -42,6 +47,10 @@ export interface TitleDefInput {
     priority: number;
     name: string;
     condition: { all: TitleCondition[] };
+    /** 詳細に出す獲得条件の説明。空なら条件から組み立てる */
+    conditionText?: string;
+    /** 獲得条件を公開しない */
+    conditionHidden?: boolean;
     /** 画像の出どころ。表示が求められる素材のために持つ */
     imageCredit?: string;
 }
@@ -53,6 +62,8 @@ export interface TitleDefRow {
     priority: number;
     name: string;
     condition: { all: TitleCondition[] };
+    conditionText?: string;
+    conditionHidden: boolean;
     /** アップロードした画像。無ければ段位の既定の画像を出す */
     imageURL?: string;
     imageCredit?: string;
@@ -65,6 +76,20 @@ export interface TitleEditorData {
     defs: TitleDefRow[];
     /** 条件に使えるキー。実際に記録されているものと、投稿者が決めたもの */
     keys: string[];
+    /** キーの見出しと単位。条件をユーザー向けに言い換えるために使う */
+    fields: TitleFieldNames;
+}
+
+function toFieldNames(
+    format: ScoreboardFormatDefinition,
+    keys: string[],
+): TitleFieldNames {
+    const names: TitleFieldNames = {};
+    for (const key of keys) {
+        const setting = fieldSetting(format, key);
+        names[key] = { name: setting.label ?? key, unit: setting.unit };
+    }
+    return names;
 }
 
 async function requirePublisher(gameId: number) {
@@ -104,6 +129,8 @@ export async function fetchTitleEditorData(
                 priority: true,
                 name: true,
                 condition: true,
+                conditionText: true,
+                conditionHidden: true,
                 imageKey: true,
                 imageCredit: true,
                 retiredAt: true,
@@ -116,15 +143,20 @@ export async function fetchTitleEditorData(
             select: { key: true },
             orderBy: { key: "asc" },
         }),
-        prisma.scoreboardFormat.findFirst({
-            where: { gameId },
-            orderBy: { version: "desc" },
-            select: { definition: true },
-        }),
+        fetchFormat(gameId),
     ]);
-    const configured = Object.keys(
-        (format?.definition as { fields?: object } | null)?.fields ?? {},
+    const conditionKeys = defs.flatMap(
+        (def) =>
+            normalizeCondition(def.condition)?.all.flatMap((condition) =>
+                "field" in condition ? [condition.field] : [],
+            ) ?? [],
     );
+    const allKeys = [
+        ...new Set([
+            ...keys.map((row) => row.key),
+            ...Object.keys(format.fields),
+        ]),
+    ].sort();
     return {
         defs: defs.map((def) => ({
             id: def.id,
@@ -133,6 +165,8 @@ export async function fetchTitleEditorData(
             priority: def.priority,
             name: def.name,
             condition: normalizeCondition(def.condition) ?? { all: [] },
+            conditionText: def.conditionText ?? undefined,
+            conditionHidden: def.conditionHidden,
             imageURL: def.imageKey
                 ? `${publicContentBaseUrl}/${def.imageKey}`
                 : undefined,
@@ -140,9 +174,8 @@ export async function fetchTitleEditorData(
             retired: !!def.retiredAt,
             awardedCount: def._count.titles,
         })),
-        keys: [
-            ...new Set([...keys.map((row) => row.key), ...configured]),
-        ].sort(),
+        keys: allKeys,
+        fields: toFieldNames(format, [...allKeys, ...conditionKeys]),
     };
 }
 
@@ -182,8 +215,11 @@ export async function saveTitleDef(
     if (imageCredit.length > IMAGE_CREDIT_MAX_LENGTH) {
         return { ok: false, reason: "InvalidParams" };
     }
-    // WHY: 条件はそのまま保存せず、評価に使うのと同じ関数で読み直す。読めない
-    // 条件は、保存できても誰にも付かない
+    const conditionText = input.conditionText?.trim() ?? "";
+    if (conditionText.length > CONDITION_TEXT_MAX_LENGTH) {
+        return { ok: false, reason: "InvalidParams" };
+    }
+    // WHY: 条件はそのまま保存せず、評価に使うのと同じ関数で読み直す。
     const condition = normalizeCondition(input.condition);
     if (!condition || condition.all.length === 0) {
         return { ok: false, reason: "InvalidParams" };
@@ -197,6 +233,8 @@ export async function saveTitleDef(
             name,
             imageCredit: imageCredit || null,
             condition: JSON.parse(JSON.stringify(condition)),
+            conditionText: conditionText || null,
+            conditionHidden: !!input.conditionHidden,
         };
         if (input.id) {
             await prisma.scoreTitleDef.update({
@@ -350,6 +388,76 @@ export async function removeTitleImage(
         console.warn(
             "failed to remove title image (gameId = %s)",
             logSafe(gameId),
+            err,
+        );
+        return { ok: false, reason: "InternalError" };
+    }
+}
+
+export type TitleConditionsResponse =
+    | {
+          ok: true;
+          data:
+              | { kind: "hidden" }
+              | { kind: "text"; text: string }
+              | { kind: "conditions"; conditions: string[] };
+      }
+    | { ok: false; reason: "InvalidParams" | "NotFound" | "InternalError" };
+
+/**
+ * 称号の詳細に出す、獲得条件の説明。サインインしていなくても見られる。
+ *
+ * 伏せているときや、投稿者が説明を書いているときは、条件そのものは返さない。
+ */
+export async function fetchTitleConditions(
+    defId: number,
+): Promise<TitleConditionsResponse> {
+    if (!Number.isSafeInteger(defId)) {
+        return { ok: false, reason: "InvalidParams" };
+    }
+    try {
+        const def = await prisma.scoreTitleDef.findUnique({
+            where: { id: defId },
+            select: {
+                gameId: true,
+                condition: true,
+                conditionText: true,
+                conditionHidden: true,
+            },
+        });
+        if (!def) {
+            return { ok: false, reason: "NotFound" };
+        }
+        if (def.conditionHidden) {
+            return { ok: true, data: { kind: "hidden" } };
+        }
+        if (def.conditionText) {
+            return {
+                ok: true,
+                data: { kind: "text", text: def.conditionText },
+            };
+        }
+        const conditions = normalizeCondition(def.condition)?.all ?? [];
+        const format = await fetchFormat(def.gameId);
+        return {
+            ok: true,
+            data: {
+                kind: "conditions",
+                conditions: describeConditions(
+                    conditions,
+                    toFieldNames(
+                        format,
+                        conditions.flatMap((condition) =>
+                            "field" in condition ? [condition.field] : [],
+                        ),
+                    ),
+                ),
+            },
+        };
+    } catch (err) {
+        console.warn(
+            "failed to fetch title conditions (defId = %s)",
+            logSafe(defId),
             err,
         );
         return { ok: false, reason: "InternalError" };

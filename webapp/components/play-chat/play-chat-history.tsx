@@ -47,7 +47,12 @@ function HistoryBody({ message }: { message: PlayChatMessageInfo }) {
                     textVariant="subtitle2"
                 />
                 {message.titles && message.titles.length > 0 && (
-                    <TitleBadges titles={message.titles} />
+                    <TitleBadges
+                        titles={message.titles}
+                        variant="compact"
+                        iconSize={20}
+                        openInNewWindow
+                    />
                 )}
                 <Typography variant="caption" color="textSecondary">
                     {formatDistance(new Date(message.createdAt), new Date(), {

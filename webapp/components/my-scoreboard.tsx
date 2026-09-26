@@ -82,7 +82,6 @@ export function MyScoreboardView({
                                     </Typography>
                                     <TitleBadges
                                         titles={titles}
-                                        size="medium"
                                         withGameName={false}
                                     />
                                 </Stack>

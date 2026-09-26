@@ -1481,6 +1481,9 @@ export function PlayView({
                                                         titles={
                                                             gameMaster.titles
                                                         }
+                                                        variant="compact"
+                                                        iconSize={40}
+                                                        openInNewWindow
                                                     />
                                                 )}
                                             {!isGameMaster && (
