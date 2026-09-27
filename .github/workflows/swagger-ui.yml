@@ -48,6 +48,7 @@ jobs:
           && npm run build -w @multi-indiegame/amflow-server-event-schema \
           && npm run build -w @multi-indiegame/playlog-client \
           && npm run build -w @multi-indiegame/runner-ipc-schema \
+          && npm run build -w @multi-indiegame/scoreboard-schema \
           && npm run build -w @multi-indiegame/akashic-server \
           && npm run build -w @multi-indiegame/akashic-runner \
           && npm run build -w @multi-indiegame/akashic-storage \
