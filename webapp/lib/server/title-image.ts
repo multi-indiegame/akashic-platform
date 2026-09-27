@@ -1,11 +1,9 @@
 import { randomBytes } from "node:crypto";
 import path from "node:path";
-import {
-    DeleteObjectCommand,
-    PutObjectCommand,
-} from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import {
     contentTypeFromName,
+    deleteS3Prefix,
     getBucket,
     getS3Client,
     s3KeyPrefix,
@@ -50,10 +48,7 @@ export function toTitleImageKey(
     return `${TITLES_DIR}/${gameId}/titles/${defId}-${suffix}${ext}`;
 }
 
-export async function uploadTitleImage(
-    key: string,
-    file: File,
-): Promise<void> {
+export async function uploadTitleImage(key: string, file: File): Promise<void> {
     await getS3Client().send(
         new PutObjectCommand({
             Bucket: getBucket(),
@@ -83,4 +78,14 @@ export async function deleteTitleImage(key: string): Promise<void> {
             err,
         );
     }
+}
+
+/**
+ * ゲームの称号画像を丸ごと消す。ゲームを消すときに呼ぶ。
+ *
+ * WHY: `imageKey` を拾って 1 件ずつ消さず、置き場ごと消す。差し替えのときに
+ * 消し損ねた画像も一緒に片付く。
+ */
+export async function deleteGameTitleImages(gameId: number): Promise<void> {
+    await deleteS3Prefix(`${TITLES_DIR}/${gameId}/`);
 }

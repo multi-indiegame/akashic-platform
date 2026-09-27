@@ -221,12 +221,17 @@ export async function deployIconFile(
 }
 
 export async function deleteContentDir(contentId: number) {
+    await deleteS3Prefix(`${contentId}/`);
+}
+
+/** コンテンツ配信用のバケットから、`prefix` 以下を丸ごと消す */
+export async function deleteS3Prefix(prefix: string) {
     let continuationToken: string | undefined;
     do {
         const res = await getS3Client().send(
             new ListObjectsV2Command({
                 Bucket: getBucket(),
-                Prefix: `${s3KeyPrefix}${contentId}/`,
+                Prefix: `${s3KeyPrefix}${prefix}`,
                 ContinuationToken: continuationToken,
             }),
         );

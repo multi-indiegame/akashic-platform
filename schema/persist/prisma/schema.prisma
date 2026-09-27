@@ -749,7 +749,10 @@ model ScoreTitle {
   game Game          @relation(fields: [gameId], references: [id], onDelete: Cascade)
   /// WHY: 定義を消しても、すでに獲得した称号は残す。取り下げは retiredAt で
   /// 表し、行そのものを消すのは付与が 1 件も無いときに限る
-  def  ScoreTitleDef @relation(fields: [defId], references: [id], onDelete: Restrict)
+  ///
+  /// WHY: RESTRICT ではなく NO ACTION にする。ゲームを消すと定義と称号の両方へ
+  /// 連鎖するが、RESTRICT はその場で確かめるので、連鎖の順によっては消せなくなる
+  def  ScoreTitleDef @relation(fields: [defId], references: [id], onDelete: NoAction)
 
   /// カテゴリごとに 1 つ。上位に達したら差し替える
   @@unique([userId, gameId, categoryKey])
