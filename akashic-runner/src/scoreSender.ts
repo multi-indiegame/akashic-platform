@@ -34,6 +34,7 @@ export class ScoreSender {
     _seq = 0;
     _closed = false;
     _closing?: Promise<void>;
+    _deadline?: number;
     _givenUp = false;
 
     constructor(baseUrl: string, token: string, playId: number) {
@@ -81,11 +82,11 @@ export class ScoreSender {
     async _close() {
         this._closed = true;
         this._clearTimer();
-        const deadline = Date.now() + CLOSE_DEADLINE_MS;
+        this._deadline = Date.now() + CLOSE_DEADLINE_MS;
         await this.flush();
         // WHY: 最後の送信が失敗したまま応答すると、server は前に届いた古い記録で
         // 確定してしまう
-        while (this._dirty && !this._givenUp && Date.now() < deadline) {
+        while (this._dirty && !this._givenUp && this._remaining() > 0) {
             await delay(CLOSE_RETRY_INTERVAL_MS);
             await this.flush();
         }
@@ -111,6 +112,12 @@ export class ScoreSender {
         this._timer.unref();
     }
 
+    _remaining(): number {
+        return this._deadline === undefined
+            ? Infinity
+            : this._deadline - Date.now();
+    }
+
     _clearTimer() {
         if (this._timer) {
             clearTimeout(this._timer);
@@ -134,6 +141,11 @@ export class ScoreSender {
         const url = `${this._baseUrl}/internal/scoreboard`;
         let lastError: unknown;
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            // WHY: 1 回の送信の中でも試し直すので、停止の期限は試すたびに確かめる
+            const timeout = Math.min(REQUEST_TIMEOUT_MS, this._remaining());
+            if (timeout <= 0) {
+                break;
+            }
             try {
                 const res = await fetch(url, {
                     method: "POST",
@@ -142,7 +154,7 @@ export class ScoreSender {
                         "x-akashic-internal-token": this._token,
                     },
                     body,
-                    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+                    signal: AbortSignal.timeout(timeout),
                 });
                 if (res.ok) {
                     return;
@@ -166,16 +178,21 @@ export class ScoreSender {
                 lastError = err;
             }
             if (attempt < MAX_ATTEMPTS) {
-                await delay(RETRY_INTERVAL_MS * attempt);
+                await delay(
+                    Math.min(RETRY_INTERVAL_MS * attempt, this._remaining()),
+                );
             }
         }
         // 送れなかった内容は次回も送る対象に戻す
         this._dirty = true;
-        warnTransport(
-            "scoreboard の送信に失敗しました",
-            { playId: this._playId },
-            lastError,
-        );
+        // WHY: 一度も試さずに期限を迎えたときは、close() が送り切れなかった旨を残す
+        if (lastError !== undefined) {
+            warnTransport(
+                "scoreboard の送信に失敗しました",
+                { playId: this._playId },
+                lastError,
+            );
+        }
     }
 }
 

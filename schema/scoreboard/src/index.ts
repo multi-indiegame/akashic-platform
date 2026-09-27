@@ -227,7 +227,9 @@ async function applyPlayRecord(record: {
 
 type LockedAggregate = {
     maxValue: number | null;
+    maxAt: Date | null;
     minValue: number | null;
+    minAt: Date | null;
     lastAt: Date | null;
 };
 
@@ -248,7 +250,7 @@ async function lockGameTotal(
         ON CONFLICT ("gameId", "key") DO NOTHING
     `;
     const rows = await tx.$queryRaw<LockedAggregate[]>`
-        SELECT "maxValue", "minValue", "lastAt" FROM "ScoreGameTotal"
+        SELECT "maxValue", "maxAt", "minValue", "minAt", "lastAt" FROM "ScoreGameTotal"
         WHERE "gameId" = ${gameId} AND "key" = ${key}
         FOR UPDATE
     `;
@@ -268,7 +270,7 @@ async function lockBest(
         ON CONFLICT ("gameId", "key", "subjectKey") DO NOTHING
     `;
     const rows = await tx.$queryRaw<LockedAggregate[]>`
-        SELECT "maxValue", "minValue", "lastAt" FROM "ScoreBest"
+        SELECT "maxValue", "maxAt", "minValue", "minAt", "lastAt" FROM "ScoreBest"
         WHERE "gameId" = ${gameId} AND "key" = ${key} AND "subjectKey" = ${subjectKey}
         FOR UPDATE
     `;
@@ -301,15 +303,49 @@ function aggregateUpdate(
             ? {
                   count: { increment: 1 },
                   sum: { increment: num },
-                  ...(existing.maxValue == null || num > existing.maxValue
+                  ...(isExtremum(
+                      num,
+                      endedAt,
+                      existing.maxValue,
+                      existing.maxAt,
+                      1,
+                  )
                       ? { maxValue: num, maxAt: endedAt }
                       : {}),
-                  ...(existing.minValue == null || num < existing.minValue
+                  ...(isExtremum(
+                      num,
+                      endedAt,
+                      existing.minValue,
+                      existing.minAt,
+                      -1,
+                  )
                       ? { minValue: num, minAt: endedAt }
                       : {}),
               }
             : {}),
     };
+}
+
+/**
+ * 最大 (sign = 1)・最小 (sign = -1) として上書きしてよいか。
+ *
+ * WHY: 同じ値なら最初に達した日時を残す。{@link isLatest} と同じく反映は
+ * プレイの終わった順と限らないので、同値でも日時が早ければ上書きする
+ */
+function isExtremum(
+    num: number,
+    endedAt: Date,
+    value: number | null,
+    at: Date | null,
+    sign: 1 | -1,
+): boolean {
+    if (value == null) {
+        return true;
+    }
+    if (num === value) {
+        return at == null || endedAt < at;
+    }
+    return sign === 1 ? num > value : num < value;
 }
 
 /**
