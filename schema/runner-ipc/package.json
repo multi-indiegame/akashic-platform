@@ -1,6 +1,6 @@
 {
   "name": "@multi-indiegame/runner-ipc-schema",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "akashic-server と akashic-runner の間の IPC 契約",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
