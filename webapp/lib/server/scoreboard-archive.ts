@@ -5,8 +5,10 @@ import {
 } from "@aws-sdk/client-s3";
 import { Prisma, prisma } from "@multi-indiegame/persist-schema";
 import {
+    ScoreFieldSetting,
     ScoreboardFormatDefinition,
     fetchFormatAt,
+    fieldSetting,
 } from "@multi-indiegame/scoreboard-schema";
 import { getS3Client } from "./content-utils";
 import { logSafe } from "./log-safe";
@@ -22,6 +24,14 @@ import { logSafe } from "./log-safe";
  */
 
 const PREFIX = "scoreboard-archive";
+
+/**
+ * 複数ランクインの並びとして凍結する件数。
+ *
+ * WHY: 表示は 10 件でも、歴代と同じく表示件数を増やしたときのために余裕を持たせる。
+ * 全件持つと、凍結の大きさがその月のプレイ数に比例して膨らむ。
+ */
+const ARCHIVE_ENTRY_LIMIT = 100;
 
 /**
  * WHY: 公開しているコンテンツ配信用のバケットには置かない。凍結した JSON は
@@ -65,7 +75,10 @@ export interface ArchivedSubject extends ArchivedAggregate {
 export interface ArchivedKey {
     key: string;
     subjects: ArchivedSubject[];
-    /** 複数ランクインの設定のときに使う、1 プレイ 1 件の並び */
+    /**
+     * 複数ランクインの設定のときに使う、1 プレイ 1 件の並び。凍結した版の向きで
+     * 上位 {@link ARCHIVE_ENTRY_LIMIT} 件だけを持つ
+     */
     entries?: { subjectKey: string; value: number; at: string }[];
 }
 
@@ -313,7 +326,7 @@ async function buildArchive(
         keys: [...byKey.entries()].map(([key, subjects]) => ({
             key,
             subjects: [...subjects.values()],
-            entries: entries.get(key),
+            entries: topEntries(entries.get(key), fieldSetting(format, key)),
         })),
         playTotals: [...playTotals.values()],
     };
@@ -321,6 +334,30 @@ async function buildArchive(
         archive,
         stored: await writeArchive(gameId, month, format.version, archive),
     };
+}
+
+/**
+ * 凍結した版の向きで上位だけを残す。
+ *
+ * WHY: 凍結した版はあとから変わらず、表示もこの版の向きで同じ順に並べるので、
+ * 上位を切り出しても表示される並びは変わらない。掲載を取りやめた主体は表示の
+ * 段で名前を伏せるだけで行は残すため、ここで切っても件数は減らない。
+ */
+function topEntries(
+    list: { subjectKey: string; value: number; at: string }[] | undefined,
+    setting: ScoreFieldSetting,
+): { subjectKey: string; value: number; at: string }[] | undefined {
+    if (!list || setting.dedupe !== "all") {
+        return undefined;
+    }
+    // 同値のときは先に達成したほうを上位に置く。表示の並べ替えと揃える
+    return [...list]
+        .sort((a, b) =>
+            setting.direction === "high"
+                ? b.value - a.value || Date.parse(a.at) - Date.parse(b.at)
+                : a.value - b.value || Date.parse(a.at) - Date.parse(b.at),
+        )
+        .slice(0, ARCHIVE_ENTRY_LIMIT);
 }
 
 function emptyAggregate(): ArchivedAggregate {
