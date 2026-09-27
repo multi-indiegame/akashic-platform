@@ -23,9 +23,9 @@ const IDLE_POLL_INTERVAL_MS = 30 * 1000;
 // content-log は S3 へ確定するまでメモリ上の PassThrough に溜まるため、投稿スクリプトが
 // 大量出力してもメモリと S3 オブジェクトが際限なく膨らまないよう上限を設ける。
 const MAX_CONTENT_LOG_BYTES = 16 * 1024 * 1024;
-// WHY: 突き合わせを後から拾い直す仕組みは無い。ここで失敗したままにすると、
-// 同意の報告が遅れて届かない限りそのプレイの記録は掲載されない
-const RECONCILE_RETRY_DELAYS_MS = [1000, 3000];
+// WHY: 記録の確定・突き合わせを後から拾い直す仕組みは無い。ここで失敗したままに
+// すると、同意の報告が遅れて届かない限りそのプレイの記録は掲載されない
+const SCORE_RETRY_DELAYS_MS = [1000, 3000];
 
 export interface RunnerParameterObject {
     publicWebappUrl: string;
@@ -425,46 +425,30 @@ export class Runner {
         }
         const records = this._scoreRecords;
         this._scoreRecords = undefined;
-        try {
-            await finalizeScoreRecords({
-                playId,
-                contentId: this._param.contentId,
-                records,
-                startedAt: this._startedAt ?? Date.now(),
-                crashed,
-                scoreDelivered,
-            });
-        } catch (err) {
-            // WHY: 記録が残らないことの影響はそのプレイに閉じるので、
-            // プレイの終了処理は止めない（ログのアップロードと同じ扱い）
-            console.warn(
-                `failed to finalize score records (playId = "${playId}")`,
-                err,
-            );
+        // WHY: 記録が残らないことの影響はそのプレイに閉じるので、
+        // 失敗してもプレイの終了処理は止めない（ログのアップロードと同じ扱い）
+        const finalized = await retryScoreTask(
+            () =>
+                finalizeScoreRecords({
+                    playId,
+                    contentId: this._param.contentId,
+                    records,
+                    startedAt: this._startedAt ?? Date.now(),
+                    crashed,
+                    scoreDelivered,
+                }),
+            `failed to finalize score records (playId = "${playId}")`,
+        );
+        if (!finalized) {
             return;
         }
-        await this._reconcileScore(playId);
-    }
-
-    async _reconcileScore(playId: number) {
-        for (let attempt = 0; ; attempt++) {
-            try {
-                // WHY: 掲載してよいかの判定はこの呼び出しの中だけで行う。
-                // ここは「揃ったので突き合わせてほしい」と伝えるだけで、
-                // 同意そのものは扱わない
-                await reconcilePlay(playId);
-                return;
-            } catch (err) {
-                if (attempt >= RECONCILE_RETRY_DELAYS_MS.length) {
-                    console.warn(
-                        `failed to reconcile score records (playId = "${playId}")`,
-                        err,
-                    );
-                    return;
-                }
-                await delay(RECONCILE_RETRY_DELAYS_MS[attempt]);
-            }
-        }
+        // WHY: 掲載してよいかの判定はこの呼び出しの中だけで行う。
+        // ここは「揃ったので突き合わせてほしい」と伝えるだけで、
+        // 同意そのものは扱わない
+        await retryScoreTask(
+            () => reconcilePlay(playId),
+            `failed to reconcile score records (playId = "${playId}")`,
+        );
     }
 
     async _endPlayRecord(playId: number) {
@@ -785,6 +769,24 @@ export class Runner {
             console.warn(
                 `failed to notify extend. (playId = "${playId}", cause = "${await res.text()}")`,
             );
+        }
+    }
+}
+
+async function retryScoreTask(
+    task: () => Promise<unknown>,
+    failureMessage: string,
+): Promise<boolean> {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            await task();
+            return true;
+        } catch (err) {
+            if (attempt >= SCORE_RETRY_DELAYS_MS.length) {
+                console.warn(failureMessage, err);
+                return false;
+            }
+            await delay(SCORE_RETRY_DELAYS_MS[attempt]);
         }
     }
 }

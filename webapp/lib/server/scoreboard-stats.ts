@@ -485,6 +485,8 @@ function buildSection(
             },
         };
     }
+    // WHY: 分母は種類を問わない記録数。種類が混在したキーは投稿者に揃えるよう
+    // 警告しており、真偽値だけの件数は持たない
     const total = aggregates.reduce((acc, row) => acc + row.recordCount, 0);
     const achieved = aggregates.reduce((acc, row) => acc + row.trueCount, 0);
     if (setting.aggregate === "rate" && total > 0 && achieved > 0) {

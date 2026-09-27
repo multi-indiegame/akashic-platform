@@ -1,4 +1,4 @@
-import { prisma } from "@multi-indiegame/persist-schema";
+import { type Prisma, prisma } from "@multi-indiegame/persist-schema";
 import type {
     ScoreboardPatch,
     ScoreboardRecords,
@@ -60,18 +60,22 @@ export async function finalizeScoreRecords(
     // 集計に入れない記録も、印を付けて残す。後から方針を変えても作り直せる
     const excluded =
         param.crashed || !param.scoreDelivered || durationSec < MIN_PLAY_SEC;
-    for (const entry of entries) {
-        await saveRecord({
-            playId: param.playId,
-            playerId: entry.playerId,
-            gameId: content.gameId,
-            contentId: param.contentId,
-            endedAt,
-            durationSec,
-            excluded,
-            patch: entry.patch,
-        });
-    }
+    // WHY: 途中で失敗したら 1 件も残さない。一部だけ残ると、呼び出し側が
+    // 丸ごと試し直すまでの間に、そのプレイの記録が欠けたまま突き合わされうる
+    await prisma.$transaction(async (tx) => {
+        for (const entry of entries) {
+            await saveRecord(tx, {
+                playId: param.playId,
+                playerId: entry.playerId,
+                gameId: content.gameId,
+                contentId: param.contentId,
+                endedAt,
+                durationSec,
+                excluded,
+                patch: entry.patch,
+            });
+        }
+    });
 }
 
 interface RecordEntry {
@@ -103,7 +107,10 @@ interface SaveRecordParameterObject {
     patch: ScoreboardPatch;
 }
 
-async function saveRecord(param: SaveRecordParameterObject): Promise<void> {
+async function saveRecord(
+    tx: Prisma.TransactionClient,
+    param: SaveRecordParameterObject,
+): Promise<void> {
     const data = {
         playId: param.playId,
         playerId: param.playerId,
@@ -113,43 +120,41 @@ async function saveRecord(param: SaveRecordParameterObject): Promise<void> {
         durationSec: param.durationSec,
         excluded: param.excluded,
     };
-    await prisma.$transaction(async (tx) => {
-        const existing = await tx.scoreRecord.findFirst({
-            where: { playId: param.playId, playerId: param.playerId },
-            select: { id: true },
-        });
-        const record = existing
-            ? await tx.scoreRecord.update({
-                  where: { id: existing.id },
-                  data,
-                  select: { id: true },
-              })
-            : await tx.scoreRecord.create({ data, select: { id: true } });
-        // records は差分ではなく全体なので、前回の行を置き換える
-        await tx.scoreValue.deleteMany({ where: { recordId: record.id } });
-        const values = Object.entries(param.patch).flatMap(([key, value]) => {
-            if (!isValidRecordKey(key)) {
-                return [];
-            }
-            const column = toColumn(value);
-            if (!column) {
-                return [];
-            }
-            return [
-                {
-                    recordId: record.id,
-                    gameId: param.gameId,
-                    contentId: param.contentId,
-                    key,
-                    endedAt: param.endedAt,
-                    ...column,
-                },
-            ];
-        });
-        if (values.length > 0) {
-            await tx.scoreValue.createMany({ data: values });
-        }
+    const existing = await tx.scoreRecord.findFirst({
+        where: { playId: param.playId, playerId: param.playerId },
+        select: { id: true },
     });
+    const record = existing
+        ? await tx.scoreRecord.update({
+              where: { id: existing.id },
+              data,
+              select: { id: true },
+          })
+        : await tx.scoreRecord.create({ data, select: { id: true } });
+    // records は差分ではなく全体なので、前回の行を置き換える
+    await tx.scoreValue.deleteMany({ where: { recordId: record.id } });
+    const values = Object.entries(param.patch).flatMap(([key, value]) => {
+        if (!isValidRecordKey(key)) {
+            return [];
+        }
+        const column = toColumn(value);
+        if (!column) {
+            return [];
+        }
+        return [
+            {
+                recordId: record.id,
+                gameId: param.gameId,
+                contentId: param.contentId,
+                key,
+                endedAt: param.endedAt,
+                ...column,
+            },
+        ];
+    });
+    if (values.length > 0) {
+        await tx.scoreValue.createMany({ data: values });
+    }
 }
 
 /** @multi-indiegame/akashic-scoreboard の RECORD_KEY_PATTERN */
