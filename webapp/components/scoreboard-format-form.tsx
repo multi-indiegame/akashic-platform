@@ -25,7 +25,7 @@ import type {
     ScoreFieldSetting,
     ScoreValueType,
 } from "@multi-indiegame/scoreboard-schema";
-import { RECORD_KEY_PATTERN } from "@/lib/types";
+import { isValidRecordKey } from "@/lib/types";
 import { affectsTopEntries } from "@/lib/share/scoreboard-rebuild";
 import {
     describeTypeCounts,
@@ -705,7 +705,7 @@ function AddKeyCard({
     const [valueType, setValueType] = useState<ScoreValueType>("number");
     const trimmed = key.trim();
     const duplicated = existing.includes(trimmed);
-    const invalid = trimmed.length > 0 && !RECORD_KEY_PATTERN.test(trimmed);
+    const invalid = trimmed.length > 0 && !isValidRecordKey(trimmed);
     return (
         <Card variant="outlined">
             <CardContent>

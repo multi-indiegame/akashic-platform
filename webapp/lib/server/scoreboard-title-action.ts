@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@multi-indiegame/persist-schema";
+import { Prisma, prisma } from "@multi-indiegame/persist-schema";
 import type { ScoreTitleRank } from "@multi-indiegame/persist-schema";
 import {
     ScoreboardFormatDefinition,
@@ -9,7 +9,7 @@ import {
     fieldSetting,
     normalizeCondition,
 } from "@multi-indiegame/scoreboard-schema";
-import { RECORD_KEY_PATTERN, titleRanks } from "../types";
+import { isValidRecordKey, titleRanks } from "../types";
 import { publicContentBaseUrl } from "./akashic";
 import {
     deleteTitleImage,
@@ -222,7 +222,7 @@ export async function saveTitleDef(
     }
     const categoryKey = input.categoryKey?.trim() ?? "";
     if (
-        !RECORD_KEY_PATTERN.test(categoryKey) ||
+        !isValidRecordKey(categoryKey) ||
         categoryKey.length > CATEGORY_MAX_LENGTH
     ) {
         return { ok: false, reason: "InvalidParams" };
@@ -243,7 +243,13 @@ export async function saveTitleDef(
     }
     // WHY: 条件はそのまま保存せず、評価に使うのと同じ関数で読み直す。
     const condition = normalizeCondition(input.condition);
-    if (!condition || condition.all.length === 0) {
+    if (
+        !condition ||
+        condition.all.length === 0 ||
+        condition.all.some(
+            (item) => "field" in item && !isValidRecordKey(item.field),
+        )
+    ) {
         return { ok: false, reason: "InvalidParams" };
     }
     try {
@@ -259,26 +265,19 @@ export async function saveTitleDef(
         };
         if (input.id) {
             const id = input.id;
-            // WHY: 権限を確かめたのは gameId だけ。定義もそのゲームのものに限る
-            const current = await prisma.scoreTitleDef.findFirst({
-                where: { id, gameId },
-                select: {
-                    categoryKey: true,
-                    _count: { select: { titles: true } },
-                },
-            });
-            if (!current) {
-                return { ok: false, reason: "NotFound" };
-            }
-            // WHY: 獲得済みの称号は分類を控えている。付け替えると、獲得者が
-            // 新しい分類ですでに持つ称号とぶつかりうるので、分類は変えさせない
-            if (
-                current._count.titles > 0 &&
-                current.categoryKey !== categoryKey
-            ) {
-                return { ok: false, reason: "InvalidParams" };
-            }
-            await prisma.$transaction(async (tx) => {
+            const result = await prisma.$transaction(async (tx) => {
+                const current = await lockTitleDef(tx, id, gameId);
+                if (!current) {
+                    return "NotFound" as const;
+                }
+                // WHY: 獲得済みの称号は分類を控えている。付け替えると、獲得者が
+                // 新しい分類ですでに持つ称号とぶつかりうるので、分類は変えさせない
+                if (
+                    current.holders > 0 &&
+                    current.categoryKey !== categoryKey
+                ) {
+                    return "InvalidParams" as const;
+                }
                 await tx.scoreTitleDef.update({
                     where: { id },
                     // 取り下げた称号を直したときは、配布を再開したとみなす
@@ -290,7 +289,11 @@ export async function saveTitleDef(
                     where: { defId: id, rank: { not: input.rank } },
                     data: { rank: input.rank },
                 });
+                return "ok" as const;
             });
+            if (result !== "ok") {
+                return { ok: false, reason: result };
+            }
         } else {
             await prisma.scoreTitleDef.create({ data: { ...data, gameId } });
         }
@@ -303,6 +306,37 @@ export async function saveTitleDef(
         );
         return { ok: false, reason: "InternalError" };
     }
+}
+
+/**
+ * 定義を排他ロックで押さえてから、獲得者の数を読む。
+ *
+ * WHY: 付与は定義を共有ロックで押さえてから行う。押さえずに数えると、数えた
+ * 後に付与が確定し、獲得者がいないつもりで消したり分類を変えたりしてしまう
+ *
+ * WHY: 権限を確かめたのは gameId だけ。定義もそのゲームのものに限る
+ */
+async function lockTitleDef(
+    tx: Prisma.TransactionClient,
+    id: number,
+    gameId: number,
+): Promise<{
+    categoryKey: string;
+    imageKey: string | null;
+    holders: number;
+} | null> {
+    const rows = await tx.$queryRaw<
+        { categoryKey: string; imageKey: string | null }[]
+    >`
+        SELECT "categoryKey", "imageKey" FROM "ScoreTitleDef"
+        WHERE "id" = ${id} AND "gameId" = ${gameId}
+        FOR UPDATE
+    `;
+    if (rows.length === 0) {
+        return null;
+    }
+    const holders = await tx.scoreTitle.count({ where: { defId: id } });
+    return { ...rows[0], holders };
 }
 
 /**
@@ -322,27 +356,26 @@ export async function retireTitleDef(
         return { ok: false, reason: auth.reason };
     }
     try {
-        const def = await prisma.scoreTitleDef.findFirst({
-            where: { id: defId, gameId },
-            select: {
-                id: true,
-                imageKey: true,
-                _count: { select: { titles: true } },
-            },
+        const def = await prisma.$transaction(async (tx) => {
+            const locked = await lockTitleDef(tx, defId, gameId);
+            if (!locked) {
+                return null;
+            }
+            if (locked.holders === 0) {
+                await tx.scoreTitleDef.delete({ where: { id: defId } });
+            } else {
+                await tx.scoreTitleDef.update({
+                    where: { id: defId },
+                    data: { retiredAt: new Date() },
+                });
+            }
+            return locked;
         });
         if (!def) {
             return { ok: false, reason: "NotFound" };
         }
-        if (def._count.titles === 0) {
-            await prisma.scoreTitleDef.delete({ where: { id: def.id } });
-            if (def.imageKey) {
-                await deleteTitleImage(def.imageKey);
-            }
-        } else {
-            await prisma.scoreTitleDef.update({
-                where: { id: def.id },
-                data: { retiredAt: new Date() },
-            });
+        if (def.holders === 0 && def.imageKey) {
+            await deleteTitleImage(def.imageKey);
         }
         return { ok: true };
     } catch (err) {

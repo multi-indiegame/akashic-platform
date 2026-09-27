@@ -73,6 +73,10 @@ export async function reportNameConsent(
             }
             // WHY: 掲載用へ反映した後の同意は変えない。集計は差分で積んでいて、
             // 1 プレイ分だけ取り除くことができない
+            //
+            // WHY: 変えなかったことは利用者に知らせず、成功として返す。
+            // ダイアログの主眼はゲーム内で名前を使うかどうかで、掲載の話を
+            // 持ち出さない。掲載はマイページからやめられる
             const reflected = await tx.scoreRecord.findFirst({
                 where: { playId, playerId, reflectedAt: { not: null } },
                 select: { id: true },

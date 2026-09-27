@@ -315,15 +315,6 @@ export class HttpServer {
                         WHERE "endedAt" < ${cutoffMonth}
                         ORDER BY "gameId", "month"
                     `;
-                    const archived = new Set(
-                        (
-                            await prisma.scoreboardArchive.findMany({
-                                select: { gameId: true, month: true },
-                            })
-                        ).map(
-                            (archive) => `${archive.gameId}:${archive.month}`,
-                        ),
-                    );
                     let deleted = 0;
                     const months: string[] = [];
                     const archivedNow: string[] = [];
@@ -331,19 +322,18 @@ export class HttpServer {
                     for (const { gameId, month } of targets) {
                         const id = `${gameId}:${month}`;
                         // WHY: 生レコードを消してよいのは、その月の集計を凍結し終えたか、
-                        // 凍結すべき情報が無い分だけ。
-                        if (!archived.has(id)) {
-                            const result = await archiveScoreboardOnWebapp(
-                                gameId,
-                                month,
-                            );
-                            if (result === "failed") {
-                                skipped.push(id);
-                                continue;
-                            }
-                            if (result === "archived") {
-                                archivedNow.push(id);
-                            }
+                        // 凍結すべき情報が無い分だけ。台帳に行があっても S3 の実体が
+                        // 残っているとは限らないので、凍結済みの月も webapp に確かめさせる
+                        const result = await archiveScoreboardOnWebapp(
+                            gameId,
+                            month,
+                        );
+                        if (result === "failed") {
+                            skipped.push(id);
+                            continue;
+                        }
+                        if (result === "archived") {
+                            archivedNow.push(id);
                         }
                         const [year, mon] = month.split("-").map(Number);
                         const { count } = await prisma.scoreRecord.deleteMany({

@@ -157,21 +157,13 @@ async function rankInSubjects(
     value: number,
     setting: ReturnType<typeof fieldSetting>,
 ): Promise<{ rank: number; total: number }> {
-    const column = rankColumn(best, setting);
+    const { present, ahead } = rankWhere(setting);
     const [above, total] = await Promise.all([
         prisma.scoreBest.count({
-            where: {
-                gameId,
-                key: best.key,
-                ...column.present,
-                [column.name]:
-                    setting.direction === "high"
-                        ? { gt: value }
-                        : { lt: value },
-            },
+            where: { gameId, key: best.key, AND: [present, ahead(value)] },
         }),
         prisma.scoreBest.count({
-            where: { gameId, key: best.key, ...column.present },
+            where: { gameId, key: best.key, AND: [present] },
         }),
     ]);
     return { rank: above + 1, total };
@@ -231,7 +223,7 @@ function representative(
         case "sum":
             return row.count > 0 ? row.sum : null;
         case "count":
-            if (ranksByTrueCount(row, setting)) {
+            if (countsTrue(row, setting)) {
                 return row.trueCount > 0 ? row.trueCount : null;
             }
             return row.count > 0 ? row.count : null;
@@ -241,36 +233,72 @@ function representative(
 }
 
 /**
- * 順位を数える列と、順位に数える行の条件。
+ * 順位に数える行の条件と、自分より上に来る行の条件。
  *
  * WHY: 統計ページと同じ代表値で比べる。表示している値と別の列で数えると、
  * 見えている値と順位が食い違う
  */
-function rankColumn(
-    row: BestRow,
-    setting: ReturnType<typeof fieldSetting>,
-): {
-    name: "maxValue" | "minValue" | "lastValue" | "sum" | "count" | "trueCount";
+function rankWhere(setting: ReturnType<typeof fieldSetting>): {
     present: Prisma.ScoreBestWhereInput;
+    ahead: (value: number) => Prisma.ScoreBestWhereInput;
 } {
+    const beyond = (value: number) =>
+        setting.direction === "high" ? { gt: value } : { lt: value };
     switch (setting.aggregate) {
         case "latest":
-            return { name: "lastValue", present: { lastValue: { not: null } } };
+            return {
+                present: { lastValue: { not: null } },
+                ahead: (value) => ({ lastValue: beyond(value) }),
+            };
         case "sum":
-            return { name: "sum", present: { count: { gt: 0 } } };
+            return {
+                present: { count: { gt: 0 } },
+                ahead: (value) => ({ sum: beyond(value) }),
+            };
         case "count":
-            return ranksByTrueCount(row, setting)
-                ? { name: "trueCount", present: { trueCount: { gt: 0 } } }
-                : { name: "count", present: { count: { gt: 0 } } };
+            if (setting.valueType === "boolean") {
+                return {
+                    present: { trueCount: { gt: 0 } },
+                    ahead: (value) => ({ trueCount: beyond(value) }),
+                };
+            }
+            if (setting.valueType === "number") {
+                return {
+                    present: { count: { gt: 0 } },
+                    ahead: (value) => ({ count: beyond(value) }),
+                };
+            }
+            // WHY: 種類を選んでいないキーでは、主体ごとに数値の件数か true の
+            // 回数のどちらかが代表値になる。統計ページと同じく行ごとに選ぶ
+            return {
+                present: {
+                    OR: [
+                        { count: { gt: 0 } },
+                        { count: 0, trueCount: { gt: 0 } },
+                    ],
+                },
+                ahead: (value) => ({
+                    OR: [
+                        { count: { gt: 0, ...beyond(value) } },
+                        { count: 0, trueCount: { gt: 0, ...beyond(value) } },
+                    ],
+                }),
+            };
         default:
             return setting.direction === "high"
-                ? { name: "maxValue", present: { maxValue: { not: null } } }
-                : { name: "minValue", present: { minValue: { not: null } } };
+                ? {
+                      present: { maxValue: { not: null } },
+                      ahead: (value) => ({ maxValue: beyond(value) }),
+                  }
+                : {
+                      present: { minValue: { not: null } },
+                      ahead: (value) => ({ minValue: beyond(value) }),
+                  };
     }
 }
 
-/** 回数で見るキーか。順位の数え方が最良値のときと違う */
-function ranksByTrueCount(
+/** その行の代表値を true の回数で見るか */
+function countsTrue(
     row: BestRow,
     setting: ReturnType<typeof fieldSetting>,
 ): boolean {

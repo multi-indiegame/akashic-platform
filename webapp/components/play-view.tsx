@@ -662,6 +662,9 @@ export function PlayView({
                     onPlayEnd(reason);
                 }
                 setPlayEndReason(reason);
+                // WHY: 終わったゲームは応答を待っていない。ダイアログは
+                // 時間切れでも匿名として同意を報告する
+                setRequestPlayerInfo(undefined);
             },
             onPlayExtend: (payload) => {
                 shownReminders.current.clear();

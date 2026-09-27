@@ -271,7 +271,7 @@ export const openapi = {
                     archived: {
                         type: "array",
                         description:
-                            "Months archived in this run as `<gameId>:<YYYY-MM>`",
+                            "Months whose archive was confirmed (or rebuilt) in this run, as `<gameId>:<YYYY-MM>`",
                         items: { type: "string" },
                     },
                     skipped: {

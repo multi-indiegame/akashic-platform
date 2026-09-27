@@ -506,7 +506,15 @@ export interface MyScoreboard {
 export type StatsPeriod = "all" | "recent" | "month";
 
 /** @multi-indiegame/akashic-scoreboard の RECORD_KEY_PATTERN */
-export const RECORD_KEY_PATTERN = /^[a-zA-Z0-9_:-]{1,32}$/;
+const RECORD_KEY_PATTERN = /^[a-zA-Z0-9_:-]{1,32}$/;
+
+/** @multi-indiegame/akashic-scoreboard の RESERVED_RECORD_KEYS */
+const RESERVED_RECORD_KEYS = ["__proto__"];
+
+/** @multi-indiegame/akashic-scoreboard の isValidRecordKey */
+export function isValidRecordKey(key: string): boolean {
+    return !RESERVED_RECORD_KEYS.includes(key) && RECORD_KEY_PATTERN.test(key);
+}
 
 export interface ScoreEntry {
     rank: number;

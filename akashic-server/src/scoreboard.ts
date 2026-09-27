@@ -121,6 +121,9 @@ async function saveRecord(param: SaveRecordParameterObject): Promise<void> {
         // records は差分ではなく全体なので、前回の行を置き換える
         await tx.scoreValue.deleteMany({ where: { recordId: record.id } });
         const values = Object.entries(param.patch).flatMap(([key, value]) => {
+            if (!isValidRecordKey(key)) {
+                return [];
+            }
             const column = toColumn(value);
             if (!column) {
                 return [];
@@ -140,6 +143,22 @@ async function saveRecord(param: SaveRecordParameterObject): Promise<void> {
             await tx.scoreValue.createMany({ data: values });
         }
     });
+}
+
+/** @multi-indiegame/akashic-scoreboard の RECORD_KEY_PATTERN */
+const RECORD_KEY_PATTERN = /^[a-zA-Z0-9_:-]{1,32}$/;
+
+/** @multi-indiegame/akashic-scoreboard の RESERVED_RECORD_KEYS */
+const RESERVED_RECORD_KEYS = ["__proto__"];
+
+/**
+ * キー名が拡張ライブラリの仕様に合うか。
+ *
+ * WHY: 拡張ライブラリでも弾いているが、値の型と同じく受け取る側でも確かめる
+ * （PROTOCOL.md 8 章）
+ */
+function isValidRecordKey(key: string): boolean {
+    return !RESERVED_RECORD_KEYS.includes(key) && RECORD_KEY_PATTERN.test(key);
 }
 
 /**

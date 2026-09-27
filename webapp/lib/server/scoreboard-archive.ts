@@ -116,11 +116,54 @@ function monthRange(month: string): { from: Date; to: Date } {
  * その月のアーカイブを返す。無ければ作る。
  *
  * 閉じていない月は凍結できないので null を返す（呼び出し側が生レコードから出す）。
+ * S3 から一時的に読めなかったときは例外を投げる。
  */
 export async function fetchMonthlyArchive(
     gameId: number,
     month: string,
 ): Promise<MonthlyArchive | null> {
+    return (await loadArchive(gameId, month))?.archive ?? null;
+}
+
+/**
+ * その月を凍結し、結果を返す。
+ *
+ * - `archived`: 凍結済み。S3 から読めたか、書き込めた
+ * - `empty`: アーカイブに載せる情報が無い。生レコードを消しても失うものは無い
+ * - `failed`: 凍結できなかった
+ *
+ * WHY: 凍結はその月のページが開かれたときに行うので、誰も開かない月は凍結
+ * されないまま生レコードの保持期間を過ぎうる。生レコードを消す前に呼ぶ
+ *
+ * WHY: 台帳に行があるだけでは凍結済みとみなさない。S3 の実体が消えていれば、
+ * 生レコードが残っているうちに作り直す
+ */
+export async function ensureMonthlyArchive(
+    gameId: number,
+    month: string,
+): Promise<"archived" | "empty" | "failed"> {
+    try {
+        const loaded = await loadArchive(gameId, month);
+        if (!loaded) {
+            return "empty";
+        }
+        return loaded.stored ? "archived" : "failed";
+    } catch (err) {
+        console.warn(
+            "failed to ensure scoreboard archive (gameId = %s, month = %s)",
+            logSafe(gameId),
+            logSafe(month),
+            err,
+        );
+        return "failed";
+    }
+}
+
+/** `stored` は、返した中身が S3 に置かれていることを表す */
+async function loadArchive(
+    gameId: number,
+    month: string,
+): Promise<{ archive: MonthlyArchive; stored: boolean } | null> {
     if (!isValidMonth(month) || !isClosedMonth(month)) {
         return null;
     }
@@ -131,19 +174,19 @@ export async function fetchMonthlyArchive(
     if (!existing) {
         return await buildArchive(gameId, month);
     }
+    // WHY: 一時的に読めなかっただけなら作り直さず例外にする。凍結後に反映された
+    // 記録や掲載の取りやめが混ざった内容で、凍結済みの中身を上書きしてしまう
     const stored = await readArchive(existing.s3Key);
-    if (stored && stored !== "missing") {
+    if (stored !== "missing") {
         // WHY: builtAt を持つ前に凍結した分は、台帳を作った日時で代える。
         // 凍結と同じ処理の中で作っているので、ずれは書き込みにかかる時間だけ
         return {
-            ...stored,
-            builtAt: stored.builtAt ?? existing.createdAt.toISOString(),
+            archive: {
+                ...stored,
+                builtAt: stored.builtAt ?? existing.createdAt.toISOString(),
+            },
+            stored: true,
         };
-    }
-    // WHY: 一時的に読めなかっただけなら作り直さない。凍結後に反映された記録や
-    // 掲載の取りやめが混ざった内容で、凍結済みの中身を上書きしてしまう
-    if (stored !== "missing") {
-        return null;
     }
     const built = await buildArchive(gameId, month);
     if (!built) {
@@ -155,36 +198,10 @@ export async function fetchMonthlyArchive(
     return built;
 }
 
-/**
- * その月を凍結し、結果を返す。
- *
- * - `archived`: 凍結済み
- * - `empty`: アーカイブに載せる情報が無い。生レコードを消しても失うものは無い
- * - `failed`: 凍結できなかった
- *
- * WHY: 凍結はその月のページが開かれたときに行うので、誰も開かない月は凍結
- * されないまま生レコードの保持期間を過ぎうる。生レコードを消す前に呼ぶ
- */
-export async function ensureMonthlyArchive(
-    gameId: number,
-    month: string,
-): Promise<"archived" | "empty" | "failed"> {
-    const archive = await fetchMonthlyArchive(gameId, month);
-    // WHY: S3 への書き込みに失敗しても組み立てた結果は返ってくるので、台帳で確かめる
-    const stored = await prisma.scoreboardArchive.findUnique({
-        where: { gameId_month: { gameId, month } },
-        select: { id: true },
-    });
-    if (stored) {
-        return "archived";
-    }
-    return archive ? "failed" : "empty";
-}
-
 async function buildArchive(
     gameId: number,
     month: string,
-): Promise<MonthlyArchive | null> {
+): Promise<{ archive: MonthlyArchive; stored: boolean } | null> {
     const { from, to } = monthRange(month);
     // WHY: 値を読む前の時点にする。読んでいる最中に作り直された主体も伏せる側に倒す
     const builtAt = new Date().toISOString();
@@ -288,8 +305,10 @@ async function buildArchive(
         })),
         playTotals: [...playTotals.values()],
     };
-    await writeArchive(gameId, month, format.version, archive);
-    return archive;
+    return {
+        archive,
+        stored: await writeArchive(gameId, month, format.version, archive),
+    };
 }
 
 function emptyAggregate(): ArchivedAggregate {
@@ -352,7 +371,7 @@ async function writeArchive(
     month: string,
     formatVersion: number,
     archive: MonthlyArchive,
-): Promise<void> {
+): Promise<boolean> {
     const key = toKey(gameId, month);
     try {
         await getS3Client().send(
@@ -368,6 +387,7 @@ async function writeArchive(
             create: { gameId, month, formatVersion, s3Key: key },
             update: { formatVersion, s3Key: key },
         });
+        return true;
     } catch (err) {
         // WHY: 凍結できなくても表示はできる（その場で組み立てた結果を返す）。
         // 次に開かれたときに作り直せばよい
@@ -377,12 +397,11 @@ async function writeArchive(
             logSafe(month),
             err,
         );
+        return false;
     }
 }
 
-async function readArchive(
-    key: string,
-): Promise<MonthlyArchive | "missing" | null> {
+async function readArchive(key: string): Promise<MonthlyArchive | "missing"> {
     try {
         const res = await getS3Client().send(
             new GetObjectCommand({
@@ -391,17 +410,15 @@ async function readArchive(
             }),
         );
         const body = await res.Body?.transformToString();
-        return body ? (JSON.parse(body) as MonthlyArchive) : null;
+        if (!body) {
+            throw new Error("scoreboard archive has no body");
+        }
+        return JSON.parse(body) as MonthlyArchive;
     } catch (err) {
         if (err instanceof NoSuchKey) {
             return "missing";
         }
-        console.warn(
-            "failed to read scoreboard archive (key = %s)",
-            logSafe(key),
-            err,
-        );
-        return null;
+        throw err;
     }
 }
 

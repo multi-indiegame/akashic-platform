@@ -1,4 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
+import { isValidRecordKey } from "@multi-indiegame/akashic-scoreboard-plugin";
 import type {
     ScoreboardPatch,
     ScoreboardRecords,
@@ -180,6 +181,9 @@ export class ScoreSender {
 
 /**
  * 記録の差分を取り込む。同じキーは後から来た値で上書きし、null はキーを消す。
+ *
+ * WHY: 拡張ライブラリの仕様で使えないキー名（`__proto__` など）は取り込まない。
+ * 拡張ライブラリでも弾いているが、受け取る側でも確かめる（PROTOCOL.md 8 章）
  */
 function merge(
     target: ScoreboardPatch | undefined,
@@ -187,6 +191,9 @@ function merge(
 ): ScoreboardPatch {
     const merged: ScoreboardPatch = target ?? {};
     for (const key of Object.keys(patch)) {
+        if (!isValidRecordKey(key)) {
+            continue;
+        }
         const value = patch[key];
         if (value === null) {
             delete merged[key];

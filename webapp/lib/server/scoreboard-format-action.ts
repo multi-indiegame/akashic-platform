@@ -5,12 +5,13 @@ import {
     DEFAULT_FIELD_SETTING,
     ScoreFieldSetting,
     ScoreboardFormatDefinition,
+    TOP_ENTRY_REBUILD_TIMEOUT_MS,
     fetchFormat,
     fieldSetting,
     playFieldSetting,
     rebuildTopEntries,
 } from "@multi-indiegame/scoreboard-schema";
-import { RECORD_KEY_PATTERN } from "../types";
+import { isValidRecordKey } from "../types";
 import { affectsTopEntries } from "../share/scoreboard-rebuild";
 import { getSignedInUser } from "./auth";
 import { isWriteBlocked } from "./drain-state";
@@ -18,8 +19,6 @@ import { logSafe } from "./log-safe";
 
 const LABEL_MAX_LENGTH = 40;
 const UNIT_MAX_LENGTH = 8;
-// WHY: 設定の保存と、変わったキーすべての積み直しを 1 つのトランザクションで行う
-const REBUILD_TIMEOUT_MS = 30000;
 
 const formatErrReasons = [
     "InvalidParams",
@@ -111,7 +110,9 @@ export async function saveScoreboardFormat(
                 });
                 await rebuildTopEntries(tx, gameId, changed);
             },
-            { timeout: REBUILD_TIMEOUT_MS },
+            // WHY: 設定の保存と、変わったキーすべての積み直しを 1 つの
+            // トランザクションで行う
+            { timeout: TOP_ENTRY_REBUILD_TIMEOUT_MS },
         );
         return { ok: true };
     } catch (err) {
@@ -133,7 +134,7 @@ function normalizeFields(fields: {
     const defaults = DEFAULT_FIELD_SETTING;
     const result: { [key: string]: Partial<ScoreFieldSetting> } = {};
     for (const [key, raw] of Object.entries(fields ?? {})) {
-        if (typeof key !== "string" || !RECORD_KEY_PATTERN.test(key)) {
+        if (typeof key !== "string" || !isValidRecordKey(key)) {
             return null;
         }
         const setting: Partial<ScoreFieldSetting> = {};

@@ -1,4 +1,5 @@
 import type { PassThrough } from "node:stream";
+import { setTimeout as delay } from "node:timers/promises";
 import type { Upload } from "@aws-sdk/lib-storage";
 import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import { prisma } from "@multi-indiegame/persist-schema";
@@ -22,6 +23,9 @@ const IDLE_POLL_INTERVAL_MS = 30 * 1000;
 // content-log は S3 へ確定するまでメモリ上の PassThrough に溜まるため、投稿スクリプトが
 // 大量出力してもメモリと S3 オブジェクトが際限なく膨らまないよう上限を設ける。
 const MAX_CONTENT_LOG_BYTES = 16 * 1024 * 1024;
+// WHY: 突き合わせを後から拾い直す仕組みは無い。ここで失敗したままにすると、
+// 同意の報告が遅れて届かない限りそのプレイの記録は掲載されない
+const RECONCILE_RETRY_DELAYS_MS = [1000, 3000];
 
 export interface RunnerParameterObject {
     publicWebappUrl: string;
@@ -423,10 +427,6 @@ export class Runner {
                 startedAt: this._startedAt ?? Date.now(),
                 crashed,
             });
-            // WHY: 掲載してよいかの判定はこの呼び出しの中だけで行う。
-            // ここは「揃ったので突き合わせてほしい」と伝えるだけで、
-            // 同意そのものは扱わない
-            await reconcilePlay(playId);
         } catch (err) {
             // WHY: 記録が残らないことの影響はそのプレイに閉じるので、
             // プレイの終了処理は止めない（ログのアップロードと同じ扱い）
@@ -434,6 +434,29 @@ export class Runner {
                 `failed to finalize score records (playId = "${playId}")`,
                 err,
             );
+            return;
+        }
+        await this._reconcileScore(playId);
+    }
+
+    async _reconcileScore(playId: number) {
+        for (let attempt = 0; ; attempt++) {
+            try {
+                // WHY: 掲載してよいかの判定はこの呼び出しの中だけで行う。
+                // ここは「揃ったので突き合わせてほしい」と伝えるだけで、
+                // 同意そのものは扱わない
+                await reconcilePlay(playId);
+                return;
+            } catch (err) {
+                if (attempt >= RECONCILE_RETRY_DELAYS_MS.length) {
+                    console.warn(
+                        `failed to reconcile score records (playId = "${playId}")`,
+                        err,
+                    );
+                    return;
+                }
+                await delay(RECONCILE_RETRY_DELAYS_MS[attempt]);
+            }
         }
     }
 

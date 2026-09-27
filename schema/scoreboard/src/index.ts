@@ -26,6 +26,19 @@ import { TitleAward, evaluateTitles, notifyAwarded } from "./title";
  */
 const TOP_ENTRY_LIMIT = 100;
 
+/**
+ * 上位 N 件の積み直しにかけてよい時間。呼び出し側のトランザクションに指定する。
+ */
+export const TOP_ENTRY_REBUILD_TIMEOUT_MS = 30000;
+
+/**
+ * 1 件の反映にかけてよい時間。
+ *
+ * WHY: 反映は積み直しと同じ鍵を待つ。積み直しが鍵を持っていられる間は
+ * 待ち切れるようにする
+ */
+const REFLECT_TIMEOUT_MS = TOP_ENTRY_REBUILD_TIMEOUT_MS + 10000;
+
 export * from "./format";
 export * from "./title";
 
@@ -108,44 +121,61 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
     const byPlayerId = new Map(participants.map((p) => [p.playerId, p]));
 
     let reflected = 0;
+    // WHY: 1 件の失敗で残りを止めない。未反映の記録は、次に突き合わせる
+    // ときまで誰にも拾われない
+    const errors: unknown[] = [];
     for (const record of records) {
-        // プレイ自体の記録には主体がいない。掲載の同意も要らないので、
-        // 主体ごとの集計とは別の置き場へそのまま積む
-        if (record.playerId == null) {
-            await applyPlayRecord(record);
+        try {
+            // プレイ自体の記録には主体がいない。掲載の同意も要らないので、
+            // 主体ごとの集計とは別の置き場へそのまま積む
+            if (record.playerId == null) {
+                await applyPlayRecord(record);
+                reflected++;
+                continue;
+            }
+            const participant = byPlayerId.get(record.playerId);
+            // 報告が無い、または同意していない。載せない（既定は非掲載）
+            if (!participant || !participant.nameConsent) {
+                continue;
+            }
+            if (participant.userId && optedOut.has(participant.userId)) {
+                continue;
+            }
+            const subjectKey = toSubjectKey({
+                userId: participant.userId,
+                playerId: record.playerId,
+            });
+            const awarded = await applyRecord({
+                recordId: record.id,
+                playId,
+                playerId: record.playerId,
+                gameId: record.gameId,
+                endedAt: record.endedAt,
+                subjectKey,
+                userId: participant.userId,
+                // WHY: 集計行と上位 N 件を押さえる順をそろえ、同時に反映したときの
+                // デッドロックを避ける。DB の照合順序は環境で変わるので、積み直しと
+                // 同じ比較で並べる
+                values: [...record.values].sort((a, b) =>
+                    compareKey(a.key, b.key),
+                ),
+            });
+            if (!awarded) {
+                continue;
+            }
             reflected++;
-            continue;
+            await notifyAwarded(awarded);
+        } catch (err) {
+            errors.push(err);
         }
-        const participant = byPlayerId.get(record.playerId);
-        // 報告が無い、または同意していない。載せない（既定は非掲載）
-        if (!participant || !participant.nameConsent) {
-            continue;
-        }
-        if (participant.userId && optedOut.has(participant.userId)) {
-            continue;
-        }
-        const subjectKey = toSubjectKey({
-            userId: participant.userId,
-            playerId: record.playerId,
-        });
-        const awarded = await applyRecord({
-            recordId: record.id,
-            playId,
-            playerId: record.playerId,
-            gameId: record.gameId,
-            endedAt: record.endedAt,
-            subjectKey,
-            userId: participant.userId,
-            // WHY: 集計行と上位 N 件を押さえる順をそろえ、同時に反映したときの
-            // デッドロックを避ける。DB の照合順序は環境で変わるので、積み直しと
-            // 同じ比較で並べる
-            values: [...record.values].sort((a, b) => compareKey(a.key, b.key)),
-        });
-        if (!awarded) {
-            continue;
-        }
-        reflected++;
-        await notifyAwarded(awarded);
+    }
+    if (errors.length > 0) {
+        // WHY: 呼び出し側がやり直せるよう、反映できなかったことは伝える。
+        // 反映済みの記録は reflectedAt で弾かれるので、やり直しても二重にならない
+        throw new AggregateError(
+            errors,
+            `failed to reflect ${errors.length} score record(s) (playId = ${playId})`,
+        );
     }
     return { reflected };
 }
@@ -166,26 +196,33 @@ async function applyPlayRecord(record: {
         boolValue: boolean | null;
     }[];
 }): Promise<void> {
-    await prisma.$transaction(async (tx) => {
-        // WHY: 主体ごとの記録と同じく、印を先に立てて二重加算を防ぐ
-        const marked = await tx.scoreRecord.updateMany({
-            where: { id: record.id, reflectedAt: null },
-            data: { reflectedAt: new Date() },
-        });
-        if (marked.count === 0) {
-            return;
-        }
-        for (const value of record.values) {
-            const where = {
-                gameId_key: { gameId: record.gameId, key: value.key },
-            };
-            const existing = await lockGameTotal(tx, record.gameId, value.key);
-            await tx.scoreGameTotal.update({
-                where,
-                data: aggregateUpdate(existing, record.endedAt, value),
+    await prisma.$transaction(
+        async (tx) => {
+            // WHY: 主体ごとの記録と同じく、印を先に立てて二重加算を防ぐ
+            const marked = await tx.scoreRecord.updateMany({
+                where: { id: record.id, reflectedAt: null },
+                data: { reflectedAt: new Date() },
             });
-        }
-    });
+            if (marked.count === 0) {
+                return;
+            }
+            for (const value of record.values) {
+                const where = {
+                    gameId_key: { gameId: record.gameId, key: value.key },
+                };
+                const existing = await lockGameTotal(
+                    tx,
+                    record.gameId,
+                    value.key,
+                );
+                await tx.scoreGameTotal.update({
+                    where,
+                    data: aggregateUpdate(existing, record.endedAt, value),
+                });
+            }
+        },
+        { timeout: REFLECT_TIMEOUT_MS },
+    );
 }
 
 type LockedAggregate = {
@@ -325,78 +362,81 @@ async function lockConsent(
 async function applyRecord(
     param: ApplyRecordParameterObject,
 ): Promise<TitleAward[] | null> {
-    return await prisma.$transaction(async (tx) => {
-        const consent = await lockConsent(tx, param.playId, param.playerId);
-        if (!consent?.nameConsent) {
-            return null;
-        }
-        // WHY: 突き合わせの冒頭で見た判定は古いことがある。書き込む直前に確かめ直す
-        if (param.userId && (await lockOptOut(tx, param.userId))) {
-            return null;
-        }
-        // WHY: 反映済みの印を先に立て、同じ条件で 1 件だけ動いたことを確かめる。
-        // 同時に 2 回走っても、後から来たほうは 0 件になって加算しない
-        const marked = await tx.scoreRecord.updateMany({
-            where: { id: param.recordId, reflectedAt: null },
-            data: { reflectedAt: new Date(), subjectKey: param.subjectKey },
-        });
-        if (marked.count === 0) {
-            return null;
-        }
-        await tx.scoreValue.updateMany({
-            where: { recordId: param.recordId },
-            data: { subjectKey: param.subjectKey },
-        });
-        await tx.scoreSubject.upsert({
-            where: { subjectKey: param.subjectKey },
-            create: {
-                subjectKey: param.subjectKey,
-                userId: param.userId,
-                guestName: consent.guestName,
-            },
-            // 最後に確定した名前で上書きする
-            update: { userId: param.userId, guestName: consent.guestName },
-        });
-        // WHY: 遊んだ回数はサインイン利用者だけ数える。ゲストは identity が
-        // Cookie 依存で続かない
-        if (param.userId) {
-            await tx.scorePlayCount.upsert({
-                where: {
-                    gameId_subjectKey: {
+    return await prisma.$transaction(
+        async (tx) => {
+            const consent = await lockConsent(tx, param.playId, param.playerId);
+            if (!consent?.nameConsent) {
+                return null;
+            }
+            // WHY: 突き合わせの冒頭で見た判定は古いことがある。書き込む直前に確かめ直す
+            if (param.userId && (await lockOptOut(tx, param.userId))) {
+                return null;
+            }
+            // WHY: 反映済みの印を先に立て、同じ条件で 1 件だけ動いたことを確かめる。
+            // 同時に 2 回走っても、後から来たほうは 0 件になって加算しない
+            const marked = await tx.scoreRecord.updateMany({
+                where: { id: param.recordId, reflectedAt: null },
+                data: { reflectedAt: new Date(), subjectKey: param.subjectKey },
+            });
+            if (marked.count === 0) {
+                return null;
+            }
+            await tx.scoreValue.updateMany({
+                where: { recordId: param.recordId },
+                data: { subjectKey: param.subjectKey },
+            });
+            await tx.scoreSubject.upsert({
+                where: { subjectKey: param.subjectKey },
+                create: {
+                    subjectKey: param.subjectKey,
+                    userId: param.userId,
+                    guestName: consent.guestName,
+                },
+                // 最後に確定した名前で上書きする
+                update: { userId: param.userId, guestName: consent.guestName },
+            });
+            // WHY: 遊んだ回数はサインイン利用者だけ数える。ゲストは identity が
+            // Cookie 依存で続かない
+            if (param.userId) {
+                await tx.scorePlayCount.upsert({
+                    where: {
+                        gameId_subjectKey: {
+                            gameId: param.gameId,
+                            subjectKey: param.subjectKey,
+                        },
+                    },
+                    create: {
                         gameId: param.gameId,
                         subjectKey: param.subjectKey,
+                        count: 1,
+                        lastPlayedAt: param.endedAt,
                     },
-                },
-                create: {
-                    gameId: param.gameId,
-                    subjectKey: param.subjectKey,
-                    count: 1,
-                    lastPlayedAt: param.endedAt,
-                },
-                update: { count: { increment: 1 } },
-            });
-            // WHY: 同意の報告は遅れて届きうるので、反映の順序はプレイの終わった順と
-            // 限らない。新しいときだけ進める
-            await tx.scorePlayCount.updateMany({
-                where: {
-                    gameId: param.gameId,
-                    subjectKey: param.subjectKey,
-                    lastPlayedAt: { lt: param.endedAt },
-                },
-                data: { lastPlayedAt: param.endedAt },
-            });
-        }
-        for (const value of param.values) {
-            await applyValue(tx, param, value);
-        }
-        // WHY: 反映と同じトランザクションで評価する。反映だけ確定して評価が
-        // 失敗すると、反映済みの記録は二度と評価されない
-        //
-        // WHY: サインイン利用者だけが対象で、ゲストは identity が続かないため付けない
-        return param.userId
-            ? await evaluateTitles(tx, param.userId, param.gameId)
-            : [];
-    });
+                    update: { count: { increment: 1 } },
+                });
+                // WHY: 同意の報告は遅れて届きうるので、反映の順序はプレイの終わった順と
+                // 限らない。新しいときだけ進める
+                await tx.scorePlayCount.updateMany({
+                    where: {
+                        gameId: param.gameId,
+                        subjectKey: param.subjectKey,
+                        lastPlayedAt: { lt: param.endedAt },
+                    },
+                    data: { lastPlayedAt: param.endedAt },
+                });
+            }
+            for (const value of param.values) {
+                await applyValue(tx, param, value);
+            }
+            // WHY: 反映と同じトランザクションで評価する。反映だけ確定して評価が
+            // 失敗すると、反映済みの記録は二度と評価されない
+            //
+            // WHY: サインイン利用者だけが対象で、ゲストは identity が続かないため付けない
+            return param.userId
+                ? await evaluateTitles(tx, param.userId, param.gameId)
+                : [];
+        },
+        { timeout: REFLECT_TIMEOUT_MS },
+    );
 }
 
 async function applyValue(

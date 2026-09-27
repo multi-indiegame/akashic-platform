@@ -93,15 +93,28 @@ export async function awardTitles(
  *
  * WHY: 同じ人の付与は利用者の行を押さえた後で順に進む。押さえる前に読んだ
  * 段位で比べると、先に上がった段位を下げてしまう
+ *
+ * WHY: 定義は共有ロックで押さえてから読む。投稿者の取り下げ・編集は同じ行を
+ * 排他ロックで押さえてから獲得者を数えるので、評価中の付与が確定するのを待ち、
+ * その後の評価は取り下げ・編集の後の定義を見る
  */
 export async function evaluateTitles(
     tx: TransactionClient,
     userId: string,
     gameId: number,
 ): Promise<TitleAward[]> {
+    // WHY: 取り下げた定義では新たに付与しない。すでに獲得した分は残る
+    const locked = await tx.$queryRaw<{ id: number }[]>`
+        SELECT "id" FROM "ScoreTitleDef"
+        WHERE "gameId" = ${gameId} AND "retiredAt" IS NULL
+        ORDER BY "id"
+        FOR SHARE
+    `;
+    if (locked.length === 0) {
+        return [];
+    }
     const defs = await tx.scoreTitleDef.findMany({
-        // WHY: 取り下げた定義では新たに付与しない。すでに獲得した分は残る
-        where: { gameId, retiredAt: null },
+        where: { id: { in: locked.map((row) => row.id) } },
         select: {
             id: true,
             categoryKey: true,
@@ -109,9 +122,6 @@ export async function evaluateTitles(
             condition: true,
         },
     });
-    if (defs.length === 0) {
-        return [];
-    }
     const context = await buildContext(tx, userId, gameId);
 
     // カテゴリごとに、満たしている中でいちばん上の段位を選ぶ
