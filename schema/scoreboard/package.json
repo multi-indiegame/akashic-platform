@@ -29,7 +29,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@multi-indiegame/persist-schema": "^1.14.0"
+    "@multi-indiegame/persist-schema": "^1.26.5"
   },
   "publishConfig": {
     "access": "public"

@@ -1,6 +1,6 @@
 {
   "name": "@multi-indiegame/persist-schema",
-  "version": "1.14.0",
+  "version": "1.26.5",
   "private": true,
   "description": "Game and play data schema",
   "main": "dist/index.js",

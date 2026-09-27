@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 1.14.0
+## 1.26.5
 
 ### Minor Changes
 

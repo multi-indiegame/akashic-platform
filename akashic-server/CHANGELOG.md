@@ -12,7 +12,7 @@
 ### Patch Changes
 
 - Updated dependencies [35ae604]
-  - @multi-indiegame/persist-schema@1.14.0
+  - @multi-indiegame/persist-schema@1.26.5
   - @multi-indiegame/runner-ipc-schema@1.1.0
   - @multi-indiegame/scoreboard-schema@1.1.0
 
