@@ -26,6 +26,8 @@ export async function GET(
             data: await fetchGameStats(gameId, period, month),
         });
         // 閲覧が集中しても DB にそのまま流さない。動きの速いデータではない
+        // WHY: 掲載の取りやめもこの期限が過ぎてから反映される。60 秒で消えるので、
+        // キャッシュを消す仕組みは持たない
         res.headers.set("Cache-Control", "public, max-age=60");
         return res;
     } catch (err) {

@@ -285,6 +285,9 @@ export class Runner {
         }
         this._ending = true;
         const playId = this._playId;
+        // WHY: 停止を待つ間 (最後の記録の送り直しを含む) や確定の再試行を待つ間を
+        // プレイ時間に含めない。含めると下限を越えたり、月の境目をまたいだりする
+        const endedAt = Date.now();
         this._clearTimer();
         this._clearIdleWatch();
 
@@ -311,7 +314,7 @@ export class Runner {
                 console.warn(`failed to end play (playId = "${playId}")`, err);
             }
         }
-        await this._finalizeScore(playId, crashed, scoreDelivered);
+        await this._finalizeScore(playId, endedAt, crashed, scoreDelivered);
         await this._endPlayRecord(playId);
         this._param.onDestroy(playId);
 
@@ -419,6 +422,7 @@ export class Runner {
 
     async _finalizeScore(
         playId: number,
+        endedAt: number,
         crashed: boolean,
         scoreDelivered: boolean,
     ) {
@@ -427,9 +431,6 @@ export class Runner {
         }
         const records = this._scoreRecords;
         this._scoreRecords = undefined;
-        // WHY: 再試行のたびに測り直すと、待った分だけプレイ時間が延びて下限を越えたり、
-        // 月の境目をまたいだりする
-        const endedAt = Date.now();
         // WHY: 記録が残らないことの影響はそのプレイに閉じるので、
         // 失敗してもプレイの終了処理は止めない（ログのアップロードと同じ扱い）
         const finalized = await retryScoreTask(

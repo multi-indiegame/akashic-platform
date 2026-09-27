@@ -117,7 +117,9 @@ export async function fetchFormatAt(
 ): Promise<ScoreboardFormatDefinition> {
     const row = await prisma.scoreboardFormat.findFirst({
         where: { gameId, effectiveFrom: { lt: at } },
-        orderBy: { effectiveFrom: "desc" },
+        // WHY: effectiveFrom はトランザクションの開始時刻で、保存の直列化で待った
+        // 後の版ほど古い時刻を持ちうる。どれが新しいかは版番号で決める
+        orderBy: { version: "desc" },
         select: { definition: true },
     });
     if (!row) {
