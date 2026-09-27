@@ -288,10 +288,12 @@ export class Runner {
 
         let crashed = false;
         let errorLogged = false;
+        let stopConfirmed = false;
         try {
             const res = await this._param.runnerClient.stopPlay(playId);
             crashed = res.crashed;
             errorLogged = res.errorLogged;
+            stopConfirmed = true;
         } catch (err) {
             console.warn(
                 `failed to stop play on runner (playId = "${playId}")`,
@@ -307,7 +309,7 @@ export class Runner {
                 console.warn(`failed to end play (playId = "${playId}")`, err);
             }
         }
-        await this._finalizeScore(playId, crashed);
+        await this._finalizeScore(playId, crashed, stopConfirmed);
         await this._endPlayRecord(playId);
         this._param.onDestroy(playId);
 
@@ -413,7 +415,11 @@ export class Runner {
         }
     }
 
-    async _finalizeScore(playId: number, crashed: boolean) {
+    async _finalizeScore(
+        playId: number,
+        crashed: boolean,
+        stopConfirmed: boolean,
+    ) {
         if (!this._scoreRecords) {
             return;
         }
@@ -426,6 +432,7 @@ export class Runner {
                 records,
                 startedAt: this._startedAt ?? Date.now(),
                 crashed,
+                stopConfirmed,
             });
         } catch (err) {
             // WHY: 記録が残らないことの影響はそのプレイに閉じるので、

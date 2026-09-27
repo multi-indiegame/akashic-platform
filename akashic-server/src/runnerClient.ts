@@ -34,14 +34,9 @@ export class RunnerClient {
             headers: { "x-akashic-internal-token": this._token },
         });
         if (res.status !== 200) {
-            console.warn(
-                `failed to stop play on runner (playId = "${playId}", status = ${res.status})`,
+            throw new Error(
+                `failed to stop play on runner (status = ${res.status}, cause = "${await res.text()}")`,
             );
-            return {
-                ok: true,
-                crashed: false,
-                errorLogged: false,
-            } as StopPlayResponse;
         }
         return (await res.json()) as StopPlayResponse;
     }
