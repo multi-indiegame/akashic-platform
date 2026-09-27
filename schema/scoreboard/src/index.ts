@@ -598,17 +598,26 @@ export async function revokeSubject(
         });
         return;
     }
-    const topKeys = (
-        await tx.scoreTopEntry.findMany({
-            where: { subjectKey },
+    // WHY: 今ある上位 N 件だけでなく、その主体の値が載りうるキーをすべて押さえる。
+    // 設定変更の積み直しが確定前だと、まだ載っていないキーへこの主体を差し込み、
+    // 取りやめた後の上位に残してしまう
+    const candidates = [
+        ...(await tx.scoreValue.findMany({
+            where: { subjectKey, numValue: { not: null } },
             distinct: ["gameId", "key"],
             select: { gameId: true, key: true },
-        })
-    ).sort((a, b) => a.gameId - b.gameId || compareKey(a.key, b.key));
+        })),
+        ...(await findTopKeys(tx, subjectKey)),
+    ];
+    const lockKeys = [
+        ...new Map(candidates.map((k) => [`${k.gameId}:${k.key}`, k])).values(),
+    ].sort(compareGameKey);
     // WHY: 反映と同じ順で押さえ、同時に走ったときのデッドロックを避ける
-    for (const { gameId, key } of topKeys) {
+    for (const { gameId, key } of lockKeys) {
         await lockTopEntries(tx, gameId, key);
     }
+    // WHY: 押さえた後に読み直す。押さえる前に確定した積み直しの結果も拾う
+    const topKeys = (await findTopKeys(tx, subjectKey)).sort(compareGameKey);
     // 歴代は増分で積んでいるので引き算では戻せない。その主体の分を丸ごと落とす
     await tx.scoreBest.deleteMany({ where: { subjectKey } });
     await tx.scoreTopEntry.deleteMany({ where: { subjectKey } });
@@ -625,6 +634,24 @@ export async function revokeSubject(
     for (const { gameId, key } of topKeys) {
         await refillTopEntries(tx, gameId, key);
     }
+}
+
+async function findTopKeys(
+    tx: TransactionClient,
+    subjectKey: SubjectKey,
+): Promise<{ gameId: number; key: string }[]> {
+    return await tx.scoreTopEntry.findMany({
+        where: { subjectKey },
+        distinct: ["gameId", "key"],
+        select: { gameId: true, key: true },
+    });
+}
+
+function compareGameKey(
+    a: { gameId: number; key: string },
+    b: { gameId: number; key: string },
+): number {
+    return a.gameId - b.gameId || compareKey(a.key, b.key);
 }
 
 /**

@@ -73,32 +73,37 @@ export async function saveScoreboardFormat(
         return { ok: false, reason: "InvalidParams" };
     }
     try {
-        const previous = await fetchFormat(gameId);
-        const latest = await prisma.scoreboardFormat.findFirst({
-            where: { gameId },
-            orderBy: { version: "desc" },
-            select: { version: true },
-        });
-        const definition: ScoreboardFormatDefinition = {
-            version: (latest?.version ?? 0) + 1,
-            fields: normalized,
-            playFields: normalizedPlay,
-            playRanking: {
-                hidden: playRankingHidden,
-                chartHidden: playRankingChartHidden,
-            },
-        };
-        const changed = Object.keys({
-            ...previous.fields,
-            ...normalized,
-        }).filter((key) =>
-            affectsTopEntries(
-                fieldSetting(previous, key),
-                fieldSetting(definition, key),
-            ),
-        );
         await prisma.$transaction(
             async (tx) => {
+                // WHY: 同じゲームの保存を 1 件ずつ通す。比べる元の版と次の版番号を
+                // 別の保存に割り込まれずに読まないと、積み直すキーを取り違える
+                await tx.$executeRaw`
+                    SELECT 1 FROM "Game" WHERE "id" = ${gameId} FOR UPDATE
+                `;
+                const previous = await fetchFormat(gameId, tx);
+                const latest = await tx.scoreboardFormat.findFirst({
+                    where: { gameId },
+                    orderBy: { version: "desc" },
+                    select: { version: true },
+                });
+                const definition: ScoreboardFormatDefinition = {
+                    version: (latest?.version ?? 0) + 1,
+                    fields: normalized,
+                    playFields: normalizedPlay,
+                    playRanking: {
+                        hidden: playRankingHidden,
+                        chartHidden: playRankingChartHidden,
+                    },
+                };
+                const changed = Object.keys({
+                    ...previous.fields,
+                    ...normalized,
+                }).filter((key) =>
+                    affectsTopEntries(
+                        fieldSetting(previous, key),
+                        fieldSetting(definition, key),
+                    ),
+                );
                 await tx.scoreboardFormat.create({
                     data: {
                         gameId,

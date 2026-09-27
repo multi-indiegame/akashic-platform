@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
         proxyClientMaxBodySize: "32mb",
     },
     trailingSlash: true,
+    // エージェント向けの指示はリポジトリ直下の CLAUDE.md で管理する
+    agentRules: false,
 };
 
 export default nextConfig;
