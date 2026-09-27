@@ -1,6 +1,6 @@
 "use server";
 
-import { StatsSubjectModeration } from "../types";
+import { STATS_MODERATION_TOKEN_MAX, StatsSubjectModeration } from "../types";
 import { anonKey } from "./anon-key";
 import { getAuth } from "./auth";
 import { getMuteSet } from "./mute";
@@ -12,14 +12,14 @@ import {
     viewerSubjectKey,
 } from "./score-subject";
 
-/** 1 回に問い合わせられる主体の数。統計ページ 1 枚に載る分を十分に上回る */
-const TOKEN_MAX = 200;
-
 /**
  * 統計に載った主体ごとの、閲覧者から見たミュート状態を返す。
  *
  * WHY: 統計 API は閲覧者を問わずキャッシュしているので、閲覧者ごとに変わる
  * ミュート判定や匿名キーは載せられない。表示中の主体に絞って別に問い合わせる。
+ *
+ * 1 回に受け付けるのは {@link STATS_MODERATION_TOKEN_MAX} 件まで。超える分は
+ * 呼び出し側で分けて問い合わせる。
  */
 export async function fetchStatsModerationAction(
     tokens: unknown,
@@ -33,7 +33,7 @@ export async function fetchStatsModerationAction(
     }
     const keyByToken = new Map<string, string>();
     for (const token of new Set(tokens)) {
-        if (keyByToken.size >= TOKEN_MAX) {
+        if (keyByToken.size >= STATS_MODERATION_TOKEN_MAX) {
             break;
         }
         if (typeof token !== "string") {

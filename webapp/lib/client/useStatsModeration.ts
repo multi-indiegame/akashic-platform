@@ -2,7 +2,12 @@
 
 import { useCallback, useMemo, useState, useTransition } from "react";
 import useSWR from "swr";
-import { GameStats, ScoreEntry, StatsSubjectModeration } from "../types";
+import {
+    GameStats,
+    STATS_MODERATION_TOKEN_MAX,
+    ScoreEntry,
+    StatsSubjectModeration,
+} from "../types";
 import { fetchStatsModerationAction } from "../server/score-moderation-action";
 import {
     muteScoreSubjectAction,
@@ -32,6 +37,20 @@ function collectTokens(stats: GameStats | undefined) {
         }
     }
     return [...tokens].sort();
+}
+
+async function fetchModeration(tokens: string[]) {
+    const chunks: string[][] = [];
+    for (let i = 0; i < tokens.length; i += STATS_MODERATION_TOKEN_MAX) {
+        chunks.push(tokens.slice(i, i + STATS_MODERATION_TOKEN_MAX));
+    }
+    const results = await Promise.all(
+        chunks.map((chunk) => fetchStatsModerationAction(chunk)),
+    );
+    return Object.assign({}, ...results) as Record<
+        string,
+        StatsSubjectModeration
+    >;
 }
 
 /**
@@ -65,7 +84,7 @@ export function useStatsModeration(
         tokens.length > 0
             ? ["stats-moderation", user?.authType, user?.id, ...tokens]
             : null,
-        () => fetchStatsModerationAction(tokens),
+        () => fetchModeration(tokens),
     );
 
     const stateOf = useCallback(

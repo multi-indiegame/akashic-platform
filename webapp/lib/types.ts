@@ -530,6 +530,9 @@ export interface ScoreEntry {
     at?: Date;
 }
 
+/** 統計の主体のモデレーション状態を 1 回に問い合わせられる数 */
+export const STATS_MODERATION_TOKEN_MAX = 200;
+
 /** 統計の主体に対する、閲覧者から見たモデレーション状態 */
 export interface StatsSubjectModeration {
     /** 未サインイン利用者の端末内ミュートで相手を指す匿名キー。特定できない相手は持たない */

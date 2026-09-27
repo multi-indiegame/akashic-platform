@@ -38,6 +38,7 @@ const titleErrReasons = [
     "Unauthorized",
     "InternalError",
     "Drain",
+    "RankAlreadyExists",
 ] as const;
 type TitleErrorType = (typeof titleErrReasons)[number];
 
@@ -301,6 +302,14 @@ export async function saveTitleDef(
         });
         return { ok: true, id: created.id };
     } catch (err) {
+        if (
+            typeof err === "object" &&
+            err !== null &&
+            "code" in err &&
+            err.code === "P2002"
+        ) {
+            return { ok: false, reason: "RankAlreadyExists" };
+        }
         console.warn(
             "failed to save title definition (gameId = %s)",
             logSafe(gameId),
@@ -462,7 +471,7 @@ export async function removeTitleImage(
         }
         await prisma.scoreTitleDef.update({
             where: { id: def.id },
-            data: { imageKey: null },
+            data: { imageKey: null, imageCredit: null },
         });
         if (def.imageKey) {
             await deleteTitleImage(def.imageKey);

@@ -424,7 +424,9 @@ function TitleDialog({
         setError(
             res.reason === "InvalidParams"
                 ? "入力に誤りがあります。名前と分類、条件を確かめてください。"
-                : "保存できませんでした。",
+                : res.reason === "RankAlreadyExists"
+                  ? "同じ分類に、この段位の称号がすでにあります。"
+                  : "保存できませんでした。",
         );
     }
 
@@ -434,6 +436,7 @@ function TitleDialog({
                 const res = await removeTitleImage(gameId, def.id);
                 if (res.ok) {
                     def.imageURL = undefined;
+                    setImageCredit("");
                 }
             }
         });

@@ -41,7 +41,7 @@ export async function fetchGameInfo(gameId: number) {
     const contentId = game.versions[0].id;
     // WHY: 称号の画像に表示が求められる素材が含まれることがある。
     const titleCredits = await prisma.scoreTitleDef.findMany({
-        where: { gameId, imageCredit: { not: null } },
+        where: { gameId, imageKey: { not: null }, imageCredit: { not: null } },
         orderBy: [{ priority: "asc" }, { id: "asc" }],
         select: { name: true, imageCredit: true },
     });

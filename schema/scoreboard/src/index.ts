@@ -610,6 +610,9 @@ async function trimTopEntries(
  *
  * WHY: 上位 N 件の積み直しを伴うので、呼び出し側のトランザクションには
  * {@link TOP_ENTRY_REBUILD_TIMEOUT_MS} を指定する。
+ *
+ * WHY: 名前を外すことと集計の後始末を 1 つのトランザクションで行う。反映と
+ * 同じ行を押さえて直列化しているので、分けて先に確定させることはしない
  */
 export async function revokeSubject(
     subjectKey: SubjectKey,
