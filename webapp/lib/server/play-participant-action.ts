@@ -31,6 +31,7 @@ export type NameConsentResponse =
  *
  * 名前取得は1プレイ中に何度でも呼ばれるため、呼ばれるたびに上書きして最後に
  * 確定した状態だけを残す。同意しなかった報告も同じように上書きする。
+ * ただし、そのプレイの記録を掲載用へ反映した後に届いた報告では上書きしない。
  */
 export async function reportNameConsent(
     playId: number,
@@ -57,13 +58,34 @@ export async function reportNameConsent(
             ? name.trim().slice(0, GUEST_NAME_MAX_LENGTH) || null
             : null;
     try {
-        // 入室時に作った行だけを更新する。作りに行かないことで、その部屋に
-        // 居ない相手の同意が生まれないようにする
-        const updated = await prisma.playParticipant.updateMany({
-            where: { playId, playerId },
-            data: { nameConsent: accepted, guestName },
+        const found = await prisma.$transaction(async (tx) => {
+            // 入室時に作った行だけを更新する。作りに行かないことで、その部屋に
+            // 居ない相手の同意が生まれないようにする。
+            // WHY: 突き合わせも同じ行を押さえてから反映する。押さえずに更新すると、
+            // 反映の途中で届いた撤回が効かないまま掲載される
+            const rows = await tx.$queryRaw<{ id: number }[]>`
+                SELECT "id" FROM "PlayParticipant"
+                WHERE "playId" = ${playId} AND "playerId" = ${playerId}
+                FOR UPDATE
+            `;
+            if (rows.length === 0) {
+                return false;
+            }
+            // WHY: 掲載用へ反映した後の同意は変えない。集計は差分で積んでいて、
+            // 1 プレイ分だけ取り除くことができない
+            const reflected = await tx.scoreRecord.findFirst({
+                where: { playId, playerId, reflectedAt: { not: null } },
+                select: { id: true },
+            });
+            if (!reflected) {
+                await tx.playParticipant.update({
+                    where: { id: rows[0].id },
+                    data: { nameConsent: accepted, guestName },
+                });
+            }
+            return true;
         });
-        if (updated.count === 0) {
+        if (!found) {
             return { ok: false, reason: "NotFound" };
         }
         // WHY: プレイ中の報告なら、まだ記録が無いので何も起きない。プレイが

@@ -1,5 +1,5 @@
 import { prisma } from "@multi-indiegame/persist-schema";
-import { ScoreFieldSetting, fetchFormat, fieldSetting } from "./format";
+import { fetchFormat, fieldSetting } from "./format";
 import { TransactionClient, lockOptOut } from "./optOut";
 import { awardTitles } from "./title";
 
@@ -88,7 +88,6 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
             playerId: true,
             userId: true,
             nameConsent: true,
-            guestName: true,
         },
     });
     // WHY: 掲載をやめた人は、そのプレイで名前を出すことに同意していても掲載
@@ -109,7 +108,6 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
         ).map((user) => user.id),
     );
     const byPlayerId = new Map(participants.map((p) => [p.playerId, p]));
-    const formats = new Map<number, Awaited<ReturnType<typeof fetchFormat>>>();
 
     let reflected = 0;
     for (const record of records) {
@@ -132,22 +130,19 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
             userId: participant.userId,
             playerId: record.playerId,
         });
-        let format = formats.get(record.gameId);
-        if (!format) {
-            format = await fetchFormat(record.gameId);
-            formats.set(record.gameId, format);
-        }
-        const resolved = format;
-        await applyRecord({
-            setting: (key) => fieldSetting(resolved, key),
+        const applied = await applyRecord({
             recordId: record.id,
+            playId,
+            playerId: record.playerId,
             gameId: record.gameId,
             endedAt: record.endedAt,
             subjectKey,
             userId: participant.userId,
-            guestName: participant.guestName,
             values: record.values,
         });
+        if (!applied) {
+            continue;
+        }
         reflected++;
         // WHY: 掲載用へ入った直後に評価する。サインイン利用者だけが対象で、
         // ゲストは identity が続かないため付けない
@@ -294,26 +289,53 @@ function isLatest(endedAt: Date, lastAt: Date | null | undefined): boolean {
 
 interface ApplyRecordParameterObject {
     recordId: number;
+    playId: number;
+    playerId: string;
     gameId: number;
     endedAt: Date;
     subjectKey: SubjectKey;
     userId: string | null;
-    guestName: string | null;
     values: {
         key: string;
         numValue: number | null;
         strValue: string | null;
         boolValue: boolean | null;
     }[];
-    /** そのキーの引き方。歴代はこの設定の分だけ積む */
-    setting: (key: string) => ScoreFieldSetting;
 }
 
-async function applyRecord(param: ApplyRecordParameterObject): Promise<void> {
-    await prisma.$transaction(async (tx) => {
+/**
+ * 同意の控えを、行を押さえたうえで読む。
+ *
+ * WHY: 同意の報告も同じ行を押さえてから更新する。突き合わせの冒頭で読んだ
+ * 同意のまま反映すると、その後に届いた撤回が効かない
+ */
+async function lockConsent(
+    tx: TransactionClient,
+    playId: number,
+    playerId: string,
+): Promise<{ nameConsent: boolean; guestName: string | null } | undefined> {
+    const rows = await tx.$queryRaw<
+        { nameConsent: boolean; guestName: string | null }[]
+    >`
+        SELECT "nameConsent", "guestName" FROM "PlayParticipant"
+        WHERE "playId" = ${playId} AND "playerId" = ${playerId}
+        FOR UPDATE
+    `;
+    return rows[0];
+}
+
+/** 掲載用へ反映したら true */
+async function applyRecord(
+    param: ApplyRecordParameterObject,
+): Promise<boolean> {
+    return await prisma.$transaction(async (tx) => {
+        const consent = await lockConsent(tx, param.playId, param.playerId);
+        if (!consent?.nameConsent) {
+            return false;
+        }
         // WHY: 突き合わせの冒頭で見た判定は古いことがある。書き込む直前に確かめ直す
         if (param.userId && (await lockOptOut(tx, param.userId))) {
-            return;
+            return false;
         }
         // WHY: 反映済みの印を先に立て、同じ条件で 1 件だけ動いたことを確かめる。
         // 同時に 2 回走っても、後から来たほうは 0 件になって加算しない
@@ -322,7 +344,7 @@ async function applyRecord(param: ApplyRecordParameterObject): Promise<void> {
             data: { reflectedAt: new Date(), subjectKey: param.subjectKey },
         });
         if (marked.count === 0) {
-            return;
+            return false;
         }
         await tx.scoreValue.updateMany({
             where: { recordId: param.recordId },
@@ -333,10 +355,10 @@ async function applyRecord(param: ApplyRecordParameterObject): Promise<void> {
             create: {
                 subjectKey: param.subjectKey,
                 userId: param.userId,
-                guestName: param.guestName,
+                guestName: consent.guestName,
             },
             // 最後に確定した名前で上書きする
-            update: { userId: param.userId, guestName: param.guestName },
+            update: { userId: param.userId, guestName: consent.guestName },
         });
         // WHY: 遊んだ回数はサインイン利用者だけ数える。ゲストは identity が
         // Cookie 依存で続かない
@@ -354,15 +376,23 @@ async function applyRecord(param: ApplyRecordParameterObject): Promise<void> {
                     count: 1,
                     lastPlayedAt: param.endedAt,
                 },
-                update: {
-                    count: { increment: 1 },
-                    lastPlayedAt: param.endedAt,
+                update: { count: { increment: 1 } },
+            });
+            // WHY: 同意の報告は遅れて届きうるので、反映の順序はプレイの終わった順と
+            // 限らない。新しいときだけ進める
+            await tx.scorePlayCount.updateMany({
+                where: {
+                    gameId: param.gameId,
+                    subjectKey: param.subjectKey,
+                    lastPlayedAt: { lt: param.endedAt },
                 },
+                data: { lastPlayedAt: param.endedAt },
             });
         }
         for (const value of param.values) {
-            await applyValue(tx, param, value, param.setting(value.key));
+            await applyValue(tx, param, value);
         }
+        return true;
     });
 }
 
@@ -370,7 +400,6 @@ async function applyValue(
     tx: TransactionClient,
     param: ApplyRecordParameterObject,
     value: ApplyRecordParameterObject["values"][number],
-    setting: ScoreFieldSetting,
 ): Promise<void> {
     const where = {
         gameId_key_subjectKey: {
@@ -386,12 +415,29 @@ async function applyValue(
         param.subjectKey,
     );
     if (value.numValue != null) {
-        await keepTopEntries(tx, param, value.key, value.numValue, setting);
+        await keepTopEntries(tx, param, value.key, value.numValue);
     }
     await tx.scoreBest.update({
         where,
         data: aggregateUpdate(existing, param.endedAt, value),
     });
+}
+
+/**
+ * あるキーの上位 N 件を押さえる。
+ *
+ * WHY: 上位 N 件は行が入れ替わるので、行ではなくキーごとの鍵で押さえる。
+ * 反映と積み直しが同時に走ると、積み直しが反映した分を消したり、反映が古い
+ * 向きで末尾を捨てたりする
+ */
+async function lockTopEntries(
+    tx: TransactionClient,
+    gameId: number,
+    key: string,
+): Promise<void> {
+    await tx.$executeRaw`
+        SELECT pg_advisory_xact_lock(${gameId}::int4, hashtext(${key}))
+    `;
 }
 
 /**
@@ -407,8 +453,11 @@ async function keepTopEntries(
     param: ApplyRecordParameterObject,
     key: string,
     value: number,
-    setting: ScoreFieldSetting,
 ): Promise<void> {
+    await lockTopEntries(tx, param.gameId, key);
+    // WHY: 突き合わせの冒頭で読んだ設定は、積み直しの前のものかもしれない。
+    // 古い向きで末尾を捨てると、積み直した上位を消してしまう
+    const setting = fieldSetting(await fetchFormat(param.gameId, tx), key);
     if (setting.dedupe !== "all") {
         return;
     }
@@ -489,36 +538,40 @@ export async function rebuildTopEntries(
     if (keys.length === 0) {
         return;
     }
-    const format = await fetchFormat(gameId);
     for (const key of keys) {
-        const setting = fieldSetting(format, key);
-        const values =
-            setting.dedupe === "all"
-                ? await prisma.scoreValue.findMany({
-                      where: {
-                          gameId,
-                          key,
-                          subjectKey: { not: null },
-                          numValue: { not: null },
-                      },
-                      // 同値のときは先に達成したほうを上位に置く
-                      orderBy: [
-                          {
-                              numValue:
-                                  setting.direction === "high" ? "desc" : "asc",
-                          },
-                          { endedAt: "asc" },
-                      ],
-                      take: TOP_ENTRY_LIMIT,
-                      select: {
-                          recordId: true,
-                          subjectKey: true,
-                          numValue: true,
-                          endedAt: true,
-                      },
-                  })
-                : [];
         await prisma.$transaction(async (tx) => {
+            // WHY: 読んでから消すまでの間に反映された上位を失わないよう、反映と
+            // 同じ鍵を押さえてから読む
+            await lockTopEntries(tx, gameId, key);
+            const setting = fieldSetting(await fetchFormat(gameId, tx), key);
+            const values =
+                setting.dedupe === "all"
+                    ? await tx.scoreValue.findMany({
+                          where: {
+                              gameId,
+                              key,
+                              subjectKey: { not: null },
+                              numValue: { not: null },
+                          },
+                          // 同値のときは先に達成したほうを上位に置く
+                          orderBy: [
+                              {
+                                  numValue:
+                                      setting.direction === "high"
+                                          ? "desc"
+                                          : "asc",
+                              },
+                              { endedAt: "asc" },
+                          ],
+                          take: TOP_ENTRY_LIMIT,
+                          select: {
+                              recordId: true,
+                              subjectKey: true,
+                              numValue: true,
+                              endedAt: true,
+                          },
+                      })
+                    : [];
             await tx.scoreTopEntry.deleteMany({ where: { gameId, key } });
             if (values.length > 0) {
                 await tx.scoreTopEntry.createMany({

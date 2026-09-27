@@ -83,11 +83,6 @@ export async function awardTitles(
         return;
     }
     const context = await buildContext(userId, gameId);
-    const held = await prisma.scoreTitle.findMany({
-        where: { userId, gameId },
-        select: { categoryKey: true, rank: true },
-    });
-    const heldByCategory = new Map(held.map((row) => [row.categoryKey, row]));
 
     // カテゴリごとに、満たしている中でいちばん上の段位を選ぶ
     const bestByCategory = new Map<string, (typeof defs)[number]>();
@@ -100,19 +95,37 @@ export async function awardTitles(
             bestByCategory.set(def.categoryKey, def);
         }
     }
-    const awards = [...bestByCategory].filter(([categoryKey, def]) => {
-        const existing = heldByCategory.get(categoryKey);
-        return !existing || RANK_ORDER[existing.rank] < RANK_ORDER[def.rank];
-    });
-    if (awards.length === 0) {
+    if (bestByCategory.size === 0) {
         return;
     }
     const awarded = await prisma.$transaction(async (tx) => {
         // WHY: 評価に使った記録は、掲載をやめる前に読んだものかもしれない
         if (await lockOptOut(tx, userId)) {
-            return false;
+            return [];
         }
-        for (const [categoryKey, def] of awards) {
+        // WHY: 同じ人の付与は利用者の行を押さえた後で順に進む。押さえる前に
+        // 読んだ段位で比べると、先に上がった段位を下げてしまう
+        const held = await tx.scoreTitle.findMany({
+            where: { userId, gameId },
+            select: { categoryKey: true, rank: true },
+        });
+        const heldByCategory = new Map(
+            held.map((row) => [row.categoryKey, row]),
+        );
+        const awards = [...bestByCategory]
+            .filter(([categoryKey, def]) => {
+                const existing = heldByCategory.get(categoryKey);
+                return (
+                    !existing ||
+                    RANK_ORDER[existing.rank] < RANK_ORDER[def.rank]
+                );
+            })
+            .map(([categoryKey, def]) => ({
+                categoryKey,
+                def,
+                upgraded: heldByCategory.has(categoryKey),
+            }));
+        for (const { categoryKey, def } of awards) {
             await tx.scoreTitle.upsert({
                 where: {
                     userId_gameId_categoryKey: { userId, gameId, categoryKey },
@@ -131,18 +144,10 @@ export async function awardTitles(
                 },
             });
         }
-        return true;
+        return awards;
     });
-    if (!awarded) {
-        return;
-    }
-    for (const [categoryKey, def] of awards) {
-        await notifyAwarded(
-            userId,
-            gameId,
-            def.id,
-            heldByCategory.has(categoryKey),
-        );
+    for (const { def, upgraded } of awarded) {
+        await notifyAwarded(userId, gameId, def.id, upgraded);
     }
 }
 

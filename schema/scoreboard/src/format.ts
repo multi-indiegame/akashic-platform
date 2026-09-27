@@ -92,8 +92,9 @@ export const DEFAULT_FORMAT: ScoreboardFormatDefinition = {
  */
 export async function fetchFormat(
     gameId: number,
+    client: Pick<typeof prisma, "scoreboardFormat"> = prisma,
 ): Promise<ScoreboardFormatDefinition> {
-    const row = await prisma.scoreboardFormat.findFirst({
+    const row = await client.scoreboardFormat.findFirst({
         where: { gameId },
         orderBy: { version: "desc" },
         select: { definition: true },
