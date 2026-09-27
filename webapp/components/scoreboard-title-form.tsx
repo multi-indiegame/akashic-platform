@@ -362,6 +362,9 @@ function TitleDialog({
     ).join("\n");
     const [removingImage, startRemoveImageTransition] = useTransition();
     const [saving, setSaving] = useState(false);
+    // WHY: 新しく作った直後に画像の登録だけ失敗したとき、保存し直しで
+    // もう 1 つ作らないよう、作った定義の id を持っておく
+    const [savedId, setSavedId] = useState(def?.id);
     const [error, setError] = useState<string>();
 
     function update(index: number, patch: Partial<ConditionRow>) {
@@ -387,7 +390,7 @@ function TitleDialog({
         setSaving(true);
         setError(undefined);
         const res = await saveTitleDef(gameId, {
-            id: def?.id,
+            id: savedId,
             name,
             categoryKey,
             rank,
@@ -397,11 +400,14 @@ function TitleDialog({
             conditionText: customConditionText ? conditionText : "",
             conditionHidden,
         });
-        if (res.ok && image && def?.id) {
+        if (res.ok) {
+            setSavedId(res.id);
+        }
+        if (res.ok && image) {
             // WHY: 画像は id が決まってからでないと置き場所が決まらない
             const form = new FormData();
             form.append("image", image);
-            const uploaded = await replaceTitleImage(gameId, def.id, form);
+            const uploaded = await replaceTitleImage(gameId, res.id, form);
             if (!uploaded.ok) {
                 setSaving(false);
                 setError(
@@ -558,11 +564,6 @@ function TitleDialog({
                         helperText="表示が求められる素材を使ったときに書いてください。ゲーム詳細のクレジットに並びます。"
                         slotProps={{ htmlInput: { maxLength: 200 } }}
                     />
-                    {!def && (
-                        <Typography variant="caption" color="textSecondary">
-                            画像はいちど保存してから登録できます。
-                        </Typography>
-                    )}
                     <Typography variant="caption" color="textSecondary">
                         1MB 以下。
                     </Typography>

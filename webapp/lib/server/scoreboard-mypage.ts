@@ -42,7 +42,10 @@ export async function fetchMyScoreboard(userId: string): Promise<MyScoreboard> {
             },
         },
     });
-    const roomCounts = await countRooms(userId);
+    const roomCounts = await countRooms(
+        userId,
+        plays.map((play) => play.gameId),
+    );
     const games: MyGameStats[] = [];
     for (const play of plays) {
         const version = play.game.versions[0];
@@ -75,17 +78,22 @@ export async function fetchMyScoreboard(userId: string): Promise<MyScoreboard> {
  * WHY: スコア側に持たない。`Play` に部屋主が残っているので、そこから数えれば
  * 二重に持たずに済む。
  */
-async function countRooms(userId: string): Promise<Map<number, number>> {
-    const rows = await prisma.play.findMany({
-        where: { gmUserId: userId },
-        select: { content: { select: { gameId: true } } },
-    });
-    const counts = new Map<number, number>();
-    for (const row of rows) {
-        const gameId = row.content.gameId;
-        counts.set(gameId, (counts.get(gameId) ?? 0) + 1);
+async function countRooms(
+    userId: string,
+    gameIds: number[],
+): Promise<Map<number, number>> {
+    if (gameIds.length === 0) {
+        return new Map();
     }
-    return counts;
+    const rows = await prisma.$queryRaw<{ gameId: number; count: bigint }[]>`
+        SELECT c."gameId", count(*) AS "count"
+        FROM "Play" p
+        JOIN "Content" c ON c."id" = p."contentId"
+        WHERE p."gmUserId" = ${userId}
+          AND c."gameId" = ANY(${gameIds})
+        GROUP BY c."gameId"
+    `;
+    return new Map(rows.map((row) => [row.gameId, Number(row.count)]));
 }
 
 /**

@@ -24,7 +24,9 @@ const IDLE_POLL_INTERVAL_MS = 30 * 1000;
 // 大量出力してもメモリと S3 オブジェクトが際限なく膨らまないよう上限を設ける。
 const MAX_CONTENT_LOG_BYTES = 16 * 1024 * 1024;
 // WHY: 記録の確定・突き合わせを後から拾い直す仕組みは無い。ここで失敗したままに
-// すると、同意の報告が遅れて届かない限りそのプレイの記録は掲載されない
+// すると、同意の報告が遅れて届かない限りそのプレイの記録は掲載されない。
+// 数秒で済まない障害では諦め、そのプレイが載らないことを許す（ログのアップロードと
+// 同じ扱い）。永続化したタスクや起動時の走査で拾い直す仕組みは持たない
 const SCORE_RETRY_DELAYS_MS = [1000, 3000];
 
 export interface RunnerParameterObject {
@@ -425,6 +427,9 @@ export class Runner {
         }
         const records = this._scoreRecords;
         this._scoreRecords = undefined;
+        // WHY: 再試行のたびに測り直すと、待った分だけプレイ時間が延びて下限を越えたり、
+        // 月の境目をまたいだりする
+        const endedAt = Date.now();
         // WHY: 記録が残らないことの影響はそのプレイに閉じるので、
         // 失敗してもプレイの終了処理は止めない（ログのアップロードと同じ扱い）
         const finalized = await retryScoreTask(
@@ -433,7 +438,8 @@ export class Runner {
                     playId,
                     contentId: this._param.contentId,
                     records,
-                    startedAt: this._startedAt ?? Date.now(),
+                    startedAt: this._startedAt ?? endedAt,
+                    endedAt,
                     crashed,
                     scoreDelivered,
                 }),

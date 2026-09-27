@@ -21,7 +21,13 @@ export async function fetchTitles(
             userId,
             ...(options.gameId ? { gameId: options.gameId } : {}),
         },
-        orderBy: [{ pinnedOrder: { sort: "asc", nulls: "last" } }],
+        // WHY: compareTitles と同じ順。全ゲーム分を読んでから絞らない
+        orderBy: [
+            { pinnedOrder: { sort: "asc", nulls: "last" } },
+            { def: { priority: "asc" } },
+            { awardedAt: "asc" },
+        ],
+        take: options.limit ?? DISPLAY_LIMIT,
         select: {
             defId: true,
             gameId: true,
@@ -39,8 +45,7 @@ export async function fetchTitles(
             },
         },
     });
-    const sorted = rows.sort(compareTitles);
-    return sorted.slice(0, options.limit ?? DISPLAY_LIMIT).map((row) => ({
+    return rows.map((row) => ({
         defId: row.defId,
         gameId: row.gameId,
         gameTitle: row.game.title,

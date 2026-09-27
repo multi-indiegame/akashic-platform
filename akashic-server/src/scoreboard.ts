@@ -18,6 +18,7 @@ export interface FinalizeParameterObject {
     contentId: number;
     records: ScoreboardRecords;
     startedAt: number;
+    endedAt: number;
     /** 投稿スクリプトの実行時エラーで終わったか */
     crashed: boolean;
     /**
@@ -35,8 +36,8 @@ export interface FinalizeParameterObject {
  * からは見えないため、subjectKey は後段の突き合わせで埋まる。この段の仕事は
  * 「届いた記録を、あとから引ける形にして残す」ことに限る。
  *
- * WHY: 何度呼ばれても行が増えないよう upsert する。確定処理は終了処理の途中で
- * 走るので、再試行や競合で二度流れることがある。
+ * WHY: すでに確定したプレイでは何もしない。確定の成否が呼び出し側へ届かず
+ * 再試行されたとき、反映済みの行を置き換えると掲載用の印が消える。
  */
 export async function finalizeScoreRecords(
     param: FinalizeParameterObject,
@@ -52,17 +53,25 @@ export async function finalizeScoreRecords(
     if (!content) {
         return;
     }
-    const endedAt = new Date();
+    const endedAt = new Date(param.endedAt);
     const durationSec = Math.max(
         0,
-        Math.floor((endedAt.getTime() - param.startedAt) / 1000),
+        Math.floor((param.endedAt - param.startedAt) / 1000),
     );
     // 集計に入れない記録も、印を付けて残す。後から方針を変えても作り直せる
     const excluded =
         param.crashed || !param.scoreDelivered || durationSec < MIN_PLAY_SEC;
     // WHY: 途中で失敗したら 1 件も残さない。一部だけ残ると、呼び出し側が
-    // 丸ごと試し直すまでの間に、そのプレイの記録が欠けたまま突き合わされうる
+    // 丸ごと試し直すまでの間に、そのプレイの記録が欠けたまま突き合わされうる。
+    // 1 件でも残っていれば、確定は済んでいる
     await prisma.$transaction(async (tx) => {
+        const finalized = await tx.scoreRecord.findFirst({
+            where: { playId: param.playId },
+            select: { id: true },
+        });
+        if (finalized) {
+            return;
+        }
         for (const entry of entries) {
             await saveRecord(tx, {
                 playId: param.playId,
@@ -120,19 +129,7 @@ async function saveRecord(
         durationSec: param.durationSec,
         excluded: param.excluded,
     };
-    const existing = await tx.scoreRecord.findFirst({
-        where: { playId: param.playId, playerId: param.playerId },
-        select: { id: true },
-    });
-    const record = existing
-        ? await tx.scoreRecord.update({
-              where: { id: existing.id },
-              data,
-              select: { id: true },
-          })
-        : await tx.scoreRecord.create({ data, select: { id: true } });
-    // records は差分ではなく全体なので、前回の行を置き換える
-    await tx.scoreValue.deleteMany({ where: { recordId: record.id } });
+    const record = await tx.scoreRecord.create({ data, select: { id: true } });
     const values = Object.entries(param.patch).flatMap(([key, value]) => {
         if (!isValidRecordKey(key)) {
             return [];

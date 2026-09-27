@@ -134,11 +134,12 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
                 continue;
             }
             const participant = byPlayerId.get(record.playerId);
-            // 報告が無い、または同意していない。載せない（既定は非掲載）
-            if (!participant || !participant.nameConsent) {
+            if (participant?.userId && optedOut.has(participant.userId)) {
+                await excludeRecord(prisma, record.id);
                 continue;
             }
-            if (participant.userId && optedOut.has(participant.userId)) {
+            // 報告が無い、または同意していない。載せない（既定は非掲載）
+            if (!participant || !participant.nameConsent) {
                 continue;
             }
             const subjectKey = toSubjectKey({
@@ -394,6 +395,22 @@ async function lockConsent(
     return rows[0];
 }
 
+/**
+ * 掲載をやめている間の記録を、以後も載せない印を付ける。
+ *
+ * WHY: 未反映のまま残すと、掲載を再開した後に届いた同意の報告で載ってしまう。
+ * 再開はこれから遊ぶ分にだけ効かせる
+ */
+async function excludeRecord(
+    client: TransactionClient | typeof prisma,
+    recordId: number,
+): Promise<void> {
+    await client.scoreRecord.updateMany({
+        where: { id: recordId, reflectedAt: null },
+        data: { excluded: true },
+    });
+}
+
 /** 掲載用へ反映したら、あわせて付与した称号を返す。反映しなかったら null */
 async function applyRecord(
     param: ApplyRecordParameterObject,
@@ -406,12 +423,18 @@ async function applyRecord(
             }
             // WHY: 突き合わせの冒頭で見た判定は古いことがある。書き込む直前に確かめ直す
             if (param.userId && (await lockOptOut(tx, param.userId))) {
+                await excludeRecord(tx, param.recordId);
                 return null;
             }
             // WHY: 反映済みの印を先に立て、同じ条件で 1 件だけ動いたことを確かめる。
             // 同時に 2 回走っても、後から来たほうは 0 件になって加算しない
+            // 掲載をやめていた間の記録と判定されたものも、ここで弾く
             const marked = await tx.scoreRecord.updateMany({
-                where: { id: param.recordId, reflectedAt: null },
+                where: {
+                    id: param.recordId,
+                    reflectedAt: null,
+                    excluded: false,
+                },
                 data: { reflectedAt: new Date(), subjectKey: param.subjectKey },
             });
             if (marked.count === 0) {

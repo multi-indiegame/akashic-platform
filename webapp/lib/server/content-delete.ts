@@ -121,6 +121,8 @@ export async function deleteGame(
                 id: param.gameId,
             },
         });
+        // WHY: 行を消した後に S3 を消し損ねても拾い直さない。残るのは公開済みの
+        // コンテンツと画像で、新たに情報が出るわけではない
         await Promise.all([
             ...contentIds.map(async (contentId) => {
                 await deleteContentDir(contentId);

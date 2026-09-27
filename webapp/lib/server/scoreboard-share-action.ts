@@ -72,6 +72,17 @@ export async function revokeScoreboardPublication(): Promise<ScoreboardSettingRe
                 });
                 await revokeSubject(`u:${userId}`, tx);
                 await tx.scoreTitle.deleteMany({ where: { userId } });
+                // WHY: 同意の報告を待っている記録も載せない印を付ける。未反映のまま
+                // 残すと、再開した後に届いた報告で、やめる前のプレイが載ってしまう
+                await tx.$executeRaw`
+                    UPDATE "ScoreRecord" r SET "excluded" = true
+                    FROM "PlayParticipant" p
+                    WHERE p."playId" = r."playId"
+                      AND p."playerId" = r."playerId"
+                      AND p."userId" = ${userId}
+                      AND r."reflectedAt" IS NULL
+                      AND r."excluded" = false
+                `;
             },
             { timeout: TOP_ENTRY_REBUILD_TIMEOUT_MS },
         );

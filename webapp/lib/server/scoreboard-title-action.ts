@@ -20,6 +20,7 @@ import {
 import { getSignedInUser } from "./auth";
 import { isWriteBlocked } from "./drain-state";
 import { logSafe } from "./log-safe";
+import { fetchKeyCounts } from "./scoreboard-keys";
 import {
     TitleFieldNames,
     TitleKeyTypes,
@@ -42,6 +43,9 @@ type TitleErrorType = (typeof titleErrReasons)[number];
 
 export type SaveTitleResponse =
     { ok: true } | { ok: false; reason: TitleErrorType };
+
+export type SaveTitleDefResponse =
+    { ok: true; id: number } | { ok: false; reason: TitleErrorType };
 
 export interface TitleDefInput {
     /** 既存を直すときだけ。新しく作るときは省く */
@@ -143,12 +147,7 @@ export async function fetchTitleEditorData(
                 _count: { select: { titles: true } },
             },
         }),
-        prisma.scoreValue.groupBy({
-            by: ["key"],
-            where: { gameId, record: { playerId: { not: null } } },
-            _count: { numValue: true, strValue: true, boolValue: true },
-            orderBy: { key: "asc" },
-        }),
+        fetchKeyCounts(gameId, false),
         fetchFormat(gameId),
     ]);
     const conditionKeys = defs.flatMap(
@@ -205,7 +204,7 @@ export async function fetchTitleEditorData(
 export async function saveTitleDef(
     gameId: number,
     input: TitleDefInput,
-): Promise<SaveTitleResponse> {
+): Promise<SaveTitleDefResponse> {
     if (isWriteBlocked()) {
         return { ok: false, reason: "Drain" };
     }
@@ -294,10 +293,13 @@ export async function saveTitleDef(
             if (result !== "ok") {
                 return { ok: false, reason: result };
             }
-        } else {
-            await prisma.scoreTitleDef.create({ data: { ...data, gameId } });
+            return { ok: true, id };
         }
-        return { ok: true };
+        const created = await prisma.scoreTitleDef.create({
+            data: { ...data, gameId },
+            select: { id: true },
+        });
+        return { ok: true, id: created.id };
     } catch (err) {
         console.warn(
             "failed to save title definition (gameId = %s)",

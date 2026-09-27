@@ -16,6 +16,7 @@ import { affectsTopEntries } from "../share/scoreboard-rebuild";
 import { getSignedInUser } from "./auth";
 import { isWriteBlocked } from "./drain-state";
 import { logSafe } from "./log-safe";
+import { KeyCounts, fetchKeyCounts } from "./scoreboard-keys";
 
 const LABEL_MAX_LENGTH = 40;
 const UNIT_MAX_LENGTH = 8;
@@ -258,28 +259,8 @@ export async function fetchFormatEditorData(
     }
     const format = await fetchFormat(gameId);
     const [rows, playRows] = await Promise.all([
-        prisma.scoreValue.groupBy({
-            by: ["key"],
-            where: { gameId, record: { playerId: { not: null } } },
-            _count: {
-                _all: true,
-                numValue: true,
-                strValue: true,
-                boolValue: true,
-            },
-            orderBy: { key: "asc" },
-        }),
-        prisma.scoreValue.groupBy({
-            by: ["key"],
-            where: { gameId, record: { playerId: null } },
-            _count: {
-                _all: true,
-                numValue: true,
-                strValue: true,
-                boolValue: true,
-            },
-            orderBy: { key: "asc" },
-        }),
+        fetchKeyCounts(gameId, false),
+        fetchKeyCounts(gameId, true),
     ]);
     return {
         playRankingHidden: format.playRanking.hidden,
@@ -294,18 +275,8 @@ export async function fetchFormatEditorData(
     };
 }
 
-type GroupedRow = {
-    key: string;
-    _count: {
-        _all: number;
-        numValue: number;
-        strValue: number;
-        boolValue: number;
-    };
-};
-
 function toCandidates(
-    rows: GroupedRow[],
+    rows: KeyCounts[],
     configured: { [key: string]: Partial<ScoreFieldSetting> },
     setting: (key: string) => ScoreFieldSetting,
 ): FieldCandidate[] {

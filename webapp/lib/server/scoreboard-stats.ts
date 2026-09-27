@@ -230,6 +230,8 @@ async function listKeys(
     gameId: number,
     period: StatsPeriod,
 ): Promise<string[]> {
+    // WHY: キーの数には上限を設けない。キーはゲームのコードが決めるもので、
+    // プレイごとに新しいキーを作る作りはゲーム側の誤りとして扱う
     if (period === "all") {
         // WHY: 複数ランクインのキーは主体ごとの集計を持たず、上位リストにしか
         // 現れない。片方だけを見るとそのキーが統計から消える
