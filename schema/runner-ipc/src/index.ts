@@ -75,6 +75,13 @@ export interface StopPlayResponse {
     ok: true;
     crashed: boolean;
     errorLogged: boolean;
+    /**
+     * 最後の記録まで akashic-server に届け切ったか。
+     *
+     * WHY: 届け切れないまま停止を応答すると、server は前に届いた古い記録で
+     * 確定してしまう。集計から外せるよう、届いたかを伝える
+     */
+    scoreDelivered: boolean;
 }
 
 /**

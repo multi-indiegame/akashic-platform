@@ -188,11 +188,15 @@ export const openapi = {
             },
             StopPlayResponse: {
                 type: "object",
-                required: ["ok", "crashed", "errorLogged"],
+                required: ["ok", "crashed", "errorLogged", "scoreDelivered"],
                 properties: {
                     ok: { type: "boolean", enum: [true] },
                     crashed: { type: "boolean" },
                     errorLogged: { type: "boolean" },
+                    scoreDelivered: {
+                        type: "boolean",
+                        description: "最後の記録まで送り切ったか",
+                    },
                 },
             },
             OkResponse: {

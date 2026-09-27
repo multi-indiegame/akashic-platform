@@ -3,7 +3,7 @@ import {
     NoSuchKey,
     PutObjectCommand,
 } from "@aws-sdk/client-s3";
-import { prisma } from "@multi-indiegame/persist-schema";
+import { Prisma, prisma } from "@multi-indiegame/persist-schema";
 import {
     ScoreboardFormatDefinition,
     fetchFormatAt,
@@ -208,22 +208,55 @@ async function buildArchive(
     // WHY: その月の終わりに有効だった版で固める。あとで投稿者が設定を変えても、
     // 過去の月の見え方は変わらない
     const format = await fetchFormatAt(gameId, to);
-    const values = await prisma.scoreValue.findMany({
-        where: {
-            gameId,
-            subjectKey: { not: null },
-            endedAt: { gte: from, lt: to },
-        },
-        select: {
-            key: true,
-            subjectKey: true,
-            numValue: true,
-            boolValue: true,
-            endedAt: true,
-        },
-        // WHY: 後から読んだ値を「最後の値」とするので、終わった順に並べる
-        orderBy: [{ endedAt: "asc" }, { id: "asc" }],
-    });
+    // WHY: 前の月の記録が遅れて反映されうる。別々の時点で読むと、値とプレイ回数が
+    // 食い違ったまま凍結されるので、同じ時点のデータで読む
+    const { values, playValues, playCounts } = await prisma.$transaction(
+        async (tx) => ({
+            values: await tx.scoreValue.findMany({
+                where: {
+                    gameId,
+                    subjectKey: { not: null },
+                    endedAt: { gte: from, lt: to },
+                },
+                select: {
+                    key: true,
+                    subjectKey: true,
+                    numValue: true,
+                    boolValue: true,
+                    endedAt: true,
+                },
+                // WHY: 後から読んだ値を「最後の値」とするので、終わった順に並べる
+                orderBy: [{ endedAt: "asc" }, { id: "asc" }],
+            }),
+            // WHY: プレイ自体の記録も同じ月に凍結する。生レコードが消えたあとでも、
+            // 月別の表示が組み立てられるようにする
+            playValues: await tx.scoreValue.findMany({
+                where: {
+                    gameId,
+                    endedAt: { gte: from, lt: to },
+                    record: { playerId: null, excluded: false },
+                },
+                select: {
+                    key: true,
+                    numValue: true,
+                    boolValue: true,
+                    endedAt: true,
+                },
+                orderBy: [{ endedAt: "asc" }, { id: "asc" }],
+            }),
+            playCounts: await tx.scoreRecord.groupBy({
+                by: ["subjectKey"],
+                where: {
+                    gameId,
+                    // WHY: 歴代（ScorePlayCount）と揃え、サインイン利用者だけ数える
+                    subjectKey: { startsWith: "u:" },
+                    endedAt: { gte: from, lt: to },
+                },
+                _count: { _all: true },
+            }),
+        }),
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
     const byKey = new Map<string, Map<string, ArchivedSubject>>();
     const entries = new Map<
         string,
@@ -249,27 +282,6 @@ async function buildArchive(
         }
         subjects.set(subjectKey, subject);
     }
-    // WHY: プレイ自体の記録も同じ月に凍結する。生レコードが消えたあとでも、
-    // 月別の表示が組み立てられるようにする
-    const playValues = await prisma.scoreValue.findMany({
-        where: {
-            gameId,
-            endedAt: { gte: from, lt: to },
-            record: { playerId: null, excluded: false },
-        },
-        select: { key: true, numValue: true, boolValue: true, endedAt: true },
-        orderBy: [{ endedAt: "asc" }, { id: "asc" }],
-    });
-    const playCounts = await prisma.scoreRecord.groupBy({
-        by: ["subjectKey"],
-        where: {
-            gameId,
-            // WHY: 歴代（ScorePlayCount）と揃え、サインイン利用者だけ数える
-            subjectKey: { startsWith: "u:" },
-            endedAt: { gte: from, lt: to },
-        },
-        _count: { _all: true },
-    });
     // WHY: 載せる情報が 1 つも無いときだけ凍結しない。値が 1 つも受け付けられ
     // なかった記録でも、掲載に同意したサインイン利用者の分はプレイ回数に数える
     if (

@@ -33,7 +33,7 @@ export class ScoreSender {
     _pending: Promise<void> = Promise.resolve();
     _seq = 0;
     _closed = false;
-    _closing?: Promise<void>;
+    _closing?: Promise<boolean>;
     _deadline?: number;
     _givenUp = false;
 
@@ -73,13 +73,14 @@ export class ScoreSender {
         return this._pending;
     }
 
-    close(): Promise<void> {
+    /** 最後の記録まで送り切れたかを返す */
+    close(): Promise<boolean> {
         // WHY: 後から呼んだ側も、送り直しが終わるまで待たせる
         this._closing ??= this._close();
         return this._closing;
     }
 
-    async _close() {
+    async _close(): Promise<boolean> {
         this._closed = true;
         this._clearTimer();
         this._deadline = Date.now() + CLOSE_DEADLINE_MS;
@@ -95,6 +96,7 @@ export class ScoreSender {
                 playId: this._playId,
             });
         }
+        return !this._dirty && !this._givenUp;
     }
 
     _touch() {

@@ -21,11 +21,11 @@ export interface FinalizeParameterObject {
     /** 投稿スクリプトの実行時エラーで終わったか */
     crashed: boolean;
     /**
-     * 実行基盤が停止を応答したか。
+     * 実行基盤が、最後の記録まで届け切ったと停止に応答したか。
      *
-     * WHY: 停止の応答は、間引き待ちだった最後の記録が届いたことの保証を兼ねる。
+     * WHY: 間引き待ちだった最後の記録が届いていないと、手元にあるのは古い記録になる。
      */
-    stopConfirmed: boolean;
+    scoreDelivered: boolean;
 }
 
 /**
@@ -59,7 +59,7 @@ export async function finalizeScoreRecords(
     );
     // 集計に入れない記録も、印を付けて残す。後から方針を変えても作り直せる
     const excluded =
-        param.crashed || !param.stopConfirmed || durationSec < MIN_PLAY_SEC;
+        param.crashed || !param.scoreDelivered || durationSec < MIN_PLAY_SEC;
     for (const entry of entries) {
         await saveRecord({
             playId: param.playId,

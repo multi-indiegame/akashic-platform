@@ -97,10 +97,11 @@ export class ExecRunner {
             await this._closeSession(this._session);
             this._session = undefined;
         }
-        // 未送出の記録を送り切ってから応答する。これで StopPlayResponse を返す
-        // 時点で、最新の記録が akashic-server に届いている。
+        // 未送出の記録を送り切ってから応答する。送り切れなかったときは
+        // scoreDelivered で伝え、server に古い記録で確定させない。
+        let scoreDelivered = true;
         if (this._scoreSender) {
-            await this._scoreSender.close();
+            scoreDelivered = await this._scoreSender.close();
             this._scoreSender = undefined;
         }
         // 未送出のログを送り切ってから応答する。ここまでのログが content-log に載る。
@@ -112,6 +113,7 @@ export class ExecRunner {
             ok: true,
             crashed: this._crashing,
             errorLogged: this._errorLogged,
+            scoreDelivered,
         } as StopPlayResponse;
     }
 
