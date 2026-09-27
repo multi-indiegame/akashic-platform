@@ -1,13 +1,6 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import {
-    getDrainState,
-    registerRequestId,
-    setDrainState,
-} from "@/lib/server/drain-state";
-
-const MAX_SKEW_MS = 60 * 1000;
-const REQUEST_ID_TTL_MS = 5 * 60 * 1000;
+import { getDrainState, setDrainState } from "@/lib/server/drain-state";
+import { verifyInternalRequest } from "@/lib/server/internal-signature";
 
 function noStoreJson(body: unknown, status = 200) {
     return NextResponse.json(body, {
@@ -25,107 +18,24 @@ export async function GET() {
     });
 }
 
-function verifySignature({
-    secret,
-    timestamp,
-    rawBody,
-    signature,
-}: {
-    secret: string;
-    timestamp: string;
-    rawBody: string;
-    signature: string;
-}) {
-    const expected = createHmac("sha256", secret)
-        .update(`${timestamp}.${rawBody}`)
-        .digest("hex");
-    const actualBuf = Buffer.from(signature, "hex");
-    const expectedBuf = Buffer.from(expected, "hex");
-    if (actualBuf.length !== expectedBuf.length) {
-        return false;
-    }
-    return timingSafeEqual(actualBuf, expectedBuf);
-}
-
 export async function POST(req: NextRequest) {
-    const secret = process.env.HMAC_SECRET;
-    if (!secret) {
+    const verified = await verifyInternalRequest(req, "x-drain");
+    if (!verified.ok) {
         return noStoreJson(
             {
                 ok: false,
-                reason: "ServerMisconfigured",
+                reason: verified.reason,
             },
-            500,
-        );
-    }
-
-    const timestamp = req.headers.get("x-drain-timestamp");
-    const signature = req.headers.get("x-drain-signature");
-    const requestId = req.headers.get("x-drain-id");
-    if (!timestamp || !signature || !requestId) {
-        return noStoreJson(
-            {
-                ok: false,
-                reason: "MissingHeaders",
-            },
-            401,
-        );
-    }
-
-    const timestampMs = Number.parseInt(timestamp, 10);
-    if (!Number.isFinite(timestampMs)) {
-        return noStoreJson(
-            {
-                ok: false,
-                reason: "InvalidTimestamp",
-            },
-            401,
-        );
-    }
-    if (Math.abs(Date.now() - timestampMs) > MAX_SKEW_MS) {
-        return noStoreJson(
-            {
-                ok: false,
-                reason: "ExpiredTimestamp",
-            },
-            401,
-        );
-    }
-    const rawBody = await req.text();
-    const verified = verifySignature({
-        secret,
-        timestamp,
-        rawBody,
-        signature,
-    });
-    if (!verified) {
-        return noStoreJson(
-            {
-                ok: false,
-                reason: "InvalidSignature",
-            },
-            401,
-        );
-    }
-    if (
-        !registerRequestId({
-            requestId,
-            nowMs: Date.now(),
-            ttlMs: REQUEST_ID_TTL_MS,
-        })
-    ) {
-        return noStoreJson(
-            {
-                ok: false,
-                reason: "ReplayDetected",
-            },
-            401,
+            verified.status,
         );
     }
 
     let body: { enabled?: boolean; reason?: string };
     try {
-        body = JSON.parse(rawBody) as { enabled?: boolean; reason?: string };
+        body = JSON.parse(verified.rawBody) as {
+            enabled?: boolean;
+            reason?: string;
+        };
     } catch {
         return noStoreJson(
             {

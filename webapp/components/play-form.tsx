@@ -28,6 +28,7 @@ import {
     Search,
     SpeakerNotesOff,
     SportsEsports,
+    Add,
 } from "@mui/icons-material";
 import { messageKey, messages } from "@/lib/types";
 import { registerPlay } from "@/lib/server/play-register";
@@ -272,6 +273,7 @@ export function PlayForm({
                             {roomBadges}
                         </Stack>
                         <Button
+                            startIcon={<Add />}
                             type="submit"
                             variant="contained"
                             size="large"
@@ -439,6 +441,7 @@ export function PlayForm({
                     </Alert>
                 )}
                 <Button
+                    startIcon={<Add />}
                     type="submit"
                     variant="contained"
                     size="large"
@@ -506,6 +509,7 @@ export function PlayForm({
                 </Alert>
             )}
             <Button
+                startIcon={<Add />}
                 type="submit"
                 variant="contained"
                 size="large"

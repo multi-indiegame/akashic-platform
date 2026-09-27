@@ -18,7 +18,7 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
-import { Notifications } from "@mui/icons-material";
+import { Notifications, DoneAll } from "@mui/icons-material";
 import {
     markAllNotificationsReadAction,
     markNotificationReadAction,
@@ -111,6 +111,7 @@ export function NotificationBell() {
                     >
                         <Typography variant="subtitle1">通知</Typography>
                         <Button
+                            startIcon={<DoneAll />}
                             size="small"
                             onClick={handleMarkAll}
                             disabled={isPending || !unreadCount}

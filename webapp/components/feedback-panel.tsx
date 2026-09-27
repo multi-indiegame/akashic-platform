@@ -18,6 +18,7 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
+import { Send } from "@mui/icons-material";
 import { FeedbackPost, GUEST_NAME, User } from "@/lib/types";
 import { FeedbackFormState, postFeedbackAction } from "@/lib/server/feedback";
 import { STORAGE_KEYS, useLocalStorage } from "@/lib/client/useLocalStorage";
@@ -31,7 +32,12 @@ const initialState: FeedbackFormState = {
 function SubmitButton({ label }: { label: string }) {
     const { pending } = useFormStatus();
     return (
-        <Button variant="contained" type="submit" disabled={pending}>
+        <Button
+            startIcon={<Send />}
+            variant="contained"
+            type="submit"
+            disabled={pending}
+        >
             {label}
         </Button>
     );

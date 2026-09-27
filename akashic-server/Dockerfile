@@ -9,6 +9,7 @@ COPY schema/amflow/server/package.json schema/amflow/server/package.json
 COPY schema/runner-ipc/package.json schema/runner-ipc/package.json
 COPY schema/http/package.json schema/http/package.json
 COPY schema/persist/package.json schema/persist/package.json
+COPY schema/scoreboard/package.json schema/scoreboard/package.json
 COPY playlogClient-like/package.json playlogClient-like/package.json
 COPY agvw-like/package.json agvw-like/package.json
 COPY akashic-server/package.json akashic-server/package.json
@@ -20,6 +21,7 @@ RUN npm ci -w @multi-indiegame/akashic-server
 
 COPY . .
 RUN npm run build -w @multi-indiegame/persist-schema \
+  && npm run build -w @multi-indiegame/scoreboard-schema \
   && npm run build -w @multi-indiegame/amflow-event-schema \
   && npm run build -w @multi-indiegame/amflow-client-event-schema \
   && npm run build -w @multi-indiegame/runner-ipc-schema \
@@ -30,6 +32,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3032
 COPY --from=build --parents /app/schema/persist/package.json /app/schema/persist/dist /
+COPY --from=build --parents /app/schema/scoreboard/package.json /app/schema/scoreboard/dist /
 COPY --from=build --parents /app/schema/amflow/common/package.json /app/schema/amflow/common/dist /
 COPY --from=build --parents /app/schema/amflow/client/package.json /app/schema/amflow/client/dist /
 COPY --from=build --parents /app/schema/runner-ipc/package.json /app/schema/runner-ipc/dist /

@@ -9,6 +9,7 @@ import {
     CircularProgress,
     Stack,
     Typography,
+    useTheme,
 } from "@mui/material";
 import { ArrowDownward } from "@mui/icons-material";
 import { formatDistance } from "date-fns";
@@ -17,6 +18,7 @@ import { PlayChatMessageInfo } from "@/lib/types";
 import { usePlayChatContext } from "@/lib/client/usePlayChatContext";
 import { useMute } from "@/lib/client/useMute";
 import { UserInline } from "../user-inline";
+import { TitleBadges } from "../title-badges";
 import { MutedMessage } from "../muted-message";
 import { ModerationMenu, BanContext } from "../moderation-menu";
 
@@ -45,6 +47,14 @@ function HistoryBody({ message }: { message: PlayChatMessageInfo }) {
                     avatarSize={20}
                     textVariant="subtitle2"
                 />
+                {message.titles && message.titles.length > 0 && (
+                    <TitleBadges
+                        titles={message.titles}
+                        variant="compact"
+                        iconSize={20}
+                        openInNewWindow
+                    />
+                )}
                 <Typography variant="caption" color="textSecondary">
                     {formatDistance(new Date(message.createdAt), new Date(), {
                         addSuffix: true,
@@ -107,6 +117,7 @@ export function PlayChatHistory({
 }: {
     messages: PlayChatMessageInfo[];
 }) {
+    const theme = useTheme();
     const { isLoading, error, refresh, isGameMaster, playId } =
         usePlayChatContext();
     const mute = useMute("chat", refresh);
@@ -171,8 +182,10 @@ export function PlayChatHistory({
                     maxHeight: { xs: "30vh", sm: "35vh" },
                     px: { xs: 1.5, sm: 2 },
                     py: 1,
-                    backgroundColor: (theme) =>
-                        alpha(theme.palette.background.paper, 0.96),
+                    backgroundColor: alpha(
+                        theme.palette.background.paper,
+                        0.96,
+                    ),
                 }}
             >
                 {isLoading ? (

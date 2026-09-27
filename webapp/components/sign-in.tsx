@@ -3,17 +3,18 @@
 import { JSX, useState } from "react";
 import { signIn } from "next-auth/react";
 import { Button, Stack } from "@mui/material";
-import { GitHub, Google, Twitter } from "@mui/icons-material";
+import { GitHub, Google, X } from "@mui/icons-material";
 import {
     AuthProvider,
     authProviderNames,
     authProviders,
 } from "@/lib/client/auth-providers";
+import { verticalButtonSx } from "@/lib/client/theme";
 
 const providerIcons: Record<AuthProvider, JSX.Element> = {
     github: <GitHub />,
     google: <Google />,
-    twitter: <Twitter />,
+    twitter: <X />,
 };
 
 export function SignIn({
@@ -37,6 +38,7 @@ export function SignIn({
             sx={{
                 width: "100%",
                 alignItems: "stretch",
+                ...verticalButtonSx,
             }}
         >
             {authProviders.map((provider) => (

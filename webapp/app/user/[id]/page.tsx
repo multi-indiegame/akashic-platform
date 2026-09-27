@@ -34,7 +34,13 @@ import {
     Logout,
     OpenInNew,
     Refresh,
-    Twitter,
+    Leaderboard,
+    Save,
+    InfoOutlined,
+    Add,
+    Settings,
+    Edit,
+    X,
 } from "@mui/icons-material";
 import { GameInfo, UserNameFormState, UserHandleFormState } from "@/lib/types";
 import { useAuth } from "@/lib/client/useAuth";
@@ -55,11 +61,14 @@ import { CopyLinkBox, CopyStatusSnackbar } from "@/components/copy-link-box";
 import { PlayCreateDialog } from "@/components/play-create-dialog";
 import { UserFeedbackList } from "@/components/user-feedback-list";
 import { UserGameListSection } from "@/components/user-game-list-section";
+import { GameActions } from "@/components/game-list-table";
+import { MyScoreboardSettings } from "@/components/my-scoreboard-settings";
+import { TitleBadges } from "@/components/title-badges";
 
 const providerIcons: Record<AuthProvider, JSX.Element> = {
     github: <GitHub />,
     google: <Google />,
-    twitter: <Twitter />,
+    twitter: <X />,
 };
 
 function UserAuthProvider({ provider }: { provider?: string }) {
@@ -157,13 +166,20 @@ function UserNameForm({
         <form action={action}>
             <Stack spacing={2}>
                 <input type="hidden" name="userId" value={userId} />
-                <TextField
-                    label="ユーザー名"
-                    name="name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    fullWidth
-                />
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 2, sm: 1 }}
+                    sx={{ alignItems: { xs: "stretch", sm: "flex-start" } }}
+                >
+                    <TextField
+                        label="ユーザー名"
+                        name="name"
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        fullWidth
+                    />
+                    <UserNameSubmitButton />
+                </Stack>
                 {!state.ok && state.submitted && (
                     <Alert severity="error" variant="outlined">
                         {state.message}
@@ -174,7 +190,6 @@ function UserNameForm({
                         ユーザー名を更新しました。
                     </Alert>
                 )}
-                <UserNameSubmitButton />
             </Stack>
         </form>
     );
@@ -183,7 +198,13 @@ function UserNameForm({
 function UserNameSubmitButton() {
     const { pending } = useFormStatus();
     return (
-        <Button type="submit" variant="contained" disabled={pending}>
+        <Button
+            startIcon={<Save />}
+            type="submit"
+            variant="contained"
+            disabled={pending}
+            sx={{ flexShrink: 0, height: { sm: 56 } }}
+        >
             変更
         </Button>
     );
@@ -220,16 +241,23 @@ function UserHandleForm({
     return (
         <form action={action}>
             <Stack spacing={2}>
-                <TextField
-                    label="あなたの部屋ID"
-                    name="handle"
-                    value={handle}
-                    onChange={(e) => setHandle(e.target.value)}
-                    placeholder="例: user12345"
-                    helperText="2〜20文字の英小文字・数字・ _ ・ - が使えます。先頭は英数字にしてください。"
-                    fullWidth
-                    slotProps={{ htmlInput: { maxLength: 20 } }}
-                />
+                <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    spacing={{ xs: 2, sm: 1 }}
+                    sx={{ alignItems: { xs: "stretch", sm: "flex-start" } }}
+                >
+                    <TextField
+                        label="あなたの部屋ID"
+                        name="handle"
+                        value={handle}
+                        onChange={(e) => setHandle(e.target.value)}
+                        placeholder="例: user12345"
+                        helperText="2〜20文字の英小文字・数字・ _ ・ - が使えます。先頭は英数字にしてください。"
+                        fullWidth
+                        slotProps={{ htmlInput: { maxLength: 20 } }}
+                    />
+                    <UserHandleSubmitButton />
+                </Stack>
                 {!state.ok && state.submitted && (
                     <Alert severity="error" variant="outlined">
                         {state.message}
@@ -240,7 +268,6 @@ function UserHandleForm({
                         あなたの部屋IDを更新しました。
                     </Alert>
                 )}
-                <UserHandleSubmitButton />
             </Stack>
         </form>
     );
@@ -249,7 +276,13 @@ function UserHandleForm({
 function UserHandleSubmitButton() {
     const { pending } = useFormStatus();
     return (
-        <Button type="submit" variant="contained" disabled={pending}>
+        <Button
+            startIcon={<Save />}
+            type="submit"
+            variant="contained"
+            disabled={pending}
+            sx={{ flexShrink: 0, height: { sm: 56 } }}
+        >
             変更
         </Button>
     );
@@ -513,6 +546,49 @@ export default function UserPage() {
                                             </>
                                         )}
                                         <Divider />
+                                        <Typography variant="h6">
+                                            記録と称号
+                                        </Typography>
+                                        {profile.titles &&
+                                            profile.titles.length > 0 && (
+                                                <TitleBadges
+                                                    titles={profile.titles}
+                                                />
+                                            )}
+                                        <Typography
+                                            variant="body2"
+                                            color="textSecondary"
+                                        >
+                                            遊んだゲームの記録と、集めた称号をまとめて見られます。
+                                        </Typography>
+                                        <Box>
+                                            <Button
+                                                variant="outlined"
+                                                component={Link}
+                                                href="/my-stats"
+                                                startIcon={<Leaderboard />}
+                                                sx={{
+                                                    borderColor:
+                                                        theme.palette.primary
+                                                            .light,
+                                                    color: theme.palette.primary
+                                                        .light,
+                                                }}
+                                            >
+                                                記録と称号を見る
+                                            </Button>
+                                        </Box>
+                                        <MyScoreboardSettings
+                                            userId={profile.id}
+                                            userName={profile.name}
+                                            initialPublic={
+                                                !!profile.scoreboardPublic
+                                            }
+                                            initialOptOut={
+                                                !!profile.scoreboardOptOut
+                                            }
+                                        />
+                                        <Divider />
                                         <Box>
                                             <Button
                                                 variant="outlined"
@@ -532,6 +608,59 @@ export default function UserPage() {
                                     </Stack>
                                 </>
                             )}
+                            {!isOwner &&
+                                ((profile.titles &&
+                                    profile.titles.length > 0) ||
+                                    profile.scoreboardPublic) && (
+                                    <>
+                                        <Divider />
+                                        <Stack spacing={2}>
+                                            <Typography variant="h6">
+                                                記録と称号
+                                            </Typography>
+                                            {profile.titles &&
+                                                profile.titles.length > 0 && (
+                                                    <TitleBadges
+                                                        titles={profile.titles}
+                                                    />
+                                                )}
+                                            {profile.scoreboardPublic && (
+                                                <>
+                                                    <Typography
+                                                        variant="body2"
+                                                        color="textSecondary"
+                                                    >
+                                                        {profile.name}{" "}
+                                                        さんが遊んだゲームの記録と、集めた称号をまとめて見られます。
+                                                    </Typography>
+                                                    <Box>
+                                                        <Button
+                                                            variant="outlined"
+                                                            component={Link}
+                                                            href={`/user/${profile.id}/stats`}
+                                                            startIcon={
+                                                                <Leaderboard />
+                                                            }
+                                                            sx={{
+                                                                borderColor:
+                                                                    theme
+                                                                        .palette
+                                                                        .primary
+                                                                        .light,
+                                                                color: theme
+                                                                    .palette
+                                                                    .primary
+                                                                    .light,
+                                                            }}
+                                                        >
+                                                            記録と称号を見る
+                                                        </Button>
+                                                    </Box>
+                                                </>
+                                            )}
+                                        </Stack>
+                                    </>
+                                )}
                         </Stack>
                     </CardContent>
                 </Card>
@@ -540,11 +669,9 @@ export default function UserPage() {
                     userId={id}
                     title="投稿したゲーム"
                     renderActions={(game: GameInfo, isTable: boolean) => (
-                        <Stack
-                            direction={isTable ? "column" : "row"}
-                            spacing={1}
-                        >
+                        <GameActions isTable={isTable}>
                             <Button
+                                startIcon={<InfoOutlined />}
                                 variant="outlined"
                                 component={Link}
                                 href={`/game/${game.id}`}
@@ -556,6 +683,7 @@ export default function UserPage() {
                                 詳細
                             </Button>
                             <Button
+                                startIcon={<Add />}
                                 variant="outlined"
                                 onClick={() => handleOpenDialog(game)}
                                 sx={{
@@ -565,8 +693,24 @@ export default function UserPage() {
                             >
                                 部屋を作る
                             </Button>
+                            {isOwner && game.hasScoreboard && (
+                                <Button
+                                    startIcon={<Settings />}
+                                    variant="outlined"
+                                    component={Link}
+                                    href={`/game/${game.id}/stats/edit`}
+                                    sx={{
+                                        borderColor:
+                                            theme.palette.text.secondary,
+                                        color: theme.palette.text.secondary,
+                                    }}
+                                >
+                                    統計・称号の設定
+                                </Button>
+                            )}
                             {isOwner && (
                                 <Button
+                                    startIcon={<Edit />}
                                     variant="contained"
                                     component={Link}
                                     href={`/game/${game.id}/edit`}
@@ -574,7 +718,7 @@ export default function UserPage() {
                                     編集
                                 </Button>
                             )}
-                        </Stack>
+                        </GameActions>
                     )}
                 />
 

@@ -38,6 +38,8 @@ import {
     Lock,
     NoAccounts,
     SpeakerNotesOff,
+    MeetingRoom,
+    ExpandMore,
 } from "@mui/icons-material";
 import { PlayInfo } from "@/lib/types";
 import { useLocalMutes } from "@/lib/client/useLocalMutes";
@@ -279,6 +281,7 @@ function PlayGrid({ list }: { list: PlayInfo[] }) {
                             </Stack>
                             <CardActions sx={{ marginTop: "auto" }}>
                                 <Button
+                                    startIcon={<MeetingRoom />}
                                     variant="contained"
                                     size="large"
                                     component={Link}
@@ -300,6 +303,7 @@ function LoadMore({ handleClickMore }: { handleClickMore: () => void }) {
     const theme = useTheme();
     return (
         <Button
+            startIcon={<ExpandMore />}
             onClick={handleClickMore}
             sx={{
                 display: "flex",

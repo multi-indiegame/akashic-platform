@@ -26,7 +26,7 @@ export function SiteFooter() {
                 <Stack>
                     <SiteCustomFooter />
                     <Stack
-                        direction={{ xs: "column", md: "row" }}
+                        direction={{ xs: "column", lg: "row" }}
                         spacing={{
                             xs: 0,
                             md: 1,
@@ -78,6 +78,14 @@ export function SiteFooter() {
                                 variant="body2"
                             >
                                 お問い合わせ
+                            </Link>
+                            <Typography variant="body2"> / </Typography>
+                            <Link
+                                href="/licenses"
+                                color="inherit"
+                                variant="body2"
+                            >
+                                素材のライセンス
                             </Link>
                             <Typography variant="body2"> / </Typography>
                             <Stack direction="row" spacing="0.5">

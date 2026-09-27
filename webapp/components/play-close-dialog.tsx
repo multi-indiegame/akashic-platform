@@ -11,6 +11,7 @@ import {
     DialogContentText,
     DialogTitle,
 } from "@mui/material";
+import { DoorBack } from "@mui/icons-material";
 import { GameInfo, messageKey, messages, User } from "@/lib/types";
 import { EndPlayResponse, endPlayAction } from "@/lib/server/play-end-action";
 import { PlayCreateDialog } from "./play-create-dialog";
@@ -115,6 +116,7 @@ export function PlayCloseDialog({
     return (
         <>
             <Button
+                startIcon={<DoorBack />}
                 variant="outlined"
                 color="error"
                 onClick={handleClick}

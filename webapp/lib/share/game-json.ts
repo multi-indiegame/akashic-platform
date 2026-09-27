@@ -1,5 +1,5 @@
 import type { Environment } from "@akashic/game-configuration";
-import { supportedAkashicModes, supportedAkashicVersions } from "./types";
+import { supportedAkashicModes, supportedAkashicVersions } from "../types";
 
 type ModeKey = "nicolive" | "niconico";
 

@@ -113,6 +113,7 @@ function BanConfirmDialog({
                                 キャンセル
                             </Button>
                             <Button
+                                startIcon={<Block />}
                                 onClick={submit}
                                 variant="contained"
                                 color="error"

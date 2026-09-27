@@ -11,3 +11,10 @@ export const clientLogCacheMaxEntries = Number.parseInt(
 export const drainRefreshInterval = Number.parseInt(
     process.env.DRAIN_REFRESH_INTERVAL ?? "5000",
 );
+
+/**
+ * 段位ごとの既定の称号画像。`{rank}` を段位（小文字）に置き換えて使う。
+ */
+export const titleRankImageUrlPattern =
+    process.env.TITLE_RANK_IMAGE_URL_PATTERN ??
+    `${process.env.PUBLIC_BASE_URL ?? "http://localhost:3000"}/image/rank/{rank}.png`;

@@ -1,8 +1,12 @@
 import type { PassThrough } from "node:stream";
+import { setTimeout as delay } from "node:timers/promises";
 import type { Upload } from "@aws-sdk/lib-storage";
 import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema";
 import { prisma } from "@multi-indiegame/persist-schema";
+import type { ScoreboardRecords } from "@multi-indiegame/runner-ipc-schema";
+import { reconcilePlay } from "@multi-indiegame/scoreboard-schema";
 import type { RunnerClient } from "./runnerClient";
+import { finalizeScoreRecords } from "./scoreboard";
 import { playStorage } from "./logger";
 import { withPlayBaggage } from "./playBaggage";
 import { maskSecrets } from "./secretMasker";
@@ -19,6 +23,11 @@ const IDLE_POLL_INTERVAL_MS = 30 * 1000;
 // content-log は S3 へ確定するまでメモリ上の PassThrough に溜まるため、投稿スクリプトが
 // 大量出力してもメモリと S3 オブジェクトが際限なく膨らまないよう上限を設ける。
 const MAX_CONTENT_LOG_BYTES = 16 * 1024 * 1024;
+// WHY: 記録の確定・突き合わせを後から拾い直す仕組みは無い。ここで失敗したままに
+// すると、同意の報告が遅れて届かない限りそのプレイの記録は掲載されない。
+// 数秒で済まない障害では諦め、そのプレイが載らないことを許す（ログのアップロードと
+// 同じ扱い）。永続化したタスクや起動時の走査で拾い直す仕組みは持たない
+const SCORE_RETRY_DELAYS_MS = [1000, 3000];
 
 export interface RunnerParameterObject {
     publicWebappUrl: string;
@@ -43,6 +52,8 @@ export interface RunnerParameterObject {
     inviteHash?: string;
     requireSignIn: boolean;
     chatEnabled: boolean;
+    /** コンテンツが scoreboard を宣言しているか。生やすかどうかを決める */
+    scoreboard: boolean;
     onDestroy: (playId: number) => void;
 }
 
@@ -61,6 +72,10 @@ export class Runner {
     _lastLogSeq = 0;
     _logBytes = 0;
     _logTruncated = false;
+    _startedAt?: number;
+    _scoreRecords?: ScoreboardRecords;
+    _lastScoreSeq = 0;
+    _scoreClosed = false;
 
     constructor(param: RunnerParameterObject) {
         this._param = param;
@@ -116,7 +131,9 @@ export class Runner {
                             playerName: this._param.playerName,
                             maxPreservingTickSize:
                                 this._param.maxPreservingTickSize,
+                            scoreboard: this._param.scoreboard ? {} : undefined,
                         });
+                        this._startedAt = Date.now();
                         this._setTimer(Date.now() + PLAY_DURATION_MS);
                         this._startIdleWatch(playId);
                     } catch (err) {
@@ -180,6 +197,27 @@ export class Runner {
         }
         this._logBytes += size;
         this._logStream!.write(masked);
+    }
+
+    acceptsScore() {
+        // WHY: 終了処理に入っても stopPlay が済むまでは受け付ける。runner は
+        // 停止の中で、間引き待ちだった最後の記録を送ってくる
+        return this._playId != null && !this._scoreClosed;
+    }
+
+    /**
+     * 進行中の記録を受け取る。
+     *
+     * WHY: メモリにだけ持つ。1 プレイに閉じた情報の欠落は許容する範囲なので、
+     * 更新のたびに DB を叩く必要がない。
+     */
+    updateScore(records: ScoreboardRecords, seq: number) {
+        // 応答が失われて再送になったとき、古い内容で新しい内容を上書きしない
+        if (seq <= this._lastScoreSeq) {
+            return;
+        }
+        this._lastScoreSeq = seq;
+        this._scoreRecords = records;
     }
 
     resolveAllowedAsset(url: string) {
@@ -247,21 +285,27 @@ export class Runner {
         }
         this._ending = true;
         const playId = this._playId;
+        // WHY: 停止を待つ間 (最後の記録の送り直しを含む) や確定の再試行を待つ間を
+        // プレイ時間に含めない。含めると下限を越えたり、月の境目をまたいだりする
+        const endedAt = Date.now();
         this._clearTimer();
         this._clearIdleWatch();
 
         let crashed = false;
         let errorLogged = false;
+        let scoreDelivered = false;
         try {
             const res = await this._param.runnerClient.stopPlay(playId);
             crashed = res.crashed;
             errorLogged = res.errorLogged;
+            scoreDelivered = res.scoreDelivered;
         } catch (err) {
             console.warn(
                 `failed to stop play on runner (playId = "${playId}")`,
                 err,
             );
         }
+        this._scoreClosed = true;
 
         if (notifyPlaylogServer) {
             try {
@@ -270,6 +314,7 @@ export class Runner {
                 console.warn(`failed to end play (playId = "${playId}")`, err);
             }
         }
+        await this._finalizeScore(playId, endedAt, crashed, scoreDelivered);
         await this._endPlayRecord(playId);
         this._param.onDestroy(playId);
 
@@ -373,6 +418,44 @@ export class Runner {
         } catch (err) {
             console.warn(`failed to delete playId "${playId}"`, err);
         }
+    }
+
+    async _finalizeScore(
+        playId: number,
+        endedAt: number,
+        crashed: boolean,
+        scoreDelivered: boolean,
+    ) {
+        if (!this._scoreRecords) {
+            return;
+        }
+        const records = this._scoreRecords;
+        this._scoreRecords = undefined;
+        // WHY: 記録が残らないことの影響はそのプレイに閉じるので、
+        // 失敗してもプレイの終了処理は止めない（ログのアップロードと同じ扱い）
+        const finalized = await retryScoreTask(
+            () =>
+                finalizeScoreRecords({
+                    playId,
+                    contentId: this._param.contentId,
+                    records,
+                    startedAt: this._startedAt ?? endedAt,
+                    endedAt,
+                    crashed,
+                    scoreDelivered,
+                }),
+            `failed to finalize score records (playId = "${playId}")`,
+        );
+        if (!finalized) {
+            return;
+        }
+        // WHY: 掲載してよいかの判定はこの呼び出しの中だけで行う。
+        // ここは「揃ったので突き合わせてほしい」と伝えるだけで、
+        // 同意そのものは扱わない
+        await retryScoreTask(
+            () => reconcilePlay(playId),
+            `failed to reconcile score records (playId = "${playId}")`,
+        );
     }
 
     async _endPlayRecord(playId: number) {
@@ -693,6 +776,24 @@ export class Runner {
             console.warn(
                 `failed to notify extend. (playId = "${playId}", cause = "${await res.text()}")`,
             );
+        }
+    }
+}
+
+async function retryScoreTask(
+    task: () => Promise<unknown>,
+    failureMessage: string,
+): Promise<boolean> {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            await task();
+            return true;
+        } catch (err) {
+            if (attempt >= SCORE_RETRY_DELAYS_MS.length) {
+                console.warn(failureMessage, err);
+                return false;
+            }
+            await delay(SCORE_RETRY_DELAYS_MS[attempt]);
         }
     }
 }

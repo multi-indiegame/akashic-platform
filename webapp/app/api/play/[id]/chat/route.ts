@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@multi-indiegame/persist-schema";
-import { PlayChatGetResponse, PlayChatMessageInfo, User } from "@/lib/types";
+import {
+    PlayChatGetResponse,
+    PlayChatMessageInfo,
+    TitleBadge,
+    User,
+} from "@/lib/types";
 import {
     authorizePlayChat,
     PLAY_CHAT_FETCH_LIMIT,
@@ -17,6 +22,7 @@ import {
     sessionViewerId,
     verifyRoomOwner,
 } from "@/lib/server/viewer-identity";
+import { fetchTitlesForUsers } from "@/lib/server/scoreboard-title";
 
 type PlayChatRecord = {
     id: number;
@@ -31,6 +37,7 @@ function toInfo(
     message: PlayChatRecord,
     viewer: User,
     muteSet: MuteSet,
+    titles: Map<string, TitleBadge[]>,
 ): PlayChatMessageInfo {
     const subject = {
         authorId: message.author?.id,
@@ -45,6 +52,7 @@ function toInfo(
             anonKey: anonKey(subject, viewer.id),
             isSelf: isSameViewer(subject, viewer),
         },
+        titles: message.author?.id ? titles.get(message.author.id) : undefined,
         body: message.body,
         createdAt: message.createdAt,
         muted: isMuted(muteSet, subject) || undefined,
@@ -92,11 +100,19 @@ export async function GET(
                 },
             },
         });
+        // WHY: 表示中のメッセージの投稿者分をまとめて 1 回で引く。
+        // メッセージごとに引くとポーリングのたびに件数分の問い合わせになる
+        const titles = await fetchTitlesForUsers(
+            messages
+                .map((message) => message.author?.id)
+                .filter((id): id is string => !!id),
+            auth.gameId,
+        );
         const res = NextResponse.json<PlayChatGetResponse>({
             ok: true,
             data: messages
                 .reverse()
-                .map((message) => toInfo(message, auth.user, muteSet)),
+                .map((message) => toInfo(message, auth.user, muteSet, titles)),
         });
         if (auth.needsRenew) {
             setPlayAccessCookie(

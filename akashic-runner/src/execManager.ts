@@ -35,6 +35,8 @@ export class ExecManager {
                 ok: true,
                 crashed: false,
                 errorLogged: false,
+                // WHY: 動いていない runner からは、記録が届いたと言い切れない
+                scoreDelivered: false,
             } as StopPlayResponse;
         }
         this._runners.delete(playId);

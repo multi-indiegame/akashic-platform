@@ -13,6 +13,7 @@ import {
     Stack,
     Typography,
 } from "@mui/material";
+import { LockOpen } from "@mui/icons-material";
 import { formatDistance } from "date-fns";
 import { ja } from "date-fns/locale";
 import { MUTE_LIMIT_DEFAULT } from "@/lib/types";
@@ -98,6 +99,7 @@ function PersistedMutes() {
                             divider
                             secondaryAction={
                                 <Button
+                                    startIcon={<LockOpen />}
                                     size="small"
                                     onClick={() => unmute(mute.id)}
                                     disabled={pending}
@@ -148,6 +150,7 @@ function LocalMutes() {
                             divider
                             secondaryAction={
                                 <Button
+                                    startIcon={<LockOpen />}
                                     size="small"
                                     onClick={() => {
                                         remove(entry.anonKey);
@@ -252,6 +255,7 @@ function BanList() {
                             divider
                             secondaryAction={
                                 <Button
+                                    startIcon={<LockOpen />}
                                     size="small"
                                     onClick={() => unban(ban.id)}
                                     variant="outlined"

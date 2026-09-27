@@ -14,7 +14,8 @@ import {
     checkGameJsonEnvironment,
     formatValue,
     getGameJsonEnvironment,
-} from "../game-json";
+} from "../share/game-json";
+import { getContentExternal } from "./content-get-external";
 
 export interface GameForm {
     title: string;
@@ -129,6 +130,14 @@ export async function validateGameZip(
     }
 }
 
+/**
+ * validateGameZip を通った後に呼ぶこと
+ */
+export async function declaresScoreboard(gameZip: JSZip) {
+    const gameJson = JSON.parse(await gameZip.file("game.json")!.async("text"));
+    return (await getContentExternal(gameJson)).includes("scoreboard");
+}
+
 export function toIconPath(iconFile: File) {
     return (
         "icon" + randomBytes(3).toString("hex") + path.extname(iconFile.name)
@@ -150,12 +159,17 @@ export async function throwIfInvalidContentDir(contentId: number) {
     }
 }
 
-export async function createContentRecord(gameId: number, iconPath: string) {
+export async function createContentRecord(
+    gameId: number,
+    iconPath: string,
+    scoreboard: boolean,
+) {
     return (
         await prisma.content.create({
             data: {
                 gameId,
                 icon: iconPath,
+                scoreboard,
             },
         })
     ).id;
@@ -207,12 +221,17 @@ export async function deployIconFile(
 }
 
 export async function deleteContentDir(contentId: number) {
+    await deleteS3Prefix(`${contentId}/`);
+}
+
+/** コンテンツ配信用のバケットから、`prefix` 以下を丸ごと消す */
+export async function deleteS3Prefix(prefix: string) {
     let continuationToken: string | undefined;
     do {
         const res = await getS3Client().send(
             new ListObjectsV2Command({
                 Bucket: getBucket(),
-                Prefix: `${s3KeyPrefix}${contentId}/`,
+                Prefix: `${s3KeyPrefix}${prefix}`,
                 ContinuationToken: continuationToken,
             }),
         );

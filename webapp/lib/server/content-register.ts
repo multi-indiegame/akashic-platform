@@ -9,6 +9,7 @@ import {
 } from "../types";
 import {
     createContentRecord,
+    declaresScoreboard,
     deleteContentRecord,
     extractGameFile,
     deployGameZip,
@@ -107,7 +108,11 @@ export async function registerContent(
         const gameId = await createGameRecord(param);
         try {
             const iconPath = toIconPath(param.iconFile);
-            const contentId = await createContentRecord(gameId, iconPath);
+            const contentId = await createContentRecord(
+                gameId,
+                iconPath,
+                await declaresScoreboard(gameZip),
+            );
             try {
                 await throwIfInvalidContentDir(contentId);
                 await deployGameZip(contentId, gameZip);

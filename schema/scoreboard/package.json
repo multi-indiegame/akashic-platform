@@ -1,0 +1,37 @@
+{
+  "name": "@multi-indiegame/scoreboard-schema",
+  "version": "1.0.0",
+  "private": true,
+  "description": "記録の掲載可否を決める突き合わせ。akashic-server と webapp が共有する",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "CHANGELOG.md",
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "keywords": [],
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "schema/scoreboard"
+  },
+  "license": "MIT",
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@multi-indiegame/persist-schema": "^1.13.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button, Container, Stack, useTheme } from "@mui/material";
+import { Button, Container, useTheme } from "@mui/material";
+import { InfoOutlined, Add, Settings, Edit } from "@mui/icons-material";
 import { GameInfo } from "@/lib/types";
 import { useAuth } from "@/lib/client/useAuth";
 import { SignInAlert } from "./sign-in-alert";
 import { UserGameListSection } from "./user-game-list-section";
+import { GameActions } from "./game-list-table";
 import { PlayCreateDialog } from "./play-create-dialog";
 
 export function GameEditor() {
@@ -44,8 +46,9 @@ export function GameEditor() {
                 userId={user.id}
                 title="投稿したゲーム"
                 renderActions={(game: GameInfo, isTable: boolean) => (
-                    <Stack direction={isTable ? "column" : "row"} spacing={1}>
+                    <GameActions isTable={isTable}>
                         <Button
+                            startIcon={<InfoOutlined />}
                             variant="outlined"
                             component={Link}
                             href={`/game/${game.id}`}
@@ -57,6 +60,7 @@ export function GameEditor() {
                             詳細
                         </Button>
                         <Button
+                            startIcon={<Add />}
                             variant="outlined"
                             onClick={() => handleOpenDialog(game)}
                             sx={{
@@ -66,7 +70,22 @@ export function GameEditor() {
                         >
                             部屋を作る
                         </Button>
+                        {game.hasScoreboard && (
+                            <Button
+                                startIcon={<Settings />}
+                                variant="outlined"
+                                component={Link}
+                                href={`/game/${game.id}/stats/edit`}
+                                sx={{
+                                    borderColor: theme.palette.text.secondary,
+                                    color: theme.palette.text.secondary,
+                                }}
+                            >
+                                統計・称号の設定
+                            </Button>
+                        )}
                         <Button
+                            startIcon={<Edit />}
                             variant="contained"
                             size="large"
                             component={Link}
@@ -74,7 +93,7 @@ export function GameEditor() {
                         >
                             編集する
                         </Button>
-                    </Stack>
+                    </GameActions>
                 )}
             />
             <PlayCreateDialog

@@ -47,6 +47,7 @@ export async function GET(): Promise<NextResponse<FavoriteListResponse>> {
                             select: {
                                 id: true,
                                 icon: true,
+                                scoreboard: true,
                                 updatedAt: true,
                             },
                             orderBy: {
@@ -77,6 +78,7 @@ export async function GET(): Promise<NextResponse<FavoriteListResponse>> {
                     license: await fetchLicense(game.versions[0].id),
                     contentId: game.versions[0].id,
                     isFavorited: true,
+                    hasScoreboard: game.versions[0].scoreboard,
                     createdAt: game.createdAt,
                     updatedAt: game.versions[0].updatedAt,
                 })),

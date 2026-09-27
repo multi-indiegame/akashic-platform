@@ -71,6 +71,86 @@ export const openapi = {
                 },
             },
         },
+        "/score-records/delete": {
+            get: {
+                summary:
+                    "Archive months not yet archived, then delete raw score records from DB",
+                parameters: [
+                    {
+                        name: "retentionDays",
+                        minimum: 1,
+                        default: 90,
+                        description:
+                            "Records older than this many days are deleted, but only for months archived (months not yet archived are archived first)",
+                        in: "query",
+                        required: false,
+                        schema: { type: "string" },
+                    },
+                ],
+                responses: {
+                    "200": {
+                        description: "Deletion completed",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ScoreRecordDeleteResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Invalid parameters",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "/score-archives/delete": {
+            get: {
+                summary:
+                    "Delete old monthly scoreboard archive records from DB",
+                parameters: [
+                    {
+                        name: "retentionMonths",
+                        minimum: 1,
+                        default: 48,
+                        description:
+                            "Archives of months older than this many months are deleted",
+                        in: "query",
+                        required: false,
+                        schema: { type: "string" },
+                    },
+                ],
+                responses: {
+                    "200": {
+                        description: "Deletion completed",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ScoreArchiveDeleteResponse",
+                                },
+                            },
+                        },
+                    },
+                    "400": {
+                        description: "Invalid parameters",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    $ref: "#/components/schemas/ErrorResponse",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
         "/drain": {
             get: {
                 summary: "Forward a signed drain request to webapp",
@@ -162,6 +242,61 @@ export const openapi = {
                     },
                     succeeded: { type: "integer" },
                     failed: { type: "integer" },
+                },
+            },
+            ScoreRecordDeleteResponse: {
+                type: "object",
+                required: [
+                    "ok",
+                    "retentionDays",
+                    "cutoff",
+                    "deleted",
+                    "months",
+                    "archived",
+                    "skipped",
+                ],
+                properties: {
+                    ok: { type: "boolean", enum: [true] },
+                    retentionDays: { type: "integer" },
+                    cutoff: { type: "string", format: "date-time" },
+                    deleted: {
+                        type: "integer",
+                        description: "Number of score records deleted",
+                    },
+                    months: {
+                        type: "array",
+                        description: "Pruned months as `<gameId>:<YYYY-MM>`",
+                        items: { type: "string" },
+                    },
+                    archived: {
+                        type: "array",
+                        description:
+                            "Months whose archive was confirmed (or rebuilt) in this run, as `<gameId>:<YYYY-MM>`",
+                        items: { type: "string" },
+                    },
+                    skipped: {
+                        type: "array",
+                        description:
+                            "Months kept because they could not be archived, as `<gameId>:<YYYY-MM>`",
+                        items: { type: "string" },
+                    },
+                },
+            },
+            ScoreArchiveDeleteResponse: {
+                type: "object",
+                required: ["ok", "retentionMonths", "cutoff", "deleted"],
+                properties: {
+                    ok: { type: "boolean", enum: [true] },
+                    retentionMonths: { type: "integer" },
+                    cutoff: {
+                        type: "string",
+                        description:
+                            "Archives of months before this `YYYY-MM` are deleted",
+                    },
+                    deleted: {
+                        type: "integer",
+                        description: "Number of archive records deleted",
+                    },
                 },
             },
             HealthResponse: {

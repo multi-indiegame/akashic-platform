@@ -23,6 +23,7 @@
     "schema/http",
     "schema/persist",
     "schema/runner-ipc",
+    "schema/scoreboard",
     "playlogClient-like",
     "agvw-like",
     "akashic-server",

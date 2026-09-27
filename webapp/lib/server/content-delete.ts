@@ -3,6 +3,7 @@
 import { prisma } from "@multi-indiegame/persist-schema";
 import { DeleteGameResponse } from "../types";
 import { deleteContentDir } from "./content-utils";
+import { deleteGameTitleImages } from "./title-image";
 import { endPlay } from "./play-end";
 import { isWriteBlocked } from "./drain-state";
 import { getSignedInUser } from "./auth";
@@ -120,11 +121,14 @@ export async function deleteGame(
                 id: param.gameId,
             },
         });
-        await Promise.all(
-            contentIds.map(async (contentId) => {
+        // WHY: 行を消した後に S3 を消し損ねても拾い直さない。残るのは公開済みの
+        // コンテンツと画像で、新たに情報が出るわけではない
+        await Promise.all([
+            ...contentIds.map(async (contentId) => {
                 await deleteContentDir(contentId);
             }),
-        );
+            deleteGameTitleImages(param.gameId),
+        ]);
         return {
             ok: true,
         };
