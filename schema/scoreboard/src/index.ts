@@ -1,5 +1,5 @@
 import { prisma } from "@multi-indiegame/persist-schema";
-import { fetchFormat, fieldSetting } from "./format";
+import { ScoreDirection, fetchFormat, fieldSetting } from "./format";
 import { TransactionClient, lockOptOut } from "./optOut";
 import { TitleAward, evaluateTitles, notifyAwarded } from "./title";
 
@@ -550,11 +550,21 @@ async function keepTopEntries(
             endedAt: param.endedAt,
         },
     });
+    await trimTopEntries(tx, param.gameId, key, setting.direction);
+}
+
+/** 上位 N 件からこぼれた末尾を捨てる */
+async function trimTopEntries(
+    tx: TransactionClient,
+    gameId: number,
+    key: string,
+    direction: ScoreDirection,
+): Promise<void> {
     // 同値のときは先に達成したほうを上位に置く
     const overflow = await tx.scoreTopEntry.findMany({
-        where: { gameId: param.gameId, key },
+        where: { gameId, key },
         orderBy: [
-            { value: setting.direction === "high" ? "desc" : "asc" },
+            { value: direction === "high" ? "desc" : "asc" },
             { endedAt: "asc" },
         ],
         skip: TOP_ENTRY_LIMIT,
@@ -574,14 +584,30 @@ async function keepTopEntries(
  *
  * WHY: `reflectedAt` は残す。「処理済み」の印なので、消すと次の突き合わせで
  * また掲載されてしまう。外したことを覚えておくために使う。
+ *
+ * WHY: 上位 N 件の積み直しを伴うので、呼び出し側のトランザクションには
+ * {@link TOP_ENTRY_REBUILD_TIMEOUT_MS} を指定する。
  */
 export async function revokeSubject(
     subjectKey: SubjectKey,
     tx?: TransactionClient,
 ): Promise<void> {
     if (!tx) {
-        await prisma.$transaction((tx) => revokeSubject(subjectKey, tx));
+        await prisma.$transaction((tx) => revokeSubject(subjectKey, tx), {
+            timeout: TOP_ENTRY_REBUILD_TIMEOUT_MS,
+        });
         return;
+    }
+    const topKeys = (
+        await tx.scoreTopEntry.findMany({
+            where: { subjectKey },
+            distinct: ["gameId", "key"],
+            select: { gameId: true, key: true },
+        })
+    ).sort((a, b) => a.gameId - b.gameId || compareKey(a.key, b.key));
+    // WHY: 反映と同じ順で押さえ、同時に走ったときのデッドロックを避ける
+    for (const { gameId, key } of topKeys) {
+        await lockTopEntries(tx, gameId, key);
     }
     // 歴代は増分で積んでいるので引き算では戻せない。その主体の分を丸ごと落とす
     await tx.scoreBest.deleteMany({ where: { subjectKey } });
@@ -596,6 +622,68 @@ export async function revokeSubject(
         where: { subjectKey },
         data: { subjectKey: null },
     });
+    for (const { gameId, key } of topKeys) {
+        await refillTopEntries(tx, gameId, key);
+    }
+}
+
+/**
+ * 上位 N 件の空いた枠を、残っている生レコードで埋める。
+ *
+ * WHY: 1 人が上位の大半を占めていたキーでは、その人の分を落とすと表示件数を
+ * 割り込む。こぼれた記録は二度と上位へ戻らないので、生レコードから拾い直す。
+ *
+ * WHY: 丸ごと積み直さず、今ある行は残して足すだけにする。積み直すと、生レコードの
+ * 保持期間を過ぎた上位記録まで失う
+ */
+async function refillTopEntries(
+    tx: TransactionClient,
+    gameId: number,
+    key: string,
+): Promise<void> {
+    const setting = fieldSetting(await fetchFormat(gameId, tx), key);
+    if (setting.dedupe !== "all") {
+        return;
+    }
+    const existing = await tx.scoreTopEntry.findMany({
+        where: { gameId, key, recordId: { not: null } },
+        select: { recordId: true },
+    });
+    const values = await tx.scoreValue.findMany({
+        where: {
+            gameId,
+            key,
+            subjectKey: { not: null },
+            numValue: { not: null },
+            recordId: { notIn: existing.map((row) => row.recordId!) },
+        },
+        // 同値のときは先に達成したほうを上位に置く
+        orderBy: [
+            { numValue: setting.direction === "high" ? "desc" : "asc" },
+            { endedAt: "asc" },
+        ],
+        take: TOP_ENTRY_LIMIT,
+        select: {
+            recordId: true,
+            subjectKey: true,
+            numValue: true,
+            endedAt: true,
+        },
+    });
+    if (values.length === 0) {
+        return;
+    }
+    await tx.scoreTopEntry.createMany({
+        data: values.map((value) => ({
+            gameId,
+            key,
+            value: value.numValue!,
+            subjectKey: value.subjectKey!,
+            recordId: value.recordId,
+            endedAt: value.endedAt,
+        })),
+    });
+    await trimTopEntries(tx, gameId, key, setting.direction);
 }
 
 /**

@@ -1,7 +1,10 @@
 "use server";
 
 import { prisma } from "@multi-indiegame/persist-schema";
-import { revokeSubject } from "@multi-indiegame/scoreboard-schema";
+import {
+    TOP_ENTRY_REBUILD_TIMEOUT_MS,
+    revokeSubject,
+} from "@multi-indiegame/scoreboard-schema";
 import { getSignedInUser } from "./auth";
 import { isWriteBlocked } from "./drain-state";
 import { logSafe } from "./log-safe";
@@ -59,16 +62,19 @@ export async function revokeScoreboardPublication(): Promise<ScoreboardSettingRe
     }
     try {
         const userId = auth.user.id;
-        await prisma.$transaction(async (tx) => {
-            // WHY: 利用者の行を先に更新して押さえる。突き合わせと称号の付与は
-            // 同じ行を押さえてから書くので、消した後に書き戻されない
-            await tx.user.update({
-                where: { id: userId },
-                data: { scoreboardPublic: false, scoreboardOptOut: true },
-            });
-            await revokeSubject(`u:${userId}`, tx);
-            await tx.scoreTitle.deleteMany({ where: { userId } });
-        });
+        await prisma.$transaction(
+            async (tx) => {
+                // WHY: 利用者の行を先に更新して押さえる。突き合わせと称号の付与は
+                // 同じ行を押さえてから書くので、消した後に書き戻されない
+                await tx.user.update({
+                    where: { id: userId },
+                    data: { scoreboardPublic: false, scoreboardOptOut: true },
+                });
+                await revokeSubject(`u:${userId}`, tx);
+                await tx.scoreTitle.deleteMany({ where: { userId } });
+            },
+            { timeout: TOP_ENTRY_REBUILD_TIMEOUT_MS },
+        );
         return { ok: true };
     } catch (err) {
         console.warn(

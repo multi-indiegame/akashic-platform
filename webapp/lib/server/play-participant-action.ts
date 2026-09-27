@@ -76,7 +76,7 @@ export async function reportNameConsent(
             //
             // WHY: 変えなかったことは利用者に知らせず、成功として返す。
             // ダイアログの主眼はゲーム内で名前を使うかどうかで、掲載の話を
-            // 持ち出さない。掲載はマイページからやめられる
+            // 持ち出さない。サインイン利用者はマイページから掲載をやめられる
             const reflected = await tx.scoreRecord.findFirst({
                 where: { playId, playerId, reflectedAt: { not: null } },
                 select: { id: true },
