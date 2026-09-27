@@ -1,7 +1,7 @@
 import { prisma } from "@multi-indiegame/persist-schema";
 import { fetchFormat, fieldSetting } from "./format";
 import { TransactionClient, lockOptOut } from "./optOut";
-import { awardTitles } from "./title";
+import { TitleAward, evaluateTitles, notifyAwarded } from "./title";
 
 /**
  * 記録の掲載可否を決める突き合わせ。
@@ -74,8 +74,6 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
                     strValue: true,
                     boolValue: true,
                 },
-                // WHY: 集計行を押さえる順をそろえ、同時に反映したときのデッドロックを避ける
-                orderBy: { key: "asc" },
             },
         },
     });
@@ -130,7 +128,7 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
             userId: participant.userId,
             playerId: record.playerId,
         });
-        const applied = await applyRecord({
+        const awarded = await applyRecord({
             recordId: record.id,
             playId,
             playerId: record.playerId,
@@ -138,17 +136,16 @@ export async function reconcilePlay(playId: number): Promise<ReconcileResult> {
             endedAt: record.endedAt,
             subjectKey,
             userId: participant.userId,
-            values: record.values,
+            // WHY: 集計行と上位 N 件を押さえる順をそろえ、同時に反映したときの
+            // デッドロックを避ける。DB の照合順序は環境で変わるので、積み直しと
+            // 同じ比較で並べる
+            values: [...record.values].sort((a, b) => compareKey(a.key, b.key)),
         });
-        if (!applied) {
+        if (!awarded) {
             continue;
         }
         reflected++;
-        // WHY: 掲載用へ入った直後に評価する。サインイン利用者だけが対象で、
-        // ゲストは identity が続かないため付けない
-        if (participant.userId) {
-            await awardTitles(participant.userId, record.gameId);
-        }
+        await notifyAwarded(awarded);
     }
     return { reflected };
 }
@@ -324,18 +321,18 @@ async function lockConsent(
     return rows[0];
 }
 
-/** 掲載用へ反映したら true */
+/** 掲載用へ反映したら、あわせて付与した称号を返す。反映しなかったら null */
 async function applyRecord(
     param: ApplyRecordParameterObject,
-): Promise<boolean> {
+): Promise<TitleAward[] | null> {
     return await prisma.$transaction(async (tx) => {
         const consent = await lockConsent(tx, param.playId, param.playerId);
         if (!consent?.nameConsent) {
-            return false;
+            return null;
         }
         // WHY: 突き合わせの冒頭で見た判定は古いことがある。書き込む直前に確かめ直す
         if (param.userId && (await lockOptOut(tx, param.userId))) {
-            return false;
+            return null;
         }
         // WHY: 反映済みの印を先に立て、同じ条件で 1 件だけ動いたことを確かめる。
         // 同時に 2 回走っても、後から来たほうは 0 件になって加算しない
@@ -344,7 +341,7 @@ async function applyRecord(
             data: { reflectedAt: new Date(), subjectKey: param.subjectKey },
         });
         if (marked.count === 0) {
-            return false;
+            return null;
         }
         await tx.scoreValue.updateMany({
             where: { recordId: param.recordId },
@@ -392,7 +389,13 @@ async function applyRecord(
         for (const value of param.values) {
             await applyValue(tx, param, value);
         }
-        return true;
+        // WHY: 反映と同じトランザクションで評価する。反映だけ確定して評価が
+        // 失敗すると、反映済みの記録は二度と評価されない
+        //
+        // WHY: サインイン利用者だけが対象で、ゲストは identity が続かないため付けない
+        return param.userId
+            ? await evaluateTitles(tx, param.userId, param.gameId)
+            : [];
     });
 }
 
@@ -530,61 +533,63 @@ export async function revokeSubject(
  * 必要な値をすべて積んでいるので、作り直すと生レコードより前の歴代を失うだけになる
  *
  * WHY: 複数ランクインをやめたキーの上位 N 件も消す。使われなくなった行を残さない
+ *
+ * WHY: 設定の保存と同じトランザクションで呼ぶ。積み直しだけ失敗すると、保存
+ * し直しても設定に差分が無く、積み直されないまま残る
  */
 export async function rebuildTopEntries(
+    tx: TransactionClient,
     gameId: number,
     keys: string[],
 ): Promise<void> {
-    if (keys.length === 0) {
-        return;
-    }
-    for (const key of keys) {
-        await prisma.$transaction(async (tx) => {
-            // WHY: 読んでから消すまでの間に反映された上位を失わないよう、反映と
-            // 同じ鍵を押さえてから読む
-            await lockTopEntries(tx, gameId, key);
-            const setting = fieldSetting(await fetchFormat(gameId, tx), key);
-            const values =
-                setting.dedupe === "all"
-                    ? await tx.scoreValue.findMany({
-                          where: {
-                              gameId,
-                              key,
-                              subjectKey: { not: null },
-                              numValue: { not: null },
+    // WHY: 反映と同じ順で押さえ、同時に走ったときのデッドロックを避ける
+    for (const key of [...keys].sort(compareKey)) {
+        // WHY: 読んでから消すまでの間に反映された上位を失わないよう、反映と
+        // 同じ鍵を押さえてから読む
+        await lockTopEntries(tx, gameId, key);
+        const setting = fieldSetting(await fetchFormat(gameId, tx), key);
+        const values =
+            setting.dedupe === "all"
+                ? await tx.scoreValue.findMany({
+                      where: {
+                          gameId,
+                          key,
+                          subjectKey: { not: null },
+                          numValue: { not: null },
+                      },
+                      // 同値のときは先に達成したほうを上位に置く
+                      orderBy: [
+                          {
+                              numValue:
+                                  setting.direction === "high" ? "desc" : "asc",
                           },
-                          // 同値のときは先に達成したほうを上位に置く
-                          orderBy: [
-                              {
-                                  numValue:
-                                      setting.direction === "high"
-                                          ? "desc"
-                                          : "asc",
-                              },
-                              { endedAt: "asc" },
-                          ],
-                          take: TOP_ENTRY_LIMIT,
-                          select: {
-                              recordId: true,
-                              subjectKey: true,
-                              numValue: true,
-                              endedAt: true,
-                          },
-                      })
-                    : [];
-            await tx.scoreTopEntry.deleteMany({ where: { gameId, key } });
-            if (values.length > 0) {
-                await tx.scoreTopEntry.createMany({
-                    data: values.map((value) => ({
-                        gameId,
-                        key,
-                        value: value.numValue!,
-                        subjectKey: value.subjectKey!,
-                        recordId: value.recordId,
-                        endedAt: value.endedAt,
-                    })),
-                });
-            }
-        });
+                          { endedAt: "asc" },
+                      ],
+                      take: TOP_ENTRY_LIMIT,
+                      select: {
+                          recordId: true,
+                          subjectKey: true,
+                          numValue: true,
+                          endedAt: true,
+                      },
+                  })
+                : [];
+        await tx.scoreTopEntry.deleteMany({ where: { gameId, key } });
+        if (values.length > 0) {
+            await tx.scoreTopEntry.createMany({
+                data: values.map((value) => ({
+                    gameId,
+                    key,
+                    value: value.numValue!,
+                    subjectKey: value.subjectKey!,
+                    recordId: value.recordId,
+                    endedAt: value.endedAt,
+                })),
+            });
+        }
     }
+}
+
+function compareKey(a: string, b: string): number {
+    return a < b ? -1 : a > b ? 1 : 0;
 }

@@ -11,6 +11,10 @@ const DEBOUNCE_MS = 2000;
 const REQUEST_TIMEOUT_MS = 5000;
 const MAX_ATTEMPTS = 3;
 const RETRY_INTERVAL_MS = 200;
+// WHY: server は停止の応答を待ってから記録を確定する。送れないまま待たせ続けると
+// プレイの終了処理が止まるので、送り直すのはこの時間までにする
+const CLOSE_DEADLINE_MS = 10000;
+const CLOSE_RETRY_INTERVAL_MS = 1000;
 
 /**
  * コンテンツが申告した記録を akashic-server へ送出する。
@@ -28,6 +32,7 @@ export class ScoreSender {
     _pending: Promise<void> = Promise.resolve();
     _seq = 0;
     _closed = false;
+    _closing?: Promise<void>;
     _givenUp = false;
 
     constructor(baseUrl: string, token: string, playId: number) {
@@ -66,14 +71,28 @@ export class ScoreSender {
         return this._pending;
     }
 
-    async close(): Promise<void> {
-        if (this._closed) {
-            await this._pending;
-            return;
-        }
+    close(): Promise<void> {
+        // WHY: 後から呼んだ側も、送り直しが終わるまで待たせる
+        this._closing ??= this._close();
+        return this._closing;
+    }
+
+    async _close() {
         this._closed = true;
         this._clearTimer();
+        const deadline = Date.now() + CLOSE_DEADLINE_MS;
         await this.flush();
+        // WHY: 最後の送信が失敗したまま応答すると、server は前に届いた古い記録で
+        // 確定してしまう
+        while (this._dirty && !this._givenUp && Date.now() < deadline) {
+            await delay(CLOSE_RETRY_INTERVAL_MS);
+            await this.flush();
+        }
+        if (this._dirty && !this._givenUp) {
+            warnTransport("最後の scoreboard を送り切れませんでした", {
+                playId: this._playId,
+            });
+        }
     }
 
     _touch() {

@@ -1,5 +1,5 @@
 import { prisma, ScoreTitleRank } from "@multi-indiegame/persist-schema";
-import { lockOptOut } from "./optOut";
+import { TransactionClient, lockOptOut } from "./optOut";
 
 /**
  * 称号の付与。
@@ -59,17 +59,47 @@ export interface TitleContext {
     };
 }
 
+/** 付与した称号。確定した後に {@link notifyAwarded} で知らせる */
+export interface TitleAward {
+    userId: string;
+    gameId: number;
+    defId: number;
+    upgraded: boolean;
+}
+
 /**
  * 1 人分の称号を評価して、到達していれば付け替える。
- *
- * WHY: 同じカテゴリでは最上位だけを残す。下位に戻すことはしない（いちど
- * 達成した段位は取り上げない）。
  */
 export async function awardTitles(
     userId: string,
     gameId: number,
 ): Promise<void> {
-    const defs = await prisma.scoreTitleDef.findMany({
+    const awarded = await prisma.$transaction(async (tx) => {
+        // WHY: 評価に使った記録は、掲載をやめる前に読んだものかもしれない
+        if (await lockOptOut(tx, userId)) {
+            return [];
+        }
+        return await evaluateTitles(tx, userId, gameId);
+    });
+    await notifyAwarded(awarded);
+}
+
+/**
+ * 1 人分の称号を、渡されたトランザクションの中で評価して付け替える。
+ * 呼び出し側は {@link lockOptOut} で利用者の行を押さえておくこと。
+ *
+ * WHY: 同じカテゴリでは最上位だけを残す。下位に戻すことはしない（いちど
+ * 達成した段位は取り上げない）。
+ *
+ * WHY: 同じ人の付与は利用者の行を押さえた後で順に進む。押さえる前に読んだ
+ * 段位で比べると、先に上がった段位を下げてしまう
+ */
+export async function evaluateTitles(
+    tx: TransactionClient,
+    userId: string,
+    gameId: number,
+): Promise<TitleAward[]> {
+    const defs = await tx.scoreTitleDef.findMany({
         // WHY: 取り下げた定義では新たに付与しない。すでに獲得した分は残る
         where: { gameId, retiredAt: null },
         select: {
@@ -80,9 +110,9 @@ export async function awardTitles(
         },
     });
     if (defs.length === 0) {
-        return;
+        return [];
     }
-    const context = await buildContext(userId, gameId);
+    const context = await buildContext(tx, userId, gameId);
 
     // カテゴリごとに、満たしている中でいちばん上の段位を選ぶ
     const bestByCategory = new Map<string, (typeof defs)[number]>();
@@ -96,70 +126,59 @@ export async function awardTitles(
         }
     }
     if (bestByCategory.size === 0) {
-        return;
+        return [];
     }
-    const awarded = await prisma.$transaction(async (tx) => {
-        // WHY: 評価に使った記録は、掲載をやめる前に読んだものかもしれない
-        if (await lockOptOut(tx, userId)) {
-            return [];
-        }
-        // WHY: 同じ人の付与は利用者の行を押さえた後で順に進む。押さえる前に
-        // 読んだ段位で比べると、先に上がった段位を下げてしまう
-        const held = await tx.scoreTitle.findMany({
-            where: { userId, gameId },
-            select: { categoryKey: true, rank: true },
-        });
-        const heldByCategory = new Map(
-            held.map((row) => [row.categoryKey, row]),
-        );
-        const awards = [...bestByCategory]
-            .filter(([categoryKey, def]) => {
-                const existing = heldByCategory.get(categoryKey);
-                return (
-                    !existing ||
-                    RANK_ORDER[existing.rank] < RANK_ORDER[def.rank]
-                );
-            })
-            .map(([categoryKey, def]) => ({
-                categoryKey,
-                def,
-                upgraded: heldByCategory.has(categoryKey),
-            }));
-        for (const { categoryKey, def } of awards) {
-            await tx.scoreTitle.upsert({
-                where: {
-                    userId_gameId_categoryKey: { userId, gameId, categoryKey },
-                },
-                create: {
-                    userId,
-                    gameId,
-                    categoryKey,
-                    rank: def.rank,
-                    defId: def.id,
-                },
-                update: {
-                    rank: def.rank,
-                    defId: def.id,
-                    awardedAt: new Date(),
-                },
-            });
-        }
-        return awards;
+    const held = await tx.scoreTitle.findMany({
+        where: { userId, gameId },
+        select: { categoryKey: true, rank: true },
     });
-    for (const { def, upgraded } of awarded) {
-        await notifyAwarded(userId, gameId, def.id, upgraded);
+    const heldByCategory = new Map(held.map((row) => [row.categoryKey, row]));
+    const awards = [...bestByCategory].filter(([categoryKey, def]) => {
+        const existing = heldByCategory.get(categoryKey);
+        return !existing || RANK_ORDER[existing.rank] < RANK_ORDER[def.rank];
+    });
+    for (const [categoryKey, def] of awards) {
+        await tx.scoreTitle.upsert({
+            where: {
+                userId_gameId_categoryKey: { userId, gameId, categoryKey },
+            },
+            create: {
+                userId,
+                gameId,
+                categoryKey,
+                rank: def.rank,
+                defId: def.id,
+            },
+            update: {
+                rank: def.rank,
+                defId: def.id,
+                awardedAt: new Date(),
+            },
+        });
     }
+    return awards.map(([categoryKey, def]) => ({
+        userId,
+        gameId,
+        defId: def.id,
+        upgraded: heldByCategory.has(categoryKey),
+    }));
 }
 
 /**
- * 称号が付いたことを本人に知らせる。
+ * 付与した称号を本人に知らせる。
  */
-async function notifyAwarded(
-    userId: string,
-    gameId: number,
-    defId: number,
-    upgraded: boolean,
-): Promise<void> {
+export async function notifyAwarded(awarded: TitleAward[]): Promise<void> {
+    for (const award of awarded) {
+        await notifyOne(award);
+    }
+}
+
+async function notifyOne({
+    userId,
+    gameId,
+    defId,
+    upgraded,
+}: TitleAward): Promise<void> {
     try {
         const [def, game] = await Promise.all([
             prisma.scoreTitleDef.findUnique({
@@ -194,16 +213,17 @@ async function notifyAwarded(
 }
 
 async function buildContext(
+    tx: TransactionClient,
     userId: string,
     gameId: number,
 ): Promise<TitleContext> {
     const subjectKey = `u:${userId}`;
     const [plays, bests] = await Promise.all([
-        prisma.scorePlayCount.findUnique({
+        tx.scorePlayCount.findUnique({
             where: { gameId_subjectKey: { gameId, subjectKey } },
             select: { count: true },
         }),
-        prisma.scoreBest.findMany({
+        tx.scoreBest.findMany({
             where: { gameId, subjectKey },
             select: {
                 key: true,

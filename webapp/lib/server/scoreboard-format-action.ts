@@ -18,6 +18,8 @@ import { logSafe } from "./log-safe";
 
 const LABEL_MAX_LENGTH = 40;
 const UNIT_MAX_LENGTH = 8;
+// WHY: 設定の保存と、変わったキーすべての積み直しを 1 つのトランザクションで行う
+const REBUILD_TIMEOUT_MS = 30000;
 
 const formatErrReasons = [
     "InvalidParams",
@@ -87,15 +89,6 @@ export async function saveScoreboardFormat(
                 chartHidden: playRankingChartHidden,
             },
         };
-        await prisma.scoreboardFormat.create({
-            data: {
-                gameId,
-                version: definition.version,
-                // WHY: Json 列は索引付きの型を要求する。定義そのものは型で
-                // 縛っているので、ここでの変換は保存のためだけのもの
-                definition: JSON.parse(JSON.stringify(definition)),
-            },
-        });
         const changed = Object.keys({
             ...previous.fields,
             ...normalized,
@@ -105,7 +98,21 @@ export async function saveScoreboardFormat(
                 fieldSetting(definition, key),
             ),
         );
-        await rebuildTopEntries(gameId, changed);
+        await prisma.$transaction(
+            async (tx) => {
+                await tx.scoreboardFormat.create({
+                    data: {
+                        gameId,
+                        version: definition.version,
+                        // WHY: Json 列は索引付きの型を要求する。定義そのものは型で
+                        // 縛っているので、ここでの変換は保存のためだけのもの
+                        definition: JSON.parse(JSON.stringify(definition)),
+                    },
+                });
+                await rebuildTopEntries(tx, gameId, changed);
+            },
+            { timeout: REBUILD_TIMEOUT_MS },
+        );
         return { ok: true };
     } catch (err) {
         console.warn(
