@@ -266,8 +266,7 @@ export async function GET(
         return res;
     } catch (err) {
         console.warn(
-            `failed to get live play (handle = "${logSafe(handle)}")`,
-            err,
+            `failed to get live play (handle = "${logSafe(handle)}", cause = "${logSafe((err as Error).message)}")`,
         );
         return NextResponse.json({ ok: false, reason: "InternalError" });
     }

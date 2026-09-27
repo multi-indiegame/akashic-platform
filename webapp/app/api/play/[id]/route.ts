@@ -286,7 +286,9 @@ export async function GET(
         }
         return res;
     } catch (err) {
-        console.warn(`failed to join (playId = "${logSafe(playId)}")`, err);
+        console.warn(
+            `failed to join (playId = "${logSafe(playId)}", cause = "${logSafe((err as Error).message)}")`,
+        );
         return NextResponse.json({
             ok: false,
             reason: "InternalError",
