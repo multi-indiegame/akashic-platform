@@ -352,12 +352,14 @@ function accumulate(
     },
 ): void {
     const at = value.endedAt.toISOString();
+    const num = value.numValue;
     aggregate.recordCount++;
     aggregate.lastAt = at;
+    // WHY: 数値でない記録が最後なら null にする。歴代・直近と揃える
+    aggregate.last = num;
     if (value.boolValue === true) {
         aggregate.trueCount++;
     }
-    const num = value.numValue;
     if (num == null) {
         return;
     }
@@ -371,7 +373,6 @@ function accumulate(
         aggregate.min = num;
         aggregate.minAt = at;
     }
-    aggregate.last = num;
 }
 
 function toKey(gameId: number, month: string): string {
