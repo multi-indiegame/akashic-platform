@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.3.1
+
+### Patch Changes
+
+- a6a5e7c: docs: 利用規約に実況・配信・動画投稿の条項を追加
+
 ## 2.3.0
 
 ### Minor Changes
