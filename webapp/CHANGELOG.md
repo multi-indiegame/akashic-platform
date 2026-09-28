@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.3.2
+
+### Patch Changes
+
+- d414e5c: 統計の記録設定画面で保存するとキーが重複して表示される問題を修正
+
 ## 2.3.1
 
 ### Patch Changes
