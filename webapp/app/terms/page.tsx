@@ -105,49 +105,55 @@ export default function TermsPage() {
                     <Typography variant="body1">
                         配信等を許可するかどうかは、ゲームごとに投稿者が設定しています。各ゲームの配信可否は、以下の表示で確認できます。
                     </Typography>
-                    <List dense sx={{ listStyleType: "disc", pl: 4 }}>
-                        <ListItem sx={{ display: "list-item" }}>
+                    <Stack spacing={1} sx={{ my: 1, pl: 2 }}>
+                        <Stack direction="row" spacing={2}>
                             <Stack
                                 direction="row"
                                 spacing={0.5}
-                                component="span"
                                 sx={{
-                                    display: "inline-flex",
                                     alignItems: "center",
+                                    flexShrink: 0,
+                                    minWidth: "6em",
+                                    height: "1.5rem",
                                     color: theme.palette.success.light,
-                                    mr: 1,
                                 }}
                             >
                                 <Videocam fontSize="small" />
-                                <span>配信OK</span>
+                                <Typography variant="body2">配信OK</Typography>
                             </Stack>
-                            プレイ画面のゲームタイトル横に表示されます。本条の定めに従って配信等を行うことができます。
-                        </ListItem>
-                        <ListItem sx={{ display: "list-item" }}>
+                            <Typography variant="body1">
+                                プレイ画面のゲームタイトル横に表示されます。本条の定めに従って配信等を行うことができます。
+                            </Typography>
+                        </Stack>
+                        <Stack direction="row" spacing={2}>
                             <Stack
                                 direction="row"
                                 spacing={0.5}
-                                component="span"
                                 sx={{
-                                    display: "inline-flex",
                                     alignItems: "center",
+                                    flexShrink: 0,
+                                    minWidth: "6em",
+                                    height: "1.5rem",
                                     color: theme.palette.error.light,
-                                    mr: 1,
                                 }}
                             >
                                 <VideocamOff fontSize="small" />
-                                <span>配信不可</span>
+                                <Typography variant="body2">
+                                    配信不可
+                                </Typography>
                             </Stack>
-                            プレイ画面のゲームタイトル横に表示されます（ゲーム一覧では「
-                            <Box
-                                component="span"
-                                sx={{ color: theme.palette.error.main }}
-                            >
-                                実況不可
-                            </Box>
-                            」と表示されます）。このゲームの配信等はできません。
-                        </ListItem>
-                    </List>
+                            <Typography variant="body1">
+                                プレイ画面のゲームタイトル横に表示されます（ゲーム一覧では「
+                                <Box
+                                    component="span"
+                                    sx={{ color: theme.palette.error.main }}
+                                >
+                                    実況不可
+                                </Box>
+                                」と表示されます）。このゲームの配信等はできません。
+                            </Typography>
+                        </Stack>
+                    </Stack>
                     <Typography variant="body1" gutterBottom>
                         配信可否の設定は、投稿者によって変更されることがあります。配信等を行う際は、その時点の表示を確認してください。
                         また、投稿者がゲームの説明欄等において配信等に条件を付けている場合は、その条件に従ってください。
