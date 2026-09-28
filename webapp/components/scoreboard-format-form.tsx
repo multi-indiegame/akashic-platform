@@ -50,8 +50,9 @@ export function ScoreboardFormatForm({
             data.candidates.map((c) => [c.key, { ...c.setting }]),
         ),
     );
-    // WHY: 積み直すかは保存済みの設定との差で決まる。保存後は画面を読み直さない
-    // ので、保存に成功した時点の設定を比較元として持ち直す
+    // WHY: 積み直すかは保存済みの設定との差で決まる。`data` が読み直されても
+    // state の初期値は作り直されないので、保存に成功した時点の設定を比較元として
+    // 持ち直す
     const [savedFields, setSavedFields] = useState<{
         [key: string]: ScoreFieldSetting;
     }>(() =>
@@ -114,8 +115,8 @@ export function ScoreboardFormatForm({
         );
     }
 
-    const candidates = [...data.candidates, ...added];
-    const playCandidates = [...data.playCandidates, ...addedPlay];
+    const candidates = withAdded(data.candidates, added);
+    const playCandidates = withAdded(data.playCandidates, addedPlay);
     const chartKeys = candidates.map((c) => c.key);
     // WHY: 既定の「遊んだ回数」も 1 つのランキングなので対象に含める
     const chartTargets = chartKeys.length + 1;
@@ -328,6 +329,15 @@ export function ScoreboardFormatForm({
             </Dialog>
         </Stack>
     );
+}
+
+/**
+ * WHY: 保存するとサーバーアクションの応答で `data` が読み直され、足したキーが
+ * 保存済みの候補としても届く。足した側を残したままだと同じキーが 2 つ並ぶ。
+ */
+function withAdded(base: FieldCandidate[], added: FieldCandidate[]) {
+    const keys = new Set(base.map((c) => c.key));
+    return [...base, ...added.filter((c) => !keys.has(c.key))];
 }
 
 function FieldCard({
