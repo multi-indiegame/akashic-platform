@@ -228,9 +228,9 @@ export default function TermsPage() {
                         <ListItem sx={{ display: "list-item" }}>
                             配信等の概要欄などに、本サービス名（みんなでゲーム!）、ゲームのタイトル、投稿者名、ゲームページのURLを記載してください。
                         </ListItem>
-                        <ListItem sx={{ display: "list-item" }}>
-                            ニコニコ生放送・ニコニコ動画で配信等を行う場合は、
-                            {niconicommonsWorkUrl ? (
+                        {niconicommonsWorkUrl && (
+                            <ListItem sx={{ display: "list-item" }}>
+                                ニコニコ生放送・ニコニコ動画で配信等を行う場合は、
                                 <Link
                                     href={niconicommonsWorkUrl}
                                     target="_blank"
@@ -239,11 +239,9 @@ export default function TermsPage() {
                                 >
                                     本サービスの作品
                                 </Link>
-                            ) : (
-                                "本サービスの作品"
-                            )}
-                            を親作品として登録してください。親作品登録はサーバーの稼働維持に役立ちます。
-                        </ListItem>
+                                を親作品として登録してください。親作品登録はサーバーの稼働維持に役立ちます。
+                            </ListItem>
+                        )}
                     </List>
                 </Box>
                 <Typography variant="h6" component="h2">
