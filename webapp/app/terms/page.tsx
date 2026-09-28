@@ -180,7 +180,12 @@ export default function TermsPage() {
                     <Typography variant="body1" gutterBottom>
                         配信等は、収益化の有無を問わず行うことができます。広告収益、投げ銭、メンバーシップ、各サイトの収益化プログラム等による収益を得ることも可能です。
                         ただし、法人・団体による商業目的の利用（テレビ等での放送、広告・宣伝への使用等）を希望する場合は、事前に
-                        <Link href="/contact">お問い合わせフォーム</Link>
+                        <Link
+                            href="/contact"
+                            sx={{ color: theme.palette.primary.light }}
+                        >
+                            お問い合わせフォーム
+                        </Link>
                         よりご相談ください。
                     </Typography>
                 </Box>
@@ -230,6 +235,7 @@ export default function TermsPage() {
                                     href={niconicommonsWorkUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    sx={{ color: theme.palette.primary.light }}
                                 >
                                     本サービスの作品
                                 </Link>
@@ -263,7 +269,12 @@ export default function TermsPage() {
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     本規約に関するお問い合わせは、
-                    <Link href="/contact">お問い合わせフォーム</Link>
+                    <Link
+                        href="/contact"
+                        sx={{ color: theme.palette.primary.light }}
+                    >
+                        お問い合わせフォーム
+                    </Link>
                     よりご連絡ください。
                 </Typography>
                 <Typography variant="body2">
