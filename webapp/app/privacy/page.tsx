@@ -97,6 +97,7 @@ export default function PrivacyPolicyPage() {
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     法令に基づく場合を除き、利用者の同意なく個人情報を第三者に提供しません。
+                    ただし、ゲームの投稿者が外部のプラットフォームでの起動を許可した場合は、その同意に基づき、当該ゲームの情報とあわせて投稿者の表示名およびユーザー識別子を、運営者が連携を認めた外部のプラットフォームへ提供します。許可を取り消した後は、新たな提供を停止します。
                 </Typography>
                 <Typography variant="h6" component="h2">
                     6. 安全管理
@@ -132,7 +133,8 @@ export default function PrivacyPolicyPage() {
                     よりご連絡ください。運営者が内容を確認のうえ、必要に応じてメールで対応します。
                 </Typography>
                 <Typography variant="body2">
-                    2026年2月4日 制定, 2026年7月26日 改定, 2026年9月24日 改定
+                    2026年2月4日 制定, 2026年7月26日 改定, 2026年9月24日 改定,
+                    2026年10月3日 改定
                 </Typography>
             </Stack>
         </Container>

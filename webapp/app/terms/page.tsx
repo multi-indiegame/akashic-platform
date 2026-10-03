@@ -80,6 +80,7 @@ export default function TermsPage() {
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     利用者は、自らが権利を有するコンテンツのみを投稿できます。投稿コンテンツの権利は原則として利用者に帰属しますが、本サービスの運営に必要な範囲で無償利用する権利を運営者に許諾するものとします。
+                    投稿者が外部プラットフォーム（第7条）での起動を許可したゲームは、投稿規約の定めに従い外部プラットフォームへ提供されます。
                 </Typography>
                 <Typography variant="h6" component="h2">
                     5. プレイ記録と統計
@@ -244,26 +245,35 @@ export default function TermsPage() {
                         )}
                     </List>
                 </Box>
+                <Typography variant="h6" component="h2" id="external-platform">
+                    7. 外部プラットフォーム
+                </Typography>
+                <Typography variant="body1" gutterBottom>
+                    本サービスに投稿されたゲームのうち、投稿者が許可したものは、運営者が連携を認めた外部のプラットフォーム（以下「外部プラットフォーム」といいます）で検索・起動されることがあります。
+                    外部プラットフォームでのプレイには、当該外部プラットフォームの利用規約等が適用されます。
+                    外部プラットフォームでのプレイは本サービスのプレイ記録・統計の対象外であり、本サービスのアカウント、ミュート、入室制限（BAN）等の設定も適用されません。
+                    運営者は外部プラットフォームの運営に関与せず、外部プラットフォームの利用により利用者に生じた損害について責任を負いません。
+                </Typography>
                 <Typography variant="h6" component="h2">
-                    7. 免責事項
+                    8. 免責事項
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     本サービスは、提供する情報や機能の完全性・正確性を保証しません。利用者に生じた損害について、運営者は一切の責任を負いません。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    8. 通報と対応
+                    9. 通報と対応
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     利用者は、他の利用者の投稿・部屋・アカウントが本規約に違反すると考える場合、本サービス上の通報機能により運営者へ報告できます。運営者は、通報の有無にかかわらず、違反または不適切と判断した投稿・部屋・アカウントについて、削除・利用制限・入室制限（BAN）等の措置を、事前の通知なく講じることがあります。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    9. 規約の変更
+                    10. 規約の変更
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     運営者は、必要と判断した場合には、本規約を変更することができます。変更後の規約は本サービス上に表示した時点から効力を生じます。
                 </Typography>
                 <Typography variant="h6" component="h2">
-                    10. お問い合わせ
+                    11. お問い合わせ
                 </Typography>
                 <Typography variant="body1" gutterBottom>
                     本規約に関するお問い合わせは、
@@ -277,7 +287,7 @@ export default function TermsPage() {
                 </Typography>
                 <Typography variant="body2">
                     2026年2月4日 制定, 2026年7月26日 改定, 2026年9月24日 改定,
-                    2026年9月28日 改定
+                    2026年9月28日 改定, 2026年10月3日 改定
                 </Typography>
             </Stack>
         </Container>

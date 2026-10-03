@@ -107,32 +107,57 @@ function TACBody() {
                 </List>
             </Box>
             <Typography variant="h6" component="h3">
-                7. 免責事項
+                7. 外部プラットフォームでの起動
+            </Typography>
+            <Box>
+                <Typography variant="body1">
+                    利用者は、投稿したゲーム作品ごとに、本サイト運営者が連携を認めた外部のプラットフォーム（以下「外部プラットフォーム」といいます）での起動を許可するかどうかを設定できます。初期設定は「許可しない」です。
+                    起動を許可した場合、以下に同意したものとみなします。
+                </Typography>
+                <List dense sx={{ listStyleType: "disc", pl: 4 }}>
+                    <ListItem sx={{ display: "list-item" }}>
+                        本サイト運営者が、当該作品のゲームデータ、タイトル、説明、クレジット、アイコン、投稿者名および使用プラグインの情報を外部プラットフォームへ提供し、外部プラットフォームがこれらを用いて当該作品を検索・表示・起動させることを、無償かつ非独占的に許諾すること
+                    </ListItem>
+                    <ListItem sx={{ display: "list-item" }}>
+                        使用プラグインが必須か任意かは利用者の申告によるものであり、外部プラットフォームでの当該作品の動作を本サイト運営者が保証しないこと
+                    </ListItem>
+                    <ListItem sx={{ display: "list-item" }}>
+                        外部プラットフォームでの表示・起動・プレイに起因して生じた損害について、本サイト運営者は責任を負わないこと
+                    </ListItem>
+                </List>
+                <Typography variant="body1" gutterBottom>
+                    利用者は、いつでも起動の許可を取り消すことができます。取り消した場合、本サイト運営者は外部プラットフォームへの新たな提供を停止します。ただし、取り消しの時点で外部プラットフォームにおいて行われているプレイや、外部プラットフォームが既に表示・保持している情報が直ちに消えることは保証しません。
+                </Typography>
+            </Box>
+            <Typography variant="h6" component="h3">
+                8. 免責事項
             </Typography>
             <Typography variant="body1" gutterBottom>
                 本サイトは、投稿されたゲーム作品の内容、品質、正確性について一切の責任を負いません。
                 投稿された作品に起因して第三者との間に生じた紛争については、当該投稿を行った利用者が自己の責任と費用において解決するものとします。
             </Typography>
             <Typography variant="h6" component="h3">
-                8. 削除・非公開
+                9. 削除・非公開
             </Typography>
             <Typography variant="body1" gutterBottom>
                 本サイトは、投稿された作品が本規約に違反すると判断した場合、事前の通知なく当該作品を削除または非公開とすることができます。
             </Typography>
             <Typography variant="h6" component="h3">
-                9. 本サイトの中断、停止
+                10. 本サイトの中断、停止
             </Typography>
             <Typography variant="body1" gutterBottom>
                 本サイト運営者は、事前の予告なく任意の理由で本サイトの提供を中断・停止する場合があります。
                 本サイト運営者は、利用者が本サイトを利用できなかったことによって利用者に生じた損害について、一切の責任を負いません。
             </Typography>
             <Typography variant="h6" component="h3">
-                10. 規約の変更
+                11. 規約の変更
             </Typography>
             <Typography variant="body1" gutterBottom>
                 本規約は、必要に応じて変更されることがあります。変更後の規約は、本サイト上に表示した時点で効力を生じるものとします。
             </Typography>
-            <Typography variant="body2">2026年1月11日 制定</Typography>
+            <Typography variant="body2">
+                2026年1月11日 制定, 2026年10月3日 改定
+            </Typography>
         </Stack>
     );
 }
