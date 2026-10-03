@@ -16,79 +16,25 @@
 ## 構成
 
 ```
-                        (投稿・編集・削除・改名のたびに作り直す)
-webapp ── DB 更新 ──▶ カタログ生成 ──PutObject──▶ S3: カタログ (catalog.json)
-                                                        ▲
-                                                        │ GetObject (メモリに 60 秒キャッシュ)
-外部プラットフォーム ──▶ API Gateway (HTTP API) ──▶ Lambda
-外部プラットフォームのビューアー ──────────────────────▶ S3: コンテンツ (CORS 許可)
+外部プラットフォーム ──▶ API Gateway (HTTP API) ──▶ Lambda (VPC 内) ──▶ PostgreSQL
+外部プラットフォームのビューアー ──────────────────────────────────▶ S3: コンテンツ (CORS 許可)
 ```
 
-- API は API Gateway (HTTP API) + Lambda で webapp の外に置く。
-- Lambda は DB を読まず、webapp が S3 に置く **カタログ** (許可済みゲームのメタデータを 1 ファイルにまとめた JSON) だけを読む。
+- API は API Gateway (HTTP API) + Lambda で webapp の外に置く。メンテナンスで webapp を止めても、DB は動き続けるので API は止まらない。
+- Lambda は DB を直接読む。webapp との間に中間データ (S3 に書き出した一覧など) を挟まないので、同期の仕組みが要らず、許可の取り消し・改名もすぐに反映される。
+- Lambda は DB に届く VPC・サブネットに置き、DB のセキュリティグループで Lambda からの 5432 を許可する。S3 などほかの AWS サービスは呼ばないので、NAT や VPC エンドポイントは要らない。
 
-### DB を直接読まない理由
+### DB への負荷
 
-- メンテナンスで DB を止める場合、API も一緒に止まる。カタログなら最後に書いた状態で応答し続けられる。
-- DB に繋ぐには Lambda を VPC に置き、接続数の管理 (RDS Proxy など) と Prisma のバンドルが要る。
-- 対象は許可済みのゲームだけで、件数は多くない。カタログ全体をメモリに載せて絞り込めば足りる。
+認証なしで公開する API が本サービスの DB を叩くので、外部からのリクエストの量で本サービスが重くならないよう、接続数と頻度に上限を設ける。
 
-メンテナンス中は webapp への書き込みがドレインで止まっているので、カタログが古くなることもない。
+- Lambda の予約済み同時実行数を小さく (例: 5) 抑え、Lambda 1 つあたりの接続プールを 1 にする。DB への接続は最大でも同時実行数と同じ数で止まる。RDS Proxy は使わない。
+- API Gateway のスロットリング (例: 20 req/s、バースト 40) で頻度を抑える。上限を超えた分は `429` を返す。
+- 応答に `Cache-Control: public, max-age=60` を付け、外部プラットフォーム側 (ブラウザ・サーバー) で同じ応答を使い回してもらう。HTTP API 自体には応答のキャッシュが無いので、それでも足りなくなったら前段に CloudFront を置く。
 
-## カタログ
+### DB スキーマの変更との順序
 
-### 形式
-
-```json
-{
-  "version": 1,
-  "generatedAt": "2026-10-03T00:00:00.000Z",
-  "games": [
-    {
-      "id": 123,
-      "title": "ゲームのタイトル",
-      "description": "説明文 (プレーンテキスト)",
-      "credit": "素材のクレジット",
-      "iconUrl": "https://content.example.com/akashic-content/456/icon1a2b3c.png",
-      "pageUrl": "https://akashic.example.com/game/123/",
-      "publisher": { "id": "clx...", "name": "投稿者名" },
-      "contentId": 456,
-      "contentUrl": "https://content.example.com/akashic-content/456/game.json",
-      "assetBaseUrl": "https://content.example.com/akashic-content/456",
-      "licenseUrl": "https://content.example.com/akashic-content/456/library_license.txt",
-      "externals": [
-        { "name": "coe", "required": true },
-        { "name": "scoreboard", "required": false }
-      ],
-      "createdAt": "2026-09-01T00:00:00.000Z",
-      "updatedAt": "2026-09-20T00:00:00.000Z"
-    }
-  ]
-}
-```
-
-URL はすべて webapp 側で組み立てて入れる。Lambda にコンテンツ配信の URL などの設定を持たせないため。
-
-### 作り直すタイミング
-
-DB から許可済みのゲームを全件引き直して丸ごと書き換える。差分で更新しないので、何度呼んでも同じ結果になる。
-
-| 操作                                                                                   | 場所                                          |
-| -------------------------------------------------------------------------------------- | --------------------------------------------- |
-| 新規投稿 (許可ありの場合)                                                              | `content-register.ts`                         |
-| 編集 (タイトル・説明・クレジット・アイコン・新バージョン・許可の切り替え・必須 / 任意) | `content-edit.ts`                             |
-| ゲーム削除                                                                             | `content-delete.ts`                           |
-| 投稿者の改名 (許可済みのゲームを持つ場合)                                              | `user.ts` (`updateUserNameAction`)            |
-| 手動 (障害からの復旧用)                                                                | manager-server に `/external-catalog/rebuild` |
-
-- 書き込みに失敗したら、DB の更新はそのままにして投稿者にエラーを表示する。保存し直せば作り直される (内容に変更がなくても作り直す)。
-- 2 人の投稿者の保存がほぼ同時に重なると、先に DB を読んだ側が後から書き、片方の変更がカタログに載らないことがある。まれで、どちらかが保存し直せば直るので許容する。
-- カタログを定期的に作り直すジョブは足さない (manager-server に定期ジョブを足さない方針のため)。手動の作り直しだけを manager-server のエンドポイントとして置く。
-- カタログ用のバケットの設定 (`EXTERNAL_CATALOG_BUCKET`) が無い環境 (ローカル・Docker Compose) では作り直しを飛ばす。
-
-### 置き場所
-
-コンテンツ配信用とは別の、公開しないバケットに置く。webapp と manager-server に `PutObject`、Lambda に `GetObject` だけを許す。
+Lambda は webapp と同じ `@multi-indiegame/persist-schema` で生成した Prisma クライアントを使う。migration で Lambda が読む列 (`Game`, `Content`, `User`, `ContentExternal`) を変えるときは、webapp と同じく migration の後に Lambda を更新する。列の削除・改名をする場合は、Lambda を先に新しい列へ移してから消す。
 
 ## データモデルの変更 (`schema/persist`)
 
@@ -146,7 +92,7 @@ model ContentExternal {
 ### 画面
 
 - 投稿・編集フォーム (`game-form.tsx`)
-  - 「外部プラットフォームでの起動を許可する」チェックボックス。許可すると渡る情報 (タイトル・説明・クレジット・アイコン・投稿者名・ゲームデータ) と、取り消してから外部に反映されるまで最大 2 分ほどかかることを書く。
+  - 「外部プラットフォームでの起動を許可する」チェックボックス。許可すると渡る情報 (タイトル・説明・クレジット・アイコン・投稿者名・ゲームデータ) と、取り消してから外部に反映されるまで最大 60 秒ほどかかることを書く。
   - 使用プラグインの一覧と、プラグインごとの「なくても動く (任意)」の切り替え。zip 選択時に `game.json` から未対応プラグインを警告している処理に相乗りする。
 - ゲームページ: 使用プラグインと必須 / 任意を表示する。今は説明欄に手書きしている対応状況を、ここへ移せるようにする。
 - 規約・プライバシーポリシー: 許可したゲームの情報を外部プラットフォームへ提供する旨を追記する。
@@ -159,24 +105,23 @@ model ContentExternal {
 - 認証なし、読み取り専用。
 - 応答は HTTP ステータスで成否を表す。`contents.json` はビューアーがそのまま読む形でなければならず `{ ok, reason }` で包めないため、他のエンドポイントもそれに揃える。
   - エラー時の本文: `{ "reason": "NotFound" }` / `{ "reason": "InvalidParams" }`
-- `Cache-Control: public, max-age=60`。Lambda 内のカタログのキャッシュ (60 秒) と合わせ、許可の取り消し・改名が外部に届くまで最大 2 分ほどかかることを許容する。
+- `Cache-Control: public, max-age=60`。許可の取り消し・改名が外部に届くまで最大 60 秒かかることを許容する (統計 API と同じ扱い)。
 - CORS: HTTP API の CORS 設定で、外部プラットフォームの Origin を許可する。`contents.json` は外部プラットフォームのブラウザ上のビューアーが取得するため必要。S3 の CORS と同じ一覧にする。
-- スロットリング: 認証なしで Lambda の課金が際限なく増えないよう、ステージの既定ルートに上限 (例: 20 req/s、バースト 40) を設定する。
+- スロットリングと同時実行数の上限は「DB への負荷」を参照。
 
 ### `GET /v1/games`
 
 許可済みゲームの検索。
 
-| パラメータ  | 型                    | 説明                                                                                      |
-| ----------- | --------------------- | ----------------------------------------------------------------------------------------- |
-| `q`         | string                | タイトル・説明の部分一致。NFKC 正規化と小文字化をしてから比べる                           |
-| `supported` | string (カンマ区切り) | 呼び出し側が対応しているプラグイン名。**必須** プラグインがすべてこの中にあるゲームに絞る |
-| `sort`      | `new` \| `updated`    | 既定 `new` (投稿日の新しい順)。`updated` は最新バージョンの投稿日の新しい順               |
-| `page`      | number                | 0 始まり。既定 0                                                                          |
-| `limit`     | number                | 既定 20、上限 50                                                                          |
+| パラメータ  | 型                              | 説明                                                                                                 |
+| ----------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `q`         | string                          | タイトル・説明の部分一致 (大文字小文字を区別しない)                                                  |
+| `supported` | string (カンマ区切り)           | 呼び出し側が対応しているプラグイン名。**必須** プラグインがすべてこの中にあるゲームに絞る            |
+| `sort`      | `new` \| `updated` \| `popular` | 既定 `new` (投稿日の新しい順)。`updated` は最新バージョンの投稿日、`popular` は `playCount` の多い順 |
+| `page`      | number                          | 0 始まり。既定 0                                                                                     |
+| `limit`     | number                          | 既定 20、上限 50                                                                                     |
 
 - `supported` を省略した場合はプラグインで絞らない。`supported=` (空) は「何も対応していない」とみなし、必須プラグインのないゲームだけを返す。
-- 人気順 (プレイ数) は提供しない。プレイ数はプレイのたびに変わり、そのたびにカタログを作り直すことはしないため。
 
 応答 `200`:
 
@@ -198,6 +143,7 @@ model ContentExternal {
         { "name": "coe", "required": true },
         { "name": "scoreboard", "required": false }
       ],
+      "playCount": 42,
       "createdAt": "2026-09-01T00:00:00.000Z",
       "updatedAt": "2026-09-20T00:00:00.000Z"
     }
@@ -210,7 +156,8 @@ model ContentExternal {
 
 - `id` / `contentId`: ゲーム (投稿単位) と、その最新バージョン。
 - `pageUrl`: 本サービスのゲームページ。外部での表示時に出典として載せてもらう想定。
-- `licenseUrl`: `library_license.txt` がない場合は省く。
+- `licenseUrl`: `library_license.txt` がない場合も載せる (`404` になる)。あるかどうかを確かめるには 1 件ごとに S3 を往復する必要があるため。
+- `iconUrl` などのコンテンツの URL と `pageUrl` は、Lambda の環境変数 (`PUBLIC_CONTENT_BASE_URL`, `PUBLIC_BASE_URL`) から webapp と同じ規則で組み立てる。
 - `contentsJsonUrl`: Lambda がリクエストのホスト名から組み立てる。
 
 ### `GET /v1/games/{gameId}`
@@ -243,18 +190,36 @@ model ContentExternal {
 | 対象                                            | 変更                                                                                                 |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `schema/persist/prisma/schema.prisma`           | `Game.externalLaunch`、`ContentExternal` と migration                                                |
-| `schema/external-catalog/` (新規)               | カタログの型と、DB から組み立てて S3 へ書く処理。webapp と manager-server で共用する                 |
-| `external-api/` (新規)                          | Lambda のハンドラ。カタログの型だけに依存し、Prisma は持ち込まない。OpenAPI 定義もここから出力する   |
-| `webapp/lib/server/content-*.ts`, `user.ts`     | `ContentExternal` の作成・引き継ぎと、カタログの作り直しの呼び出し                                   |
+| `schema/persist/src/index.ts`                   | 接続プールの大きさを指定して Prisma クライアントを作る関数を足す (Lambda はプールを 1 にするため)    |
+| `external-api/` (新規)                          | Lambda のハンドラ。DB の読み取りと応答の組み立て。OpenAPI 定義もここから出力する                     |
+| `webapp/lib/server/content-*.ts`                | `ContentExternal` の作成・引き継ぎ                                                                   |
 | `webapp/components/game-form.tsx`、ゲームページ | 許可のチェック、プラグインごとの必須 / 任意の入力と表示                                              |
-| `manager-server`                                | `/external-catalog/rebuild`                                                                          |
 | `schema/http/build-swagger.js`                  | `external-api` の OpenAPI を既存の Swagger UI に加える                                               |
 | `.github/workflows/`                            | `external-api` を esbuild で 1 ファイルにまとめ、zip にして `aws lambda update-function-code` で更新 |
 | 規約・プライバシーポリシー                      | 外部プラットフォームへの情報提供の追記                                                               |
 
-Lambda はコンテナイメージにもできるが、依存がほぼ無く小さいので、コールドスタートの短い zip 配布にする。デプロイは既存の Docker イメージと同じく、バージョンが上がったときだけ行う。
+検索の絞り込み (`supported`) は「最新の Content」との結合が要るため `$queryRaw` で ID を絞り、詳細は Prisma の `findMany` で取る。
+
+```sql
+SELECT g.id
+FROM "Game" g
+JOIN LATERAL (
+  SELECT c.id FROM "Content" c WHERE c."gameId" = g.id ORDER BY c.id DESC LIMIT 1
+) latest ON true
+WHERE g."externalLaunch"
+  AND NOT EXISTS (
+    SELECT 1 FROM "ContentExternal" ce
+    WHERE ce."contentId" = latest.id
+      AND ce.required
+      AND ce.name <> ALL($1::text[])
+  )
+ORDER BY g.id DESC
+LIMIT $2 OFFSET $3
+```
+
+Prisma 7 はドライバアダプタ (`@prisma/adapter-pg`) で動き、ネイティブのクエリエンジンを持たないので、esbuild でまとめて zip で配れる。コンテナイメージより小さく、コールドスタートも短い。デプロイは既存の Docker イメージと同じく、バージョンが上がったときだけ行う。
 
 ## 未決事項
 
-1. **AWS リソースの作り方**。API Gateway・Lambda・カタログ用バケット・IAM をコンソールで手作業で作るか、IaC (CDK / Terraform など) をリポジトリに入れるか。今は既存のサービスも IaC がリポジトリに無いため、合わせるなら手作業。
+1. **AWS リソースの作り方**。API Gateway・Lambda・VPC 設定・IAM をコンソールで手作業で作るか、IaC (CDK / Terraform など) をリポジトリに入れるか。今は既存のサービスも IaC がリポジトリに無いため、合わせるなら手作業。
 2. **`Content.scoreboard` を `ContentExternal` へまとめるか**。`scoreboard` の行があるかで同じことが分かるので、列は不要になる。統計まわりの参照箇所を書き換えることになるため、本件とは分けて行うのがよいと考える。
