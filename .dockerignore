@@ -20,3 +20,5 @@
 /webapp/.config
 /webapp/public/akashic
 /webapp/next-env.d.ts
+/external-api/dist
+/external-api/bundle

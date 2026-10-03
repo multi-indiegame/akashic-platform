@@ -17,6 +17,7 @@ COPY akashic-runner/package.json akashic-runner/package.json
 COPY akashic-storage/package.json akashic-storage/package.json
 COPY webapp/package.json webapp/package.json
 COPY manager-server/package.json manager-server/package.json
+COPY external-api/package.json external-api/package.json
 RUN npm ci -w @multi-indiegame/persist-schema
 
 COPY . .
