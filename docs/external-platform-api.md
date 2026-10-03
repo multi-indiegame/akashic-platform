@@ -138,6 +138,7 @@ model ContentExternal {
         { "name": "coe", "required": true },
         { "name": "scoreboard", "required": false }
       ],
+      "streaming": true,
       "playCount": 42,
       "createdAt": "2026-09-01T00:00:00.000Z",
       "updatedAt": "2026-09-20T00:00:00.000Z"
@@ -151,6 +152,7 @@ model ContentExternal {
 
 - `id` / `contentId`: ゲーム (投稿単位) と、その最新バージョン。
 - `pageUrl`: 本サービスのゲームページ。外部での表示時に出典として載せてもらう想定。
+- `streaming`: 投稿者が設定した実況・配信の可否。`false` のゲームは、外部プラットフォームが配信不可であることを利用者に表示し、守らせる。
 - `licenseUrl`: `library_license.txt` がない場合も載せる (`404` になる)。あるかどうかを確かめるには 1 件ごとに S3 を往復する必要があるため。
 - `iconUrl` などのコンテンツの URL と `pageUrl` は、Lambda の環境変数 (`PUBLIC_CONTENT_BASE_URL`, `PUBLIC_BASE_URL`) から webapp と同じ規則で組み立てる。
 - `contentsJsonUrl`: Lambda がリクエストのホスト名から組み立てる。

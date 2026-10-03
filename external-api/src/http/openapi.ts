@@ -28,6 +28,15 @@ Akashic Platform に投稿されたゲームを、外部のプラットフォー
 
 ブラウザから本 API とゲームのデータを読み込むには、受け入れ側の Origin を CORS で許可する必要があります。[お問い合わせ](https://multi-indiegame.net/contact/) から Origin をお知らせください。
 
+## 実況・配信の可否
+
+投稿者はゲームごとに、実況動画・ライブ配信・動画投稿 (以下「配信等」) を許可するかを設定しています。設定は \`streaming\` で返します。
+
+- \`streaming: false\`: 配信等が禁止されています。受け入れ側は、プレイ画面などで配信等ができないことを利用者に表示し、利用者に守らせてください。
+- \`streaming: true\`: Akashic Platform の利用規約「実況・配信・動画投稿」の条件の範囲で配信等ができます。
+
+投稿者は設定を変更することがあります。起動のたびに最新の値を確認してください。
+
 ## キャッシュとレート制限
 
 - 応答は 60 秒キャッシュできます (\`Cache-Control: public, max-age=60\`)。許可の取り消しや投稿者名の変更は、最大 60 秒遅れて反映されます。
@@ -252,6 +261,7 @@ export const openapi = {
                     "contentsJsonUrl",
                     "licenseUrl",
                     "externals",
+                    "streaming",
                     "playCount",
                     "createdAt",
                     "updatedAt",
@@ -310,6 +320,11 @@ export const openapi = {
                         items: {
                             $ref: "#/components/schemas/External",
                         },
+                    },
+                    streaming: {
+                        type: "boolean",
+                        description:
+                            "実況・配信・動画投稿を許可しているか。`false` のゲームは、受け入れ側で配信等ができないことを利用者に表示し、守らせること",
                     },
                     playCount: {
                         type: "integer",

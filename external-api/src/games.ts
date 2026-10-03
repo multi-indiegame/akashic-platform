@@ -19,6 +19,7 @@ const gameSelect = {
     title: true,
     description: true,
     credit: true,
+    streaming: true,
     playCount: true,
     createdAt: true,
     publisher: {
@@ -47,6 +48,7 @@ interface GameRow {
     title: string;
     description: string;
     credit: string;
+    streaming: boolean;
     playCount: number;
     createdAt: Date;
     publisher: { id: string; name: string | null };
@@ -82,6 +84,7 @@ function toGameResponse(game: GameRow, urls: UrlConfig): GameResponse | null {
             name,
             required,
         })),
+        streaming: game.streaming,
         playCount: game.playCount,
         createdAt: game.createdAt.toISOString(),
         updatedAt: latest.createdAt.toISOString(),

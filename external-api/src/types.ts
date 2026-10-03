@@ -29,6 +29,8 @@ export interface GameResponse {
     contentsJsonUrl: string;
     licenseUrl: string;
     externals: External[];
+    /** 実況・配信・動画投稿を許可しているか */
+    streaming: boolean;
     playCount: number;
     createdAt: string;
     updatedAt: string;
