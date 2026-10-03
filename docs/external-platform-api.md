@@ -9,24 +9,86 @@
   - ゲームの検索・詳細 (タイトル・説明など、Akashic の仕様に定めのないメタデータ)
   - Akashic の `contents.json` の返却
 - 対象は、投稿者が「外部プラットフォームでの起動」を許可したゲームだけとする。
+- 許可していないゲームの起動を技術的に防ぐことはしない。API (検索・`contents.json`) に出さないところまでを許可の範囲とする。
+- 本サービスのメンテナンス中 (webapp 停止中) も API は止めない。
 - プレイ (部屋) の作成・参加・統計・称号など、本サービスの実行基盤に依存する機能は対象外。
 
-## 現状
+## 構成
 
-| 項目                    | 現状                                                                                                                                      |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `contents.json`         | `GET /api/content/[id]` が返している。認可はなく、どのコンテンツでも返る                                                                  |
-| 使用プラグイン          | `environment.external` のキーと、暗黙の `coe` 判定 (`content-get-external.ts`)。リクエストのたびに S3 から `game.json` を取得して導出する |
-| プラグインの必須 / 任意 | 情報を持っていない                                                                                                                        |
-| 外部起動の許可          | 情報を持っていない                                                                                                                        |
-| ゲーム検索              | `GET /api/contents` (webapp 内部向け。`ok` 付きの包み、お気に入り情報などを含む)                                                          |
+```
+                        (投稿・編集・削除・改名のたびに作り直す)
+webapp ── DB 更新 ──▶ カタログ生成 ──PutObject──▶ S3: カタログ (catalog.json)
+                                                        ▲
+                                                        │ GetObject (メモリに 60 秒キャッシュ)
+外部プラットフォーム ──▶ API Gateway (HTTP API) ──▶ Lambda
+外部プラットフォームのビューアー ──────────────────────▶ S3: コンテンツ (CORS 許可)
+```
 
-## 方針
+- API は API Gateway (HTTP API) + Lambda で webapp の外に置く。
+- Lambda は DB を読まず、webapp が S3 に置く **カタログ** (許可済みゲームのメタデータを 1 ファイルにまとめた JSON) だけを読む。
 
-1. **外部向けは別の名前空間に切り出す** (`/api/external/v1/...`)。webapp 内部の API は画面の都合で自由に変えたいので、外部との約束と分ける。版をパスに入れ、破壊的な変更は `v2` で出す。
-2. **許可の判定は API で行う**。検索に出さないことに加え、`contents.json` も許可がなければ返さない。外部プラットフォームには起動のたびに `contents.json` を取得してもらい、許可の取り消しが起動に効くようにする。
-3. **使用プラグインと必須 / 任意は投稿時に DB へ持つ**。検索の絞り込みに使うため、都度 S3 から `game.json` を取りに行く今の作りでは賄えない (`Content.scoreboard` と同じ理由)。
-4. **既定はすべて「許可しない」「必須」**。許可は第三者へ情報を渡すことへの同意なので明示的に取る。必須 / 任意は、任意と誤って申告されると外部でゲームが壊れるため、投稿者が任意と明示したものだけ任意とする。
+### DB を直接読まない理由
+
+- メンテナンスで DB を止める場合、API も一緒に止まる。カタログなら最後に書いた状態で応答し続けられる。
+- DB に繋ぐには Lambda を VPC に置き、接続数の管理 (RDS Proxy など) と Prisma のバンドルが要る。
+- 対象は許可済みのゲームだけで、件数は多くない。カタログ全体をメモリに載せて絞り込めば足りる。
+
+メンテナンス中は webapp への書き込みがドレインで止まっているので、カタログが古くなることもない。
+
+## カタログ
+
+### 形式
+
+```json
+{
+  "version": 1,
+  "generatedAt": "2026-10-03T00:00:00.000Z",
+  "games": [
+    {
+      "id": 123,
+      "title": "ゲームのタイトル",
+      "description": "説明文 (プレーンテキスト)",
+      "credit": "素材のクレジット",
+      "iconUrl": "https://content.example.com/akashic-content/456/icon1a2b3c.png",
+      "pageUrl": "https://akashic.example.com/game/123/",
+      "publisher": { "id": "clx...", "name": "投稿者名" },
+      "contentId": 456,
+      "contentUrl": "https://content.example.com/akashic-content/456/game.json",
+      "assetBaseUrl": "https://content.example.com/akashic-content/456",
+      "licenseUrl": "https://content.example.com/akashic-content/456/library_license.txt",
+      "externals": [
+        { "name": "coe", "required": true },
+        { "name": "scoreboard", "required": false }
+      ],
+      "createdAt": "2026-09-01T00:00:00.000Z",
+      "updatedAt": "2026-09-20T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+URL はすべて webapp 側で組み立てて入れる。Lambda にコンテンツ配信の URL などの設定を持たせないため。
+
+### 作り直すタイミング
+
+DB から許可済みのゲームを全件引き直して丸ごと書き換える。差分で更新しないので、何度呼んでも同じ結果になる。
+
+| 操作                                                                                   | 場所                                          |
+| -------------------------------------------------------------------------------------- | --------------------------------------------- |
+| 新規投稿 (許可ありの場合)                                                              | `content-register.ts`                         |
+| 編集 (タイトル・説明・クレジット・アイコン・新バージョン・許可の切り替え・必須 / 任意) | `content-edit.ts`                             |
+| ゲーム削除                                                                             | `content-delete.ts`                           |
+| 投稿者の改名 (許可済みのゲームを持つ場合)                                              | `user.ts` (`updateUserNameAction`)            |
+| 手動 (障害からの復旧用)                                                                | manager-server に `/external-catalog/rebuild` |
+
+- 書き込みに失敗したら、DB の更新はそのままにして投稿者にエラーを表示する。保存し直せば作り直される (内容に変更がなくても作り直す)。
+- 2 人の投稿者の保存がほぼ同時に重なると、先に DB を読んだ側が後から書き、片方の変更がカタログに載らないことがある。まれで、どちらかが保存し直せば直るので許容する。
+- カタログを定期的に作り直すジョブは足さない (manager-server に定期ジョブを足さない方針のため)。手動の作り直しだけを manager-server のエンドポイントとして置く。
+- カタログ用のバケットの設定 (`EXTERNAL_CATALOG_BUCKET`) が無い環境 (ローカル・Docker Compose) では作り直しを飛ばす。
+
+### 置き場所
+
+コンテンツ配信用とは別の、公開しないバケットに置く。webapp と manager-server に `PutObject`、Lambda に `GetObject` だけを許す。
 
 ## データモデルの変更 (`schema/persist`)
 
@@ -47,14 +109,14 @@ model Content {
 
 /// コンテンツが使う拡張プラグイン (`environment.external` と暗黙の coe) と、その必須 / 任意。
 ///
-/// WHY: game.json には必須か任意かを書く場所がない。外部プラットフォームが対応していない
-/// プラグインを使うゲームを起動してよいかは、投稿者に申告してもらうしかない。
+/// WHY: game.json には必須か任意かを書く場所がない。対応していない実行基盤でも動くかは、
+/// ゲームがプラグインの有無で処理を切り替えているかどうかで決まり、投稿者にしか分からない。
 /// バージョンごとに game.json が変わりうるため Content に紐付ける。
 model ContentExternal {
   contentId Int
   name      String
   /// 未対応の実行基盤ではゲームが動かないか
-  required  Boolean @default(true)
+  required  Boolean
 
   content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
 
@@ -62,47 +124,59 @@ model ContentExternal {
 }
 ```
 
+### 必須 / 任意の既定
+
+| プラグイン                    | 既定 | 理由                                                                                 |
+| ----------------------------- | ---- | ------------------------------------------------------------------------------------ |
+| `scoreboard`, `playerBan`     | 任意 | ゲームが対応の有無で処理を切り替える前提で作られている                               |
+| 上記以外 (`coe`, `send` など) | 必須 | ゲームの進行そのものに使う。任意と誤って申告されると外部でゲームが壊れるため保守的に |
+
+既定は `webapp/lib/types.ts` の `supportedExternalPlugins` の隣に持つ。
+
 ### 書き込むタイミング
 
 | 操作                                        | 処理                                                                                                                              |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 新規投稿 (`registerContent`)                | `getContentExternal(gameJson)` の結果を `ContentExternal` へ。`required` はフォームの申告値 (既定 `true`)                         |
+| 新規投稿 (`registerContent`)                | `getContentExternal(gameJson)` の結果を `ContentExternal` へ。`required` はフォームの申告値                                       |
 | 新バージョン投稿 (`content-edit`、zip あり) | 同上。前バージョンに同名のプラグインがあれば、その `required` をフォームの初期値に引き継ぐ                                        |
 | 編集 (zip なし)                             | 最新 Content の `ContentExternal` の `required` を更新。行がない (この変更より前の投稿) 場合は S3 の `game.json` から導出して作る |
-| 既存データ                                  | 一括の移行はしない。`externalLaunch` は既定オフなので、投稿者が許可を入れる編集の時点で上の「行がない場合」の処理で作られる       |
 
-### 投稿・編集フォーム (`game-form.tsx`)
+既存データの移行はしない。`scoreboard` と `playerBan` を使っているのは運営者のゲームだけで、`externalLaunch` も既定オフなので、許可を入れる編集の時点で上の「行がない場合」の処理で作られれば足りる。
 
-- 「外部プラットフォームでの起動を許可する」チェックボックス。説明文に、許可すると渡る情報 (タイトル・説明・クレジット・アイコン・投稿者名・ゲームデータ) と、取り消しても外部側の表示が消えるまで時間がかかること (後述のキャッシュ) を書く。
-- 使用プラグインの一覧と、プラグインごとの「なくても動く (任意)」チェック。zip 選択時点で `game.json` から一覧を出す処理 (未対応プラグインの警告) がすでにあるので、そこに相乗りする。
-- 規約・プライバシーポリシーに、許可したゲームの情報を外部プラットフォームへ提供する旨を追記する。
+### 画面
+
+- 投稿・編集フォーム (`game-form.tsx`)
+  - 「外部プラットフォームでの起動を許可する」チェックボックス。許可すると渡る情報 (タイトル・説明・クレジット・アイコン・投稿者名・ゲームデータ) と、取り消してから外部に反映されるまで最大 2 分ほどかかることを書く。
+  - 使用プラグインの一覧と、プラグインごとの「なくても動く (任意)」の切り替え。zip 選択時に `game.json` から未対応プラグインを警告している処理に相乗りする。
+- ゲームページ: 使用プラグインと必須 / 任意を表示する。今は説明欄に手書きしている対応状況を、ここへ移せるようにする。
+- 規約・プライバシーポリシー: 許可したゲームの情報を外部プラットフォームへ提供する旨を追記する。
 
 ## API
 
 ### 共通
 
-- ベースパス: `/api/external/v1`
+- API Gateway の HTTP API。ベースパス `/v1`。独自ドメイン (例: `external-api.example.com`) を当てる。
 - 認証なし、読み取り専用。
-- 応答は HTTP ステータスで成否を表す (webapp 内部の `{ ok, reason }` の包みは使わない)。`contents.json` は Akashic のビューアーがそのまま読む形でなければならず包めないため、他のエンドポイントもそれに揃える。
-  - エラー時の本文: `{ "reason": "NotFound" }` など
-- `Cache-Control: public, max-age=60`。許可の取り消し・改名が外部に届くまで最大 60 秒かかることを許容する (統計 API と同じ扱い)。
-- CORS: 環境変数 `EXTERNAL_PLATFORM_ORIGINS` (カンマ区切り) に一致する `Origin` にだけ `Access-Control-Allow-Origin` を返す。`contents.json` は外部プラットフォームのブラウザ上のビューアーが取得するため必要。S3 の CORS と同じ一覧を使う。
-- `proxy.ts` の matcher から `/api/external/` を外す。外部からのリクエストに `guest_id` の Cookie を発行しないため。
+- 応答は HTTP ステータスで成否を表す。`contents.json` はビューアーがそのまま読む形でなければならず `{ ok, reason }` で包めないため、他のエンドポイントもそれに揃える。
+  - エラー時の本文: `{ "reason": "NotFound" }` / `{ "reason": "InvalidParams" }`
+- `Cache-Control: public, max-age=60`。Lambda 内のカタログのキャッシュ (60 秒) と合わせ、許可の取り消し・改名が外部に届くまで最大 2 分ほどかかることを許容する。
+- CORS: HTTP API の CORS 設定で、外部プラットフォームの Origin を許可する。`contents.json` は外部プラットフォームのブラウザ上のビューアーが取得するため必要。S3 の CORS と同じ一覧にする。
+- スロットリング: 認証なしで Lambda の課金が際限なく増えないよう、ステージの既定ルートに上限 (例: 20 req/s、バースト 40) を設定する。
 
-### `GET /api/external/v1/games`
+### `GET /v1/games`
 
 許可済みゲームの検索。
 
-| パラメータ  | 型                              | 説明                                                                                      |
-| ----------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
-| `q`         | string                          | タイトル・説明の部分一致 (大文字小文字を区別しない)                                       |
-| `supported` | string (カンマ区切り)           | 呼び出し側が対応しているプラグイン名。**必須** プラグインがすべてこの中にあるゲームに絞る |
-| `mode`      | `multi` \| `multi_admission`    | `environment.nicolive.supportedModes` に含むゲームに絞る                                  |
-| `sort`      | `new` \| `updated` \| `popular` | 既定 `new` (投稿日の新しい順)。`popular` は `playCount` の多い順                          |
-| `page`      | number                          | 0 始まり。既定 0                                                                          |
-| `limit`     | number                          | 既定 20、上限 50                                                                          |
+| パラメータ  | 型                    | 説明                                                                                      |
+| ----------- | --------------------- | ----------------------------------------------------------------------------------------- |
+| `q`         | string                | タイトル・説明の部分一致。NFKC 正規化と小文字化をしてから比べる                           |
+| `supported` | string (カンマ区切り) | 呼び出し側が対応しているプラグイン名。**必須** プラグインがすべてこの中にあるゲームに絞る |
+| `sort`      | `new` \| `updated`    | 既定 `new` (投稿日の新しい順)。`updated` は最新バージョンの投稿日の新しい順               |
+| `page`      | number                | 0 始まり。既定 0                                                                          |
+| `limit`     | number                | 既定 20、上限 50                                                                          |
 
-`supported` を省略した場合はプラグインで絞らない。`supported=` (空) は「何も対応していない」とみなし、必須プラグインのないゲームだけを返す。
+- `supported` を省略した場合はプラグインで絞らない。`supported=` (空) は「何も対応していない」とみなし、必須プラグインのないゲームだけを返す。
+- 人気順 (プレイ数) は提供しない。プレイ数はプレイのたびに変わり、そのたびにカタログを作り直すことはしないため。
 
 応答 `200`:
 
@@ -116,19 +190,14 @@ model ContentExternal {
       "credit": "素材のクレジット",
       "iconUrl": "https://content.example.com/akashic-content/456/icon1a2b3c.png",
       "pageUrl": "https://akashic.example.com/game/123/",
-      "publisher": {
-        "id": "clx...",
-        "name": "投稿者名"
-      },
+      "publisher": { "id": "clx...", "name": "投稿者名" },
       "contentId": 456,
-      "contentsJsonUrl": "https://akashic.example.com/api/external/v1/games/123/contents.json",
+      "contentsJsonUrl": "https://external-api.example.com/v1/games/123/contents.json",
       "licenseUrl": "https://content.example.com/akashic-content/456/library_license.txt",
       "externals": [
         { "name": "coe", "required": true },
         { "name": "scoreboard", "required": false }
       ],
-      "modes": ["multi_admission"],
-      "playCount": 42,
       "createdAt": "2026-09-01T00:00:00.000Z",
       "updatedAt": "2026-09-20T00:00:00.000Z"
     }
@@ -141,15 +210,14 @@ model ContentExternal {
 
 - `id` / `contentId`: ゲーム (投稿単位) と、その最新バージョン。
 - `pageUrl`: 本サービスのゲームページ。外部での表示時に出典として載せてもらう想定。
-- `licenseUrl`: `library_license.txt` がない場合は省く。内部 API のように本文を取得して載せると、1 件ごとに S3 を往復するため URL で渡す。
-- `externals`: 最新バージョンの `ContentExternal`。
-- `modes`: `game.json` の `supportedModes`。`niconico` の旧記法も既存の判定と同じく解釈する。絞り込みに使うため、これも投稿時に持つ (下記「未決事項」)。
+- `licenseUrl`: `library_license.txt` がない場合は省く。
+- `contentsJsonUrl`: Lambda がリクエストのホスト名から組み立てる。
 
-### `GET /api/external/v1/games/{gameId}`
+### `GET /v1/games/{gameId}`
 
 1 件分。本文は `items` の要素と同じ。許可されていない・存在しないゲームは `404`。両者を区別しない (許可していないゲームの存在を外部に知らせない)。
 
-### `GET /api/external/v1/games/{gameId}/contents.json`
+### `GET /v1/games/{gameId}/contents.json`
 
 最新バージョンの `contents.json`。外部プラットフォームはこの URL をビューアーへ渡して起動する。
 
@@ -158,67 +226,35 @@ model ContentExternal {
   "content_id": 456,
   "content_url": "https://content.example.com/akashic-content/456/game.json",
   "asset_base_url": "https://content.example.com/akashic-content/456",
-  "engine_urls": ["..."],
+  "engine_urls": [],
   "external": ["coe", "scoreboard"],
   "untrusted": false
 }
 ```
 
 - 許可されていない・存在しないゲームは `404`。
+- `engine_urls` は空配列。エンジンと playlog-client は外部プラットフォームが `game.json` の `sandbox-runtime` を見て用意する。
+- `external` は必須 / 任意を問わず使用するもの全部 (既存の `/api/content/[id]` と同じ)。必須 / 任意はメタデータ側の `externals` で渡す。
+- `untrusted` は受け入れ側が決めるものだが、念のため既存と同じ `false` を入れる。
 - ゲーム ID で引き、常に最新バージョンを返す。外部プラットフォームが contentId を控えて古いバージョンを起動し続けるのを避けるため、バージョンを固定する URL は提供しない。
-- `external` は既存の `/api/content/[id]` と同じ (必須 / 任意を問わず使用するもの全部)。必須 / 任意はメタデータ側の `externals` で渡す。
-- `engine_urls` の扱いは未決 (下記)。
 
-## 許可の強制力について
+## リポジトリ上の置き場所
 
-API で絞っても、S3 の CORS はバケット単位で、プレフィックス (コンテンツ) ごとに Origin を分けられない。外部プラットフォームが許可されていないゲームの contentId を知っていれば、`game.json` を直接読んで起動できてしまう。
+| 対象                                            | 変更                                                                                                 |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `schema/persist/prisma/schema.prisma`           | `Game.externalLaunch`、`ContentExternal` と migration                                                |
+| `schema/external-catalog/` (新規)               | カタログの型と、DB から組み立てて S3 へ書く処理。webapp と manager-server で共用する                 |
+| `external-api/` (新規)                          | Lambda のハンドラ。カタログの型だけに依存し、Prisma は持ち込まない。OpenAPI 定義もここから出力する   |
+| `webapp/lib/server/content-*.ts`, `user.ts`     | `ContentExternal` の作成・引き継ぎと、カタログの作り直しの呼び出し                                   |
+| `webapp/components/game-form.tsx`、ゲームページ | 許可のチェック、プラグインごとの必須 / 任意の入力と表示                                              |
+| `manager-server`                                | `/external-catalog/rebuild`                                                                          |
+| `schema/http/build-swagger.js`                  | `external-api` の OpenAPI を既存の Swagger UI に加える                                               |
+| `.github/workflows/`                            | `external-api` を esbuild で 1 ファイルにまとめ、zip にして `aws lambda update-function-code` で更新 |
+| 規約・プライバシーポリシー                      | 外部プラットフォームへの情報提供の追記                                                               |
 
-- 今回は「API に出さない・`contents.json` を返さない」までを許可の範囲とし、外部プラットフォームとの取り決め (許可されたゲームだけを本 API 経由で起動する) で担保する。
-- 技術的に塞ぐ必要が出たら、CloudFront を前段に置き、CloudFront Functions + KeyValueStore に許可済み contentId を持たせて、外部 Origin からのリクエストを判定する。
-
-また既存の `GET /api/content/[id]` は認可なしで任意のコンテンツの `contents.json` を返す。外部 Origin を CORS で許可しないので外部のブラウザからは読めないが、外部プラットフォームのサーバー経由なら読める。上と同じく取り決めの範囲とする。
-
-## 実装の置き場所
-
-| 対象                                       | 変更                                                                                   |
-| ------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `schema/persist/prisma/schema.prisma`      | `Game.externalLaunch`、`ContentExternal` と migration                                  |
-| `webapp/lib/server/content-register.ts` 他 | 投稿・編集時の `ContentExternal` の作成・引き継ぎ                                      |
-| `webapp/components/game-form.tsx`          | 許可のチェック、プラグインごとの必須 / 任意                                            |
-| `webapp/app/api/external/v1/...`           | 上記 3 エンドポイント                                                                  |
-| `webapp/lib/server/external-*.ts`          | 検索 (プラグインの絞り込みは「最新 Content」との結合が要るため `$queryRaw`)、CORS 判定 |
-| `webapp/proxy.ts`                          | matcher から `/api/external/` を除く                                                   |
-| `schema/http`                              | 外部向けの OpenAPI 定義を足し、既存の Swagger UI で公開する                            |
-| 規約・プライバシーポリシー                 | 外部プラットフォームへの情報提供の追記                                                 |
-
-検索の絞り込み (`supported`) の SQL のイメージ:
-
-```sql
-SELECT g.id
-FROM "Game" g
-JOIN LATERAL (
-  SELECT c.id FROM "Content" c WHERE c."gameId" = g.id ORDER BY c.id DESC LIMIT 1
-) latest ON true
-WHERE g."externalLaunch"
-  AND NOT EXISTS (
-    SELECT 1 FROM "ContentExternal" ce
-    WHERE ce."contentId" = latest.id
-      AND ce.required
-      AND ce.name <> ALL($1::text[])
-  )
-ORDER BY g.id DESC
-LIMIT $2 OFFSET $3
-```
-
-ID を絞った後の詳細は Prisma の `findMany` で取る。
+Lambda はコンテナイメージにもできるが、依存がほぼ無く小さいので、コールドスタートの短い zip 配布にする。デプロイは既存の Docker イメージと同じく、バージョンが上がったときだけ行う。
 
 ## 未決事項
 
-1. **`engine_urls` に何を返すか**。いまの値は本サービスのエンジンファイルと、本サービスの akashic-storage へつなぐ独自の playlog-client。外部プラットフォームは自前の実行基盤を使うので、playlog-client は確実に差し替えになる。案:
-   - (a) 本サービスのエンジンファイルだけ返す (playlog-client は除く)。webapp の `/akashic/` にも CORS が要る。
-   - (b) 空配列を返し、エンジンは外部プラットフォームが `game.json` の `sandbox-runtime` を見て用意する。
-   - 本サービスのエンジン配信の負荷を外部に負わせないため、(b) を推奨。
-2. **`modes` を投稿時に持つか**。絞り込みに使うなら `Content` に列を足す。`game.json` は外部プラットフォームも読めるので、絞り込みを提供しないなら不要。
-3. **`untrusted`** を外部向けでも `false` のままにするか。
-4. **API キー**。今回は認証なしとしたが、利用状況を外部プラットフォームごとに把握したい・個別に止めたい場合はキーを発行する。CORS の許可を個別に行う時点で外部プラットフォームの登録は手作業になるため、件数が少ないうちは不要と考える。
-5. **`scoreboard` の既定**。本サービス固有のプラグインで、多くのゲームはなくても動くと思われる。ほかと同じく既定を「必須」にするか、`scoreboard` だけ既定「任意」にするか。
+1. **AWS リソースの作り方**。API Gateway・Lambda・カタログ用バケット・IAM をコンソールで手作業で作るか、IaC (CDK / Terraform など) をリポジトリに入れるか。今は既存のサービスも IaC がリポジトリに無いため、合わせるなら手作業。
+2. **`Content.scoreboard` を `ContentExternal` へまとめるか**。`scoreboard` の行があるかで同じことが分かるので、列は不要になる。統計まわりの参照箇所を書き換えることになるため、本件とは分けて行うのがよいと考える。
