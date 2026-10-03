@@ -107,6 +107,11 @@ model Game {
   description    String
   credit         String              @default("")
   streaming      Boolean             @default(true)
+  /// 外部プラットフォームでの起動を許可するか。
+  ///
+  /// WHY: 既定はオフ。許可するとタイトル・説明・アイコン・投稿者名・投稿者アイコンを第三者へ渡すことになるため、
+  /// 投稿者の明示的な同意を要する。
+  externalLaunch Boolean             @default(false)
   playCount      Int                 @default(0)
   versions       Content[]
   feedbacks      FeedbackPost[]
@@ -129,18 +134,40 @@ model Game {
 }
 
 model Content {
-  id         Int     @id @default(autoincrement())
-  gameId     Int
-  icon       String
+  id                Int               @id @default(autoincrement())
+  gameId            Int
+  icon              String
   /// game.json で scoreboard を宣言しているか。
   /// WHY: 参照のたびに game.json を取得すると往復が増えるため、投稿時に判定して持つ
-  scoreboard Boolean @default(false)
-  plays      Play[]
+  scoreboard        Boolean           @default(false)
+  /// 使用プラグインを ContentExternal に記録済みか。
+  /// WHY: 記録を始める前に投稿されたバージョンは行を持たず、プラグインを使わないバージョン (行が 0 件) と
+  /// 区別できないため。未記録のものは初めて必要になったときに game.json から導出して記録する
+  externalsRecorded Boolean           @default(false)
+  plays             Play[]
+  externals         ContentExternal[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+}
+
+/// コンテンツが使う拡張プラグイン (`environment.external` と暗黙の coe) と、その必須 / 任意。
+///
+/// WHY: game.json には必須か任意かを書く場所がない。対応していない実行基盤でも動くかは、
+/// ゲームがプラグインの有無で処理を切り替えているかどうかで決まり、投稿者にしか分からない。
+/// プラグインがなくても動くように作るのはゲーム側の努力義務のため、既定は任意とする。
+/// バージョンごとに game.json が変わりうるため Content に紐付ける。
+model ContentExternal {
+  contentId Int
+  name      String
+  /// 未対応の実行基盤ではゲームが動かないか
+  required  Boolean @default(false)
+
+  content Content @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@id([contentId, name])
 }
 
 model Play {
