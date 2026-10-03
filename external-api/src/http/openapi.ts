@@ -39,7 +39,7 @@ Akashic Platform に投稿されたゲームを、外部のプラットフォー
 
 ## キャッシュとレート制限
 
-- 応答は 60 秒キャッシュできます (\`Cache-Control: public, max-age=60\`)。許可の取り消しや投稿者名の変更は、最大 60 秒遅れて反映されます。
+- 応答は 60 秒キャッシュできます (\`Cache-Control: public, max-age=60\`)。許可の取り消しや投稿者名・アイコンの変更は、最大 60 秒遅れて反映されます。
 - リクエストが多すぎる場合は \`429\` を返します。時間をおいて再度リクエストしてください。
 
 ## エラー
@@ -349,6 +349,13 @@ export const openapi = {
                 properties: {
                     id: { type: "string", description: "投稿者の ID" },
                     name: { type: "string", description: "投稿者名" },
+                    iconUrl: {
+                        type: "string",
+                        format: "uri",
+                        nullable: true,
+                        description:
+                            "投稿者のアイコン画像。サインインに使ったサービス (Google、X、GitHub など) の画像で、設定していない場合は `null`。投稿者がそのサービスでアイコンを変えると古い URL は表示できなくなるため、控えて使い回さないこと",
+                    },
                 },
             },
             External: {

@@ -109,7 +109,7 @@ model Game {
   streaming      Boolean             @default(true)
   /// 外部プラットフォームでの起動を許可するか。
   ///
-  /// WHY: 既定はオフ。許可するとタイトル・説明・アイコン・投稿者名を第三者へ渡すことになるため、
+  /// WHY: 既定はオフ。許可するとタイトル・説明・アイコン・投稿者名・投稿者アイコンを第三者へ渡すことになるため、
   /// 投稿者の明示的な同意を要する。
   externalLaunch Boolean             @default(false)
   playCount      Int                 @default(0)

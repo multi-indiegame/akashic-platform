@@ -26,6 +26,7 @@ const gameSelect = {
         select: {
             id: true,
             name: true,
+            image: true,
         },
     },
     versions: {
@@ -51,7 +52,7 @@ interface GameRow {
     streaming: boolean;
     playCount: number;
     createdAt: Date;
-    publisher: { id: string; name: string | null };
+    publisher: { id: string; name: string | null; image: string | null };
     versions: {
         id: number;
         icon: string;
@@ -76,6 +77,7 @@ function toGameResponse(game: GameRow, urls: UrlConfig): GameResponse | null {
         publisher: {
             id: game.publisher.id,
             name: game.publisher.name ?? "",
+            iconUrl: game.publisher.image,
         },
         contentId: latest.id,
         contentsJsonUrl: `${urls.publicApiBaseUrl}/v1/games/${game.id}/contents.json`,

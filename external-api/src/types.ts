@@ -24,6 +24,7 @@ export interface GameResponse {
     publisher: {
         id: string;
         name: string;
+        iconUrl: string | null;
     };
     contentId: number;
     contentsJsonUrl: string;

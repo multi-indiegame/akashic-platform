@@ -43,7 +43,7 @@ model Game {
   // ...既存
   /// 外部プラットフォームでの起動を許可するか。
   ///
-  /// WHY: 既定はオフ。許可するとタイトル・説明・アイコン・投稿者名を第三者へ渡すことになるため、
+  /// WHY: 既定はオフ。許可するとタイトル・説明・アイコン・投稿者名・投稿者アイコンを第三者へ渡すことになるため、
   /// 投稿者の明示的な同意を要する。
   externalLaunch Boolean @default(false)
 }
@@ -87,7 +87,7 @@ model ContentExternal {
 ### 画面
 
 - 投稿・編集フォーム (`game-form.tsx`)
-  - 「外部プラットフォームでの起動を許可する」チェックボックス。許可すると渡る情報 (タイトル・説明・クレジット・アイコン・投稿者名・ゲームデータ) と、取り消してから外部に反映されるまで最大 60 秒ほどかかることを書く。
+  - 「外部プラットフォームでの起動を許可する」チェックボックス。許可すると渡る情報 (タイトル・説明・クレジット・アイコン・投稿者名・投稿者アイコン・使用プラグイン・実況可否・ゲームデータ) と、取り消してから外部に反映されるまで最大 60 秒ほどかかることを書く。
   - 使用プラグインの一覧と、プラグインごとの「これがないと動かない (必須)」の切り替え。zip 選択時に `game.json` から未対応プラグインを警告している処理に相乗りする。
 - ゲームページ: 使用プラグインと必須 / 任意を表示する。今は説明欄に手書きしている対応状況を、ここへ移せるようにする。
 - 規約・プライバシーポリシー: 許可したゲームの情報を外部プラットフォームへ提供する旨を追記する。
@@ -130,7 +130,11 @@ model ContentExternal {
       "credit": "素材のクレジット",
       "iconUrl": "https://content.example.com/akashic-content/456/icon1a2b3c.png",
       "pageUrl": "https://akashic.example.com/game/123/",
-      "publisher": { "id": "clx...", "name": "投稿者名" },
+      "publisher": {
+        "id": "clx...",
+        "name": "投稿者名",
+        "iconUrl": "https://lh3.googleusercontent.com/..."
+      },
       "contentId": 456,
       "contentsJsonUrl": "https://external-api.example.com/v1/games/123/contents.json",
       "licenseUrl": "https://content.example.com/akashic-content/456/library_license.txt",
@@ -152,6 +156,7 @@ model ContentExternal {
 
 - `id` / `contentId`: ゲーム (投稿単位) と、その最新バージョン。
 - `pageUrl`: 本サービスのゲームページ。外部での表示時に出典として載せてもらう想定。
+- `publisher.iconUrl`: 投稿者のアイコン (`User.image`)。サインインに使った OAuth プロバイダの画像 URL で、未設定なら `null`。プロバイダ側でアイコンを変えると古い URL は表示できなくなる (webapp はサインインのたびに追随している)。
 - `streaming`: 投稿者が設定した実況・配信の可否。`false` のゲームは、外部プラットフォームが配信不可であることを利用者に表示し、守らせる。
 - `licenseUrl`: `library_license.txt` がない場合も載せる (`404` になる)。あるかどうかを確かめるには 1 件ごとに S3 を往復する必要があるため。
 - `iconUrl` などのコンテンツの URL と `pageUrl` は、Lambda の環境変数 (`PUBLIC_CONTENT_BASE_URL`, `PUBLIC_BASE_URL`) から webapp と同じ規則で組み立てる。
