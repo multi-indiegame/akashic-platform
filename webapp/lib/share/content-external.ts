@@ -51,3 +51,14 @@ export function listContentExternals(gameJson: GameConfiguration) {
     const implicitExternal = getImplicitExternal(gameJson);
     return [...new Set([...implicitExternal, ...explicitExternal])];
 }
+
+// game.json の external は投稿者が任意に書けるため、記録する数と名前の長さを制限する
+export const MAX_CONTENT_EXTERNALS = 50;
+export const MAX_EXTERNAL_NAME_LENGTH = 100;
+
+export function exceedsContentExternalLimits(externals: string[]) {
+    return (
+        externals.length > MAX_CONTENT_EXTERNALS ||
+        externals.some((name) => name.length > MAX_EXTERNAL_NAME_LENGTH)
+    );
+}

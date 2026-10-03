@@ -4,7 +4,7 @@ import { GUEST_NAME, PlayResponse } from "@/lib/types";
 import { getAuth } from "@/lib/server/auth";
 import { publicContentBaseUrl } from "@/lib/server/akashic";
 import { fetchLicense } from "@/lib/server/game-info";
-import { getContentExternal } from "@/lib/server/content-get-external";
+import { listContentExternals } from "@/lib/share/content-external";
 import {
     checkLimitedPlayAccess,
     fetchGameJson,
@@ -251,7 +251,7 @@ export async function GET(
                 createdAt: play.createdAt,
                 expiresAt: remaining.expiresAt,
                 remainingMs: remaining.remainingMs,
-                external: await getContentExternal(gameJson),
+                external: listContentExternals(gameJson),
                 ...(await getContentViewSize(gameJson)),
             },
         });

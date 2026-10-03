@@ -46,7 +46,12 @@ import {
     describeGameJsonEnvironmentError,
     describeGameJsonEnvironmentWarning,
 } from "@/lib/share/game-json";
-import { listContentExternals } from "@/lib/share/content-external";
+import {
+    exceedsContentExternalLimits,
+    listContentExternals,
+    MAX_CONTENT_EXTERNALS,
+    MAX_EXTERNAL_NAME_LENGTH,
+} from "@/lib/share/content-external";
 import { registerContent } from "@/lib/server/content-register";
 import { editContent } from "@/lib/server/content-edit";
 import { useAuth } from "@/lib/client/useAuth";
@@ -67,6 +72,8 @@ type GameFormProps = Partial<{
     externalLaunch: boolean;
     externals: ContentExternalInfo[];
 }>;
+
+const externalLimitExceededMessage = `不正なゲームデータファイルです。game.json で使用するプラグインは ${MAX_CONTENT_EXTERNALS} 個まで、名前は ${MAX_EXTERNAL_NAME_LENGTH} 文字までにしてください。`;
 
 export function GameForm({
     gameId,
@@ -177,6 +184,12 @@ export function GameForm({
                             externals = unsupportedExternalKeys;
                         }
                         contentExternals = listContentExternals(gameJson);
+                        if (
+                            !error &&
+                            exceedsContentExternalLimits(contentExternals)
+                        ) {
+                            error = externalLimitExceededMessage;
+                        }
                     } catch (err) {
                         console.warn("failed to parse game.json", err);
                         error =
@@ -263,6 +276,9 @@ export function GameForm({
             case "MissingMode":
             case "UnsupportedMode":
                 setServerError(describeGameJsonEnvironmentError(res));
+                break;
+            case "ExternalLimitExceeded":
+                setServerError(externalLimitExceededMessage);
                 break;
             case "GameFileTooLarge":
                 setServerError(

@@ -3,7 +3,7 @@ import { GameInfo } from "../types";
 import { internalContentBaseUrl, publicContentBaseUrl } from "./akashic";
 import { getAuth } from "./auth";
 import { isFavorited } from "./favorite";
-import { fetchContentExternal } from "./content-get-external";
+import { recordContentExternals } from "./content-get-external";
 
 export async function fetchGameInfo(gameId: number) {
     const game = await prisma.game.findUniqueOrThrow({
@@ -31,6 +31,7 @@ export async function fetchGameInfo(gameId: number) {
                     id: true,
                     icon: true,
                     scoreboard: true,
+                    externalsRecorded: true,
                     externals: {
                         select: { name: true, required: true },
                         orderBy: { name: "asc" },
@@ -44,15 +45,9 @@ export async function fetchGameInfo(gameId: number) {
             createdAt: true,
         },
     });
-    const contentId = game.versions[0].id;
-    // この記録を始める前に投稿されたバージョンは行を持たないため、game.json から導出する
-    const externals =
-        game.versions[0].externals.length > 0
-            ? game.versions[0].externals
-            : (await fetchContentExternal(contentId)).map((name) => ({
-                  name,
-                  required: false,
-              }));
+    const externals = game.versions[0].externalsRecorded
+        ? game.versions[0].externals
+        : await recordExternalsOrEmpty(game.versions[0].id);
     // WHY: 称号の画像に表示が求められる素材が含まれることがある。
     const titleCredits = await prisma.scoreTitleDef.findMany({
         where: { gameId, imageKey: { not: null }, imageCredit: { not: null } },
@@ -86,6 +81,21 @@ export async function fetchGameInfo(gameId: number) {
         createdAt: game.createdAt,
         updatedAt: game.versions[0].updatedAt,
     } satisfies GameInfo;
+}
+
+async function recordExternalsOrEmpty(contentId: number) {
+    try {
+        return (await recordContentExternals(contentId))
+            .sort()
+            .map((name) => ({ name, required: false }));
+    } catch (err) {
+        console.warn(
+            "failed to record externals (contentId = %s)",
+            contentId,
+            err,
+        );
+        return [];
+    }
 }
 
 export async function fetchLicense(contentId: number) {

@@ -1,4 +1,7 @@
 -- AlterTable
+ALTER TABLE "Content" ADD COLUMN     "externalsRecorded" BOOLEAN NOT NULL DEFAULT false;
+
+-- AlterTable
 ALTER TABLE "Game" ADD COLUMN     "externalLaunch" BOOLEAN NOT NULL DEFAULT false;
 
 -- CreateTable

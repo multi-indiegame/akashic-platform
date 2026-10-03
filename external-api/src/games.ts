@@ -1,4 +1,4 @@
-import type { createPrismaClient } from "@multi-indiegame/persist-schema";
+import type { createPrismaClient } from "@multi-indiegame/persist-schema/dist/client";
 import type {
     ContentsJson,
     External,

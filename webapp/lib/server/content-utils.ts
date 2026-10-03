@@ -8,6 +8,7 @@ import {
     S3Client,
 } from "@aws-sdk/client-s3";
 import JSZip, { JSZipObject } from "jszip";
+import type { GameConfiguration } from "@akashic/game-configuration";
 import { prisma } from "@multi-indiegame/persist-schema";
 import { ContentErrorResponse } from "../types";
 import {
@@ -15,7 +16,10 @@ import {
     formatValue,
     getGameJsonEnvironment,
 } from "../share/game-json";
-import { listContentExternals } from "../share/content-external";
+import {
+    exceedsContentExternalLimits,
+    listContentExternals,
+} from "../share/content-external";
 
 export interface GameForm {
     title: string;
@@ -28,10 +32,6 @@ export interface GameForm {
     /** 使用プラグインのうち、投稿者が必須と申告したもの */
     requiredExternals: string[];
 }
-
-// game.json の external は投稿者が任意に書けるため、記録する数と名前の長さを制限する
-const MAX_CONTENT_EXTERNALS = 50;
-const MAX_EXTERNAL_NAME_LENGTH = 100;
 
 let s3Client: S3Client | undefined;
 export const s3KeyPrefix = process.env.S3_KEY_PREFIX ?? "";
@@ -135,6 +135,18 @@ export async function validateGameZip(
             ...error,
         };
     }
+    // 切り捨てて記録すると、必須のプラグインが外部では「なくても動く」扱いになるため受け付けない
+    if (
+        exceedsContentExternalLimits(
+            listContentExternals(gameJson as GameConfiguration),
+        )
+    ) {
+        console.warn('rejected game file (reason = "ExternalLimitExceeded")');
+        return {
+            ok: false,
+            reason: "ExternalLimitExceeded",
+        };
+    }
 }
 
 /**
@@ -146,43 +158,52 @@ export async function listGameZipExternals(gameZip: JSZip) {
 }
 
 /**
- * validateGameZip を通った後に呼ぶこと
+ * Server Action はブラウザ外から任意の引数で呼べるため、文字列の配列以外は無視する
  */
-export async function declaresScoreboard(gameZip: JSZip) {
-    return (await listGameZipExternals(gameZip)).includes("scoreboard");
-}
-
-/**
- * 使用プラグインと必須 / 任意を記録する。
- * 必須かどうかは、実際に使っているプラグインのうち requiredExternals に含まれるもの。
- */
-export async function createContentExternalRecords(
-    contentId: number,
-    externals: string[],
-    requiredExternals: unknown,
-    tx: Pick<typeof prisma, "contentExternal"> = prisma,
-) {
-    // Server Action はブラウザ外から任意の引数で呼べるため、文字列の配列以外は無視する
-    const required = new Set(
+export function parseRequiredExternals(requiredExternals: unknown) {
+    return new Set(
         Array.isArray(requiredExternals)
             ? requiredExternals.filter(
                   (name): name is string => typeof name === "string",
               )
             : [],
     );
-    const names = externals
-        .filter((name) => name.length <= MAX_EXTERNAL_NAME_LENGTH)
-        .slice(0, MAX_CONTENT_EXTERNALS);
-    if (names.length === 0) {
-        return;
-    }
-    await tx.contentExternal.createMany({
-        data: names.map((name) => ({
-            contentId,
-            name,
-            required: required.has(name),
-        })),
-    });
+}
+
+/**
+ * S3 へ置き終えるまで Content の行を作らずに、置き場所に使う ID だけを先に払い出す。
+ * WHY: 行があると最新バージョンとして一覧・外部 API から見え、置いている途中のゲームを起動されてしまう
+ */
+export async function allocateContentId() {
+    const [{ id }] = await prisma.$queryRaw<{ id: bigint }[]>`
+        SELECT nextval(pg_get_serial_sequence('"Content"', 'id')) AS id
+    `;
+    return Number(id);
+}
+
+/**
+ * Content と使用プラグインを 1 回の作成で書くためのデータ。
+ * 必須かどうかは、実際に使っているプラグインのうち requiredExternals に含まれるもの。
+ */
+export function toContentCreateData(
+    contentId: number,
+    iconPath: string,
+    externals: string[],
+    requiredExternals: unknown,
+) {
+    const required = parseRequiredExternals(requiredExternals);
+    return {
+        id: contentId,
+        icon: iconPath,
+        scoreboard: externals.includes("scoreboard"),
+        externalsRecorded: true,
+        externals: {
+            create: externals.map((name) => ({
+                name,
+                required: required.has(name),
+            })),
+        },
+    };
 }
 
 export function toIconPath(iconFile: File) {
@@ -204,30 +225,6 @@ export async function throwIfInvalidContentDir(contentId: number) {
             `failed to create content directory (contentId = "${contentId}", reason = "already exists ${getBucket()}/${contentId}")`,
         );
     }
-}
-
-export async function createContentRecord(
-    gameId: number,
-    iconPath: string,
-    scoreboard: boolean,
-) {
-    return (
-        await prisma.content.create({
-            data: {
-                gameId,
-                icon: iconPath,
-                scoreboard,
-            },
-        })
-    ).id;
-}
-
-export async function deleteContentRecord(contentId: number) {
-    await prisma.content.delete({
-        where: {
-            id: contentId,
-        },
-    });
 }
 
 async function extractFile(contentId: number, file: JSZipObject) {

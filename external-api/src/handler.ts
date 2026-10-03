@@ -2,7 +2,8 @@ import type {
     APIGatewayProxyEventV2,
     APIGatewayProxyStructuredResultV2,
 } from "aws-lambda";
-import { createPrismaClient } from "@multi-indiegame/persist-schema";
+// WHY: パッケージの入口は読み込んだ時点で接続数を絞らない既定のクライアントを作るため、それを含まない入口から読む
+import { createPrismaClient } from "@multi-indiegame/persist-schema/dist/client";
 import {
     publicApiBaseUrl,
     publicBaseUrl,

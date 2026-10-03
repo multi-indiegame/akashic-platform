@@ -50,6 +50,10 @@ model Game {
 
 model Content {
   // ...既存
+  /// 使用プラグインを ContentExternal に記録済みか。
+  /// WHY: 記録を始める前に投稿されたバージョンは行を持たず、プラグインを使わないバージョン (行が 0 件) と
+  /// 区別できないため。未記録のものは初めて必要になったときに game.json から導出して記録する
+  externalsRecorded Boolean @default(false)
   externals ContentExternal[]
 }
 
@@ -76,13 +80,18 @@ model ContentExternal {
 
 ### 書き込むタイミング
 
-| 操作                                        | 処理                                                                                                                              |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 新規投稿 (`registerContent`)                | `getContentExternal(gameJson)` の結果を `ContentExternal` へ。`required` はフォームの申告値 (既定は任意)                          |
-| 新バージョン投稿 (`content-edit`、zip あり) | 同上。前バージョンに同名のプラグインがあれば、その `required` をフォームの初期値に引き継ぐ                                        |
-| 編集 (zip なし)                             | 最新 Content の `ContentExternal` の `required` を更新。行がない (この変更より前の投稿) 場合は S3 の `game.json` から導出して作る |
+| 操作                                        | 処理                                                                                                       |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 新規投稿 (`registerContent`)                | `listContentExternals(gameJson)` の結果を `ContentExternal` へ。`required` はフォームの申告値 (既定は任意) |
+| 新バージョン投稿 (`content-edit`、zip あり) | 同上。前バージョンに同名のプラグインがあれば、その `required` をフォームの初期値に引き継ぐ                 |
+| 編集 (zip なし)                             | 最新 Content の `ContentExternal` の `required` を更新                                                     |
+| ゲームページの表示 (`fetchGameInfo`)        | 未記録 (`externalsRecorded` が偽) なら S3 の `game.json` から導出して記録する                              |
 
-既存データの移行はしない。`externalLaunch` は既定オフなので、許可を入れる編集の時点で上の「行がない場合」の処理で作られれば足りる。
+新規投稿・新バージョン投稿では、ゲームデータを S3 に置き終えてから `Content` と `ContentExternal` (新規投稿では `Game` も) を 1 回の作成で書く。置き場所に使う contentId は、先に `Content` の ID の採番 (`nextval`) だけで払い出す。行を先に作ると、置いている途中のバージョンが最新として一覧・外部 API から見えてしまうため。外部起動の許可の変更も同じトランザクションで書き、許可を取り消す投稿者の新しいバージョンやアイコンが外部に出ないようにする。
+
+既存データの一括移行はしない。この変更より前に投稿されたバージョンは、ゲームページを表示したとき、または編集で必須の申告・外部起動の許可を入れたときに `game.json` から導出して記録する。必須の申告も許可もない編集 (タイトルの修正など) では `game.json` を取りに行かない。
+
+`game.json` の `external` は投稿者が任意に書けるため、使用プラグインは 50 個まで、名前は 100 文字までに制限する。超えるゲームデータは投稿時に受け付けない (切り捨てて記録すると、必須のプラグインが外部では「なくても動く」扱いになるため)。
 
 ### 画面
 
@@ -189,16 +198,16 @@ model ContentExternal {
 
 ## リポジトリ上の置き場所
 
-| 対象                                            | 変更                                                                                                                          |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `schema/persist/prisma/schema.prisma`           | `Game.externalLaunch`、`ContentExternal` と migration                                                                         |
-| `schema/persist/src/index.ts`                   | 接続プールの大きさを指定して Prisma クライアントを作る関数を足す (Lambda はプールを 1 にするため)                             |
-| `external-api/` (新規)                          | Lambda のハンドラ。DB の読み取りと応答の組み立て。OpenAPI 定義もここから出力する                                              |
-| `webapp/lib/server/content-*.ts`                | `ContentExternal` の作成・引き継ぎ                                                                                            |
-| `webapp/components/game-form.tsx`、ゲームページ | 許可のチェック、プラグインごとの必須 / 任意の入力と表示                                                                       |
-| `schema/http/build-swagger.js`                  | `external-api` の OpenAPI を既存の Swagger UI に加える                                                                        |
-| `.github/workflows/external-api.yml`            | `external-api` を esbuild で 1 ファイルにまとめ、DB の証明書と zip にして `aws lambda update-function-code` で更新 (手動実行) |
-| 規約・プライバシーポリシー                      | 外部プラットフォームへの情報提供の追記                                                                                        |
+| 対象                                            | 変更                                                                                                                                                                                                      |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema/persist/prisma/schema.prisma`           | `Game.externalLaunch`、`ContentExternal` と migration                                                                                                                                                     |
+| `schema/persist/src/client.ts`                  | 接続プールの大きさを指定して Prisma クライアントを作る関数を足す (Lambda はプールを 1 にするため)。Lambda は既定のクライアントを作らないこの入口 (`@multi-indiegame/persist-schema/dist/client`) から読む |
+| `external-api/` (新規)                          | Lambda のハンドラ。DB の読み取りと応答の組み立て。OpenAPI 定義もここから出力する                                                                                                                          |
+| `webapp/lib/server/content-*.ts`                | `ContentExternal` の作成・引き継ぎ                                                                                                                                                                        |
+| `webapp/components/game-form.tsx`、ゲームページ | 許可のチェック、プラグインごとの必須 / 任意の入力と表示                                                                                                                                                   |
+| `schema/http/build-swagger.js`                  | `external-api` の OpenAPI を既存の Swagger UI に加える                                                                                                                                                    |
+| `.github/workflows/external-api.yml`            | `external-api` を esbuild で 1 ファイルにまとめ、DB の証明書と zip にして `aws lambda update-function-code` で更新 (手動実行)                                                                             |
+| 規約・プライバシーポリシー                      | 外部プラットフォームへの情報提供の追記                                                                                                                                                                    |
 
 検索の絞り込み (`supported`) は「最新の Content」との結合が要るため `$queryRaw` で ID を絞り、詳細は Prisma の `findMany` で取る。
 

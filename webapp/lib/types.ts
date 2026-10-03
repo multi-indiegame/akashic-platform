@@ -437,6 +437,7 @@ const contentErrReasons = [
     "UnsupportedVersion",
     "MissingMode",
     "UnsupportedMode",
+    "ExternalLimitExceeded",
     "GameFileTooLarge",
     "IconFileTooLarge",
     "Unauthorized",
