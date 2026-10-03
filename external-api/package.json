@@ -10,8 +10,10 @@
   ],
   "keywords": [],
   "scripts": {
-    "clean": "rimraf ./dist",
-    "build": "tsc"
+    "clean": "rimraf ./dist ./bundle",
+    "build": "tsc",
+    "bundle": "esbuild src/handler.ts --bundle --platform=node --target=node22 --format=cjs --outfile=bundle/index.js",
+    "test": "node --test --experimental-strip-types src/**/*.test.ts"
   },
   "author": "multi-indiegame",
   "repository": {
@@ -21,9 +23,14 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.164",
     "@types/node": "^24.12.2",
+    "esbuild": "^0.28.1",
     "prettier": "^3.8.3",
     "rimraf": "^6.0.1",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@multi-indiegame/persist-schema": "^1.26.5"
   }
 }

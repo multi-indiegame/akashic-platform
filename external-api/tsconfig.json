@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "lib": ["ES6"],
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
     "module": "commonjs",
     "strict": true,
     "forceConsistentCasingInFileNames": true,
@@ -12,5 +13,6 @@
     "noImplicitOverride": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts"]
 }

@@ -1,0 +1,64 @@
+name: Deploy External API
+
+# WHY: Lambda は DB を直接読むため、migration より先に更新すると新しい列を参照して失敗する。
+# migration を当てた後に手動で実行する
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: external-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: |
+          npm run build -w @multi-indiegame/persist-schema \
+          && npm run bundle -w @multi-indiegame/external-api
+
+      - name: Deploy Cert file
+        run: printf '%s' "${{ secrets.POSTGRES_CERT }}" > external-api/bundle/postgres.pem
+
+      - name: Package
+        working-directory: external-api/bundle
+        run: zip -q ../function.zip index.js postgres.pem
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Update function
+        env:
+          FUNCTION_NAME: ${{ vars.EXTERNAL_API_FUNCTION_NAME }}
+        run: |
+          version="$(node -p "require('./external-api/package.json').version")"
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --zip-file fileb://external-api/function.zip > /dev/null
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+          # 動いているコードのバージョンをコンソールから確かめられるよう説明欄に残す
+          aws lambda update-function-configuration \
+            --function-name "$FUNCTION_NAME" \
+            --description "external-api $version" > /dev/null
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+          echo "deployed external-api $version"

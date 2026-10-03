@@ -99,7 +99,7 @@ model ContentExternal {
 - API Gateway の HTTP API。ベースパス `/v1`。独自ドメイン (例: `external-api.example.com`) を当てる。
 - 認証なし、読み取り専用。
 - 応答は HTTP ステータスで成否を表す。`contents.json` はビューアーがそのまま読む形でなければならず `{ ok, reason }` で包めないため、他のエンドポイントもそれに揃える。
-  - エラー時の本文: `{ "reason": "NotFound" }` / `{ "reason": "InvalidParams" }`
+  - エラー時の本文: `{ "reason": "NotFound" }` / `{ "reason": "InvalidParams" }` / `{ "reason": "InternalError" }` (`429` は API Gateway が返すため `{ "message": "Too Many Requests" }`)
 - `Cache-Control: public, max-age=60`。許可の取り消し・改名が外部に届くまで最大 60 秒かかることを許容する (統計 API と同じ扱い)。
 - CORS: HTTP API の CORS 設定で、外部プラットフォームの Origin を許可する。`contents.json` は外部プラットフォームのブラウザ上のビューアーが取得するため必要。S3 の CORS と同じ一覧にする。
 - スロットリングと同時実行数の上限は「DB への負荷」を参照。
@@ -182,16 +182,16 @@ model ContentExternal {
 
 ## リポジトリ上の置き場所
 
-| 対象                                            | 変更                                                                                                 |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `schema/persist/prisma/schema.prisma`           | `Game.externalLaunch`、`ContentExternal` と migration                                                |
-| `schema/persist/src/index.ts`                   | 接続プールの大きさを指定して Prisma クライアントを作る関数を足す (Lambda はプールを 1 にするため)    |
-| `external-api/` (新規)                          | Lambda のハンドラ。DB の読み取りと応答の組み立て。OpenAPI 定義もここから出力する                     |
-| `webapp/lib/server/content-*.ts`                | `ContentExternal` の作成・引き継ぎ                                                                   |
-| `webapp/components/game-form.tsx`、ゲームページ | 許可のチェック、プラグインごとの必須 / 任意の入力と表示                                              |
-| `schema/http/build-swagger.js`                  | `external-api` の OpenAPI を既存の Swagger UI に加える                                               |
-| `.github/workflows/`                            | `external-api` を esbuild で 1 ファイルにまとめ、zip にして `aws lambda update-function-code` で更新 |
-| 規約・プライバシーポリシー                      | 外部プラットフォームへの情報提供の追記                                                               |
+| 対象                                            | 変更                                                                                                                          |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `schema/persist/prisma/schema.prisma`           | `Game.externalLaunch`、`ContentExternal` と migration                                                                         |
+| `schema/persist/src/index.ts`                   | 接続プールの大きさを指定して Prisma クライアントを作る関数を足す (Lambda はプールを 1 にするため)                             |
+| `external-api/` (新規)                          | Lambda のハンドラ。DB の読み取りと応答の組み立て。OpenAPI 定義もここから出力する                                              |
+| `webapp/lib/server/content-*.ts`                | `ContentExternal` の作成・引き継ぎ                                                                                            |
+| `webapp/components/game-form.tsx`、ゲームページ | 許可のチェック、プラグインごとの必須 / 任意の入力と表示                                                                       |
+| `schema/http/build-swagger.js`                  | `external-api` の OpenAPI を既存の Swagger UI に加える                                                                        |
+| `.github/workflows/external-api.yml`            | `external-api` を esbuild で 1 ファイルにまとめ、DB の証明書と zip にして `aws lambda update-function-code` で更新 (手動実行) |
+| 規約・プライバシーポリシー                      | 外部プラットフォームへの情報提供の追記                                                                                        |
 
 検索の絞り込み (`supported`) は「最新の Content」との結合が要るため `$queryRaw` で ID を絞り、詳細は Prisma の `findMany` で取る。
 
@@ -212,7 +212,7 @@ ORDER BY g.id DESC
 LIMIT $2 OFFSET $3
 ```
 
-Prisma 7 はドライバアダプタ (`@prisma/adapter-pg`) で動き、ネイティブのクエリエンジンを持たないので、esbuild でまとめて zip で配れる。コンテナイメージより小さく、コールドスタートも短い。デプロイは既存の Docker イメージと同じく、バージョンが上がったときだけ行う。
+Prisma 7 はドライバアダプタ (`@prisma/adapter-pg`) で動き、ネイティブのクエリエンジンを持たないので、esbuild でまとめて zip で配れる。コンテナイメージより小さく、コールドスタートも短い。デプロイは migration を当てた後に手動で実行する (先に更新すると新しい列を参照して失敗するため)。AWS 側の設定は `external-api/README.md` にまとめる。
 
 ## 決定事項
 

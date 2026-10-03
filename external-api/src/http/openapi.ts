@@ -159,6 +159,7 @@ export const openapi = {
                     },
                     "400": errorResponse("パラメータが不正"),
                     "429": tooManyRequestsResponse,
+                    "500": errorResponse("サーバー側の障害"),
                 },
             },
         },
@@ -185,6 +186,7 @@ export const openapi = {
                         "ゲームが存在しない、または外部プラットフォームでの起動が許可されていない",
                     ),
                     "429": tooManyRequestsResponse,
+                    "500": errorResponse("サーバー側の障害"),
                 },
             },
         },
@@ -213,6 +215,7 @@ export const openapi = {
                         "ゲームが存在しない、または外部プラットフォームでの起動が許可されていない",
                     ),
                     "429": tooManyRequestsResponse,
+                    "500": errorResponse("サーバー側の障害"),
                 },
             },
         },
@@ -403,7 +406,7 @@ export const openapi = {
                 properties: {
                     reason: {
                         type: "string",
-                        enum: ["InvalidParams", "NotFound"],
+                        enum: ["InvalidParams", "NotFound", "InternalError"],
                     },
                 },
             },
