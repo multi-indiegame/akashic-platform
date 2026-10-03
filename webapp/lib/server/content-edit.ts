@@ -9,6 +9,7 @@ import {
     ICON_FILE_MAX_BYTES,
 } from "../types";
 import {
+    createContentExternalRecords,
     createContentRecord,
     declaresScoreboard,
     deleteContentRecord,
@@ -24,7 +25,9 @@ import {
     getS3Client,
     s3KeyPrefix,
     contentTypeFromName,
+    listGameZipExternals,
 } from "./content-utils";
+import { fetchContentExternalOrThrow } from "./content-get-external";
 import { isWriteBlocked } from "./drain-state";
 import { getSignedInUser } from "./auth";
 import { logSafe } from "./log-safe";
@@ -114,6 +117,7 @@ async function updateGameRecord({
     description,
     credit,
     streaming,
+    externalLaunch,
 }: EditGameForm) {
     const data: Awaited<Parameters<typeof prisma.game.update>[0]["data"]> = {};
     if (title != null) {
@@ -127,6 +131,9 @@ async function updateGameRecord({
     }
     if (streaming != null) {
         data.streaming = streaming;
+    }
+    if (externalLaunch != null) {
+        data.externalLaunch = externalLaunch === true;
     }
     if (Object.keys(data).length === 0) {
         return;
@@ -147,6 +154,42 @@ async function updateContentRecord(contentId: number, iconPath: string) {
         where: {
             id: contentId,
         },
+    });
+}
+
+async function getRequiredExternals(contentId: number) {
+    return (
+        await prisma.contentExternal.findMany({
+            select: { name: true },
+            where: { contentId, required: true },
+        })
+    ).map(({ name }) => name);
+}
+
+/**
+ * ゲームデータを差し替えずに、使用プラグインの必須 / 任意だけを更新する
+ */
+async function updateContentExternalRecords(
+    contentId: number,
+    requiredExternals: unknown,
+) {
+    const existing = await prisma.contentExternal.findMany({
+        select: { name: true },
+        where: { contentId },
+    });
+    // この記録を始める前に投稿されたバージョンは行を持たないため、game.json から導出する
+    const externals =
+        existing.length > 0
+            ? existing.map(({ name }) => name)
+            : await fetchContentExternalOrThrow(contentId);
+    await prisma.$transaction(async (tx) => {
+        await tx.contentExternal.deleteMany({ where: { contentId } });
+        await createContentExternalRecords(
+            contentId,
+            externals,
+            requiredExternals,
+            tx,
+        );
     });
 }
 
@@ -221,6 +264,12 @@ export async function editContent(
                 await declaresScoreboard(gameZip),
             );
             try {
+                await createContentExternalRecords(
+                    newContentId,
+                    await listGameZipExternals(gameZip),
+                    param.requiredExternals ??
+                        (await getRequiredExternals(param.contentId)),
+                );
                 await throwIfInvalidContentDir(newContentId);
                 await deployGameZip(newContentId, gameZip);
                 if (param.iconFile) {
@@ -247,6 +296,13 @@ export async function editContent(
                 const iconPath = toIconPath(param.iconFile);
                 await deployIconFile(param.contentId, iconPath, param.iconFile);
                 await updateContentRecord(param.contentId, iconPath);
+            }
+            // 許可を入れたゲームが必須 / 任意の記録を欠いたまま外部に出ないよう、ゲームより先に更新する
+            if (param.requiredExternals != null) {
+                await updateContentExternalRecords(
+                    param.contentId,
+                    param.requiredExternals,
+                );
             }
             await updateGameRecord(param);
             return {

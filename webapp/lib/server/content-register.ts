@@ -8,6 +8,7 @@ import {
     ICON_FILE_MAX_BYTES,
 } from "../types";
 import {
+    createContentExternalRecords,
     createContentRecord,
     declaresScoreboard,
     deleteContentRecord,
@@ -18,6 +19,7 @@ import {
     toIconPath,
     validateGameZip,
     deleteContentDir,
+    listGameZipExternals,
     throwIfInvalidContentDir,
 } from "./content-utils";
 import { isWriteBlocked } from "./drain-state";
@@ -63,6 +65,7 @@ async function createGameRecord(param: NewGameForm) {
                 description: param.description,
                 credit: param.credit,
                 streaming: param.streaming,
+                externalLaunch: param.externalLaunch === true,
             },
         })
     ).id;
@@ -114,6 +117,11 @@ export async function registerContent(
                 await declaresScoreboard(gameZip),
             );
             try {
+                await createContentExternalRecords(
+                    contentId,
+                    await listGameZipExternals(gameZip),
+                    param.requiredExternals,
+                );
                 await throwIfInvalidContentDir(contentId);
                 await deployGameZip(contentId, gameZip);
                 await deployIconFile(contentId, iconPath, param.iconFile);

@@ -15,7 +15,7 @@ import {
     formatValue,
     getGameJsonEnvironment,
 } from "../share/game-json";
-import { getContentExternal } from "./content-get-external";
+import { listContentExternals } from "../share/content-external";
 
 export interface GameForm {
     title: string;
@@ -24,7 +24,14 @@ export interface GameForm {
     description: string;
     credit: string;
     streaming: boolean;
+    externalLaunch: boolean;
+    /** 使用プラグインのうち、投稿者が必須と申告したもの */
+    requiredExternals: string[];
 }
+
+// game.json の external は投稿者が任意に書けるため、記録する数と名前の長さを制限する
+const MAX_CONTENT_EXTERNALS = 50;
+const MAX_EXTERNAL_NAME_LENGTH = 100;
 
 let s3Client: S3Client | undefined;
 export const s3KeyPrefix = process.env.S3_KEY_PREFIX ?? "";
@@ -133,9 +140,49 @@ export async function validateGameZip(
 /**
  * validateGameZip を通った後に呼ぶこと
  */
-export async function declaresScoreboard(gameZip: JSZip) {
+export async function listGameZipExternals(gameZip: JSZip) {
     const gameJson = JSON.parse(await gameZip.file("game.json")!.async("text"));
-    return (await getContentExternal(gameJson)).includes("scoreboard");
+    return listContentExternals(gameJson);
+}
+
+/**
+ * validateGameZip を通った後に呼ぶこと
+ */
+export async function declaresScoreboard(gameZip: JSZip) {
+    return (await listGameZipExternals(gameZip)).includes("scoreboard");
+}
+
+/**
+ * 使用プラグインと必須 / 任意を記録する。
+ * 必須かどうかは、実際に使っているプラグインのうち requiredExternals に含まれるもの。
+ */
+export async function createContentExternalRecords(
+    contentId: number,
+    externals: string[],
+    requiredExternals: unknown,
+    tx: Pick<typeof prisma, "contentExternal"> = prisma,
+) {
+    // Server Action はブラウザ外から任意の引数で呼べるため、文字列の配列以外は無視する
+    const required = new Set(
+        Array.isArray(requiredExternals)
+            ? requiredExternals.filter(
+                  (name): name is string => typeof name === "string",
+              )
+            : [],
+    );
+    const names = externals
+        .filter((name) => name.length <= MAX_EXTERNAL_NAME_LENGTH)
+        .slice(0, MAX_CONTENT_EXTERNALS);
+    if (names.length === 0) {
+        return;
+    }
+    await tx.contentExternal.createMany({
+        data: names.map((name) => ({
+            contentId,
+            name,
+            required: required.has(name),
+        })),
+    });
 }
 
 export function toIconPath(iconFile: File) {

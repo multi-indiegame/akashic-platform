@@ -51,6 +51,8 @@ export default function GameEdit() {
             description={gameInfo.description}
             credit={gameInfo.credit}
             streaming={gameInfo.streaming}
+            externalLaunch={gameInfo.externalLaunch}
+            externals={gameInfo.externals}
         />
     );
 }

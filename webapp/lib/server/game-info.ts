@@ -3,6 +3,7 @@ import { GameInfo } from "../types";
 import { internalContentBaseUrl, publicContentBaseUrl } from "./akashic";
 import { getAuth } from "./auth";
 import { isFavorited } from "./favorite";
+import { fetchContentExternal } from "./content-get-external";
 
 export async function fetchGameInfo(gameId: number) {
     const game = await prisma.game.findUniqueOrThrow({
@@ -15,6 +16,7 @@ export async function fetchGameInfo(gameId: number) {
             description: true,
             credit: true,
             streaming: true,
+            externalLaunch: true,
             playCount: true,
             publisher: {
                 select: {
@@ -29,6 +31,10 @@ export async function fetchGameInfo(gameId: number) {
                     id: true,
                     icon: true,
                     scoreboard: true,
+                    externals: {
+                        select: { name: true, required: true },
+                        orderBy: { name: "asc" },
+                    },
                     updatedAt: true,
                 },
                 orderBy: {
@@ -39,6 +45,14 @@ export async function fetchGameInfo(gameId: number) {
         },
     });
     const contentId = game.versions[0].id;
+    // この記録を始める前に投稿されたバージョンは行を持たないため、game.json から導出する
+    const externals =
+        game.versions[0].externals.length > 0
+            ? game.versions[0].externals
+            : (await fetchContentExternal(contentId)).map((name) => ({
+                  name,
+                  required: false,
+              }));
     // WHY: 称号の画像に表示が求められる素材が含まれることがある。
     const titleCredits = await prisma.scoreTitleDef.findMany({
         where: { gameId, imageKey: { not: null }, imageCredit: { not: null } },
@@ -54,6 +68,8 @@ export async function fetchGameInfo(gameId: number) {
             credit: def.imageCredit!,
         })),
         hasScoreboard: game.versions[0].scoreboard,
+        externalLaunch: game.externalLaunch,
+        externals,
         iconURL: `${publicContentBaseUrl}/${game.versions[0].id}/${game.versions[0].icon}`,
         publisher: {
             id: game.publisher.id,
