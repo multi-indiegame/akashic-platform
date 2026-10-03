@@ -1,0 +1,29 @@
+{
+  "name": "@multi-indiegame/external-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "API for external platforms (AWS Lambda)",
+  "files": [
+    "CHANGELOG.md",
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "keywords": [],
+  "scripts": {
+    "clean": "rimraf ./dist",
+    "build": "tsc"
+  },
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "external-api"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^6.0.3"
+  }
+}

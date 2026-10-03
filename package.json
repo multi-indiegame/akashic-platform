@@ -31,7 +31,8 @@
     "akashic-storage",
     "webapp",
     "webapp-static",
-    "manager-server"
+    "manager-server",
+    "external-api"
   ],
   "overrides": {
     "postcss": "^8.5.10",
