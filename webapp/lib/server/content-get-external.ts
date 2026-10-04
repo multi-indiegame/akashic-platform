@@ -1,7 +1,12 @@
 import { prisma } from "@multi-indiegame/persist-schema";
 import { internalContentBaseUrl } from "./akashic";
 import { logSafe } from "./log-safe";
-import { listContentExternals } from "../share/content-external";
+import {
+    exceedsContentExternalLimits,
+    listContentExternals,
+} from "../share/content-external";
+
+export class ContentExternalLimitError extends Error {}
 
 /**
  * 取得に失敗した場合は例外を投げる。空の一覧と区別が要る場合に使う
@@ -41,6 +46,12 @@ export async function fetchContentExternal(contentId: number | string) {
  */
 export async function recordContentExternals(contentId: number) {
     const externals = await fetchContentExternalOrThrow(contentId);
+    // この記録より前の投稿は、投稿時に上限を確かめていない
+    if (exceedsContentExternalLimits(externals)) {
+        throw new ContentExternalLimitError(
+            `too many or too long externals in game.json (contentId = ${contentId})`,
+        );
+    }
     await prisma.$transaction(async (tx) => {
         // 同時に記録されたとき、先に入った必須の申告を任意で上書きしないよう既存の行は残す
         await tx.contentExternal.createMany({

@@ -26,7 +26,10 @@ import {
     parseRequiredExternals,
     toContentCreateData,
 } from "./content-utils";
-import { recordContentExternals } from "./content-get-external";
+import {
+    ContentExternalLimitError,
+    recordContentExternals,
+} from "./content-get-external";
 import { isWriteBlocked } from "./drain-state";
 import { getSignedInUser } from "./auth";
 import { logSafe } from "./log-safe";
@@ -342,6 +345,16 @@ export async function editContent(
             };
         }
     } catch (err) {
+        if (err instanceof ContentExternalLimitError) {
+            console.warn(
+                'rejected edit (reason = "ExternalLimitExceeded", contentId = "%s")',
+                logSafe(param.contentId),
+            );
+            return {
+                ok: false,
+                reason: "ExternalLimitExceeded",
+            };
+        }
         console.warn(
             'failed to edit content (contentId = "%s")',
             logSafe(param.contentId),
