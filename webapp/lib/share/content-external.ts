@@ -52,6 +52,13 @@ export function listContentExternals(gameJson: GameConfiguration) {
     return [...new Set([...implicitExternal, ...explicitExternal])];
 }
 
+/**
+ * 投稿者に必須 / 任意を尋ねず、常に任意として記録するプラグイン。
+ * WHY: coeLimited を使う @akashic-extension/resolve-player-info は、未対応の環境では代わりの名前を割り当てるダイアログを出すため、なくても動く。
+ * send はツールがエクスポート時に自動で足すもので、投稿者向けの機能ではない。
+ */
+export const ALWAYS_OPTIONAL_EXTERNALS = ["coeLimited", "send"];
+
 // game.json の external は投稿者が任意に書けるため、記録する数と名前の長さを制限する
 export const MAX_CONTENT_EXTERNALS = 50;
 export const MAX_EXTERNAL_NAME_LENGTH = 100;

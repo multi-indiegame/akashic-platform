@@ -17,6 +17,7 @@ import {
     getGameJsonEnvironment,
 } from "../share/game-json";
 import {
+    ALWAYS_OPTIONAL_EXTERNALS,
     exceedsContentExternalLimits,
     listContentExternals,
 } from "../share/content-external";
@@ -135,7 +136,6 @@ export async function validateGameZip(
             ...error,
         };
     }
-    // 切り捨てて記録すると、必須のプラグインが外部では「なくても動く」扱いになるため受け付けない
     if (
         exceedsContentExternalLimits(
             listContentExternals(gameJson as GameConfiguration),
@@ -164,7 +164,9 @@ export function parseRequiredExternals(requiredExternals: unknown) {
     return new Set(
         Array.isArray(requiredExternals)
             ? requiredExternals.filter(
-                  (name): name is string => typeof name === "string",
+                  (name): name is string =>
+                      typeof name === "string" &&
+                      !ALWAYS_OPTIONAL_EXTERNALS.includes(name),
               )
             : [],
     );

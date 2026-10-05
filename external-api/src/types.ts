@@ -27,7 +27,7 @@ export interface GameResponse {
         iconUrl: string | null;
     };
     contentId: number;
-    contentsJsonUrl: string;
+    contentJsonUrl: string;
     licenseUrl: string;
     externals: External[];
     /** 実況・配信・動画投稿を許可しているか */
@@ -44,7 +44,7 @@ export interface GameListResponse {
     hasNext: boolean;
 }
 
-export interface ContentsJson {
+export interface ContentJson {
     content_id: number;
     content_url: string;
     asset_base_url: string;

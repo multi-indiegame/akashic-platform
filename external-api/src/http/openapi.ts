@@ -1,17 +1,17 @@
 const description = `
-Akashic Platform に投稿されたゲームを、外部のプラットフォームで起動するための読み取り専用 API です。
+みんなでゲーム! に投稿されたゲームを、外部のプラットフォームで起動するための読み取り専用 API です。
 
 ## 対象となるゲーム
 
-投稿者が「外部プラットフォームでの起動」を許可したゲームだけを返します。許可が取り消されたゲームや削除されたゲームは、検索に出なくなり、詳細と \`contents.json\` は \`404\` になります。
+投稿者が「外部プラットフォームでの起動」を許可したゲームだけを返します。許可が取り消されたゲームや削除されたゲームは、検索に出なくなり、詳細と \`content.json\` は \`404\` になります。
 
 ## 起動の流れ
 
 1. \`GET /v1/games\` でゲームを探します。
-2. 起動のたびに \`contentsJsonUrl\` (\`GET /v1/games/{gameId}/contents.json\`) を取得し、ビューアーへ渡します。
-   - \`contents.json\` は常に最新バージョンを指します。\`contentId\` を控えて古いバージョンを起動し続けないでください。
-   - 投稿者が許可を取り消した場合に起動できなくなるよう、取得した \`contents.json\` は応答のキャッシュ期間を超えて使い回さないでください。
-3. \`contents.json\` の \`engine_urls\` は空配列です。Akashic Engine と playlog client は、\`game.json\` の \`environment["sandbox-runtime"]\` を見て受け入れ側で用意してください。
+2. 起動のたびに \`contentJsonUrl\` (\`GET /v1/games/{gameId}/content.json\`) を取得し、ビューアーへ渡します。
+   - \`content.json\` は常に最新バージョンを指します。\`contentId\` を控えて古いバージョンを起動し続けないでください。
+   - 投稿者が許可を取り消した場合に起動できなくなるよう、取得した \`content.json\` は応答のキャッシュ期間を超えて使い回さないでください。
+3. \`content.json\` の \`engine_urls\` は空配列です。Akashic Engine と playlog client は、\`game.json\` の \`environment["sandbox-runtime"]\` を見て受け入れ側で用意してください。
 
 ゲームのデータ (\`game.json\` やアセット) は、\`content_url\` / \`asset_base_url\` から直接読み込みます。ブラウザから読み込むには、後述の Origin の登録が必要です。
 
@@ -22,7 +22,7 @@ Akashic Platform に投稿されたゲームを、外部のプラットフォー
 - \`required: true\`: このプラグインがない実行基盤ではゲームが動きません。対応していない場合は起動しないでください。
 - \`required: false\`: ゲームがプラグインの有無で処理を切り替えます。対応していなくても起動できます。
 
-必須かどうかは投稿者の申告によります。検索の \`supported\` に対応しているプラグインを渡すと、起動できるゲームだけに絞り込めます。
+必須かどうかは投稿者の申告によります (\`coeLimited\` と \`send\` は常に \`required: false\` です)。検索の \`supported\` に対応しているプラグインを渡すと、起動できるゲームだけに絞り込めます。
 
 ## 利用の登録
 
@@ -33,7 +33,7 @@ Akashic Platform に投稿されたゲームを、外部のプラットフォー
 投稿者はゲームごとに、実況動画・ライブ配信・動画投稿 (以下「配信等」) を許可するかを設定しています。設定は \`streaming\` で返します。
 
 - \`streaming: false\`: 配信等が禁止されています。受け入れ側は、プレイ画面などで配信等ができないことを利用者に表示し、利用者に守らせてください。
-- \`streaming: true\`: Akashic Platform の利用規約「実況・配信・動画投稿」の条件の範囲で配信等ができます。
+- \`streaming: true\`: みんなでゲーム! の利用規約「実況・配信・動画投稿」の条件の範囲で配信等ができます。
 
 投稿者は設定を変更することがあります。起動のたびに最新の値を確認してください。
 
@@ -199,13 +199,13 @@ export const openapi = {
                 },
             },
         },
-        "/v1/games/{gameId}/contents.json": {
+        "/v1/games/{gameId}/content.json": {
             get: {
                 tags: ["games"],
-                operationId: "getContentsJson",
-                summary: "ゲームを起動するための contents.json を取得する",
+                operationId: "getContentJson",
+                summary: "ゲームを起動するための content.json を取得する",
                 description:
-                    "最新バージョンの contents.json を返す。起動のたびに取得し、ビューアーへ渡すこと。",
+                    "最新バージョンの content.json を返す。起動のたびに取得し、ビューアーへ渡すこと。",
                 parameters: [gameIdParameter],
                 responses: {
                     "200": {
@@ -214,7 +214,7 @@ export const openapi = {
                         content: {
                             "application/json": {
                                 schema: {
-                                    $ref: "#/components/schemas/ContentsJson",
+                                    $ref: "#/components/schemas/ContentJson",
                                 },
                             },
                         },
@@ -258,7 +258,7 @@ export const openapi = {
                     "pageUrl",
                     "publisher",
                     "contentId",
-                    "contentsJsonUrl",
+                    "contentJsonUrl",
                     "licenseUrl",
                     "externals",
                     "streaming",
@@ -290,7 +290,7 @@ export const openapi = {
                     pageUrl: {
                         type: "string",
                         format: "uri",
-                        description: "Akashic Platform 上のゲームのページ",
+                        description: "みんなでゲーム! 上のゲームのページ",
                         example: "https://akashic.example.com/game/123/",
                     },
                     publisher: {
@@ -302,11 +302,11 @@ export const openapi = {
                             "最新バージョンの ID。ゲームを更新すると変わる",
                         example: 456,
                     },
-                    contentsJsonUrl: {
+                    contentJsonUrl: {
                         type: "string",
                         format: "uri",
                         description:
-                            "`GET /v1/games/{gameId}/contents.json` の URL",
+                            "`GET /v1/games/{gameId}/content.json` の URL",
                     },
                     licenseUrl: {
                         type: "string",
@@ -328,7 +328,7 @@ export const openapi = {
                     },
                     playCount: {
                         type: "integer",
-                        description: "Akashic Platform 上でのプレイ回数",
+                        description: "みんなでゲーム! 上でのプレイ回数",
                         example: 42,
                     },
                     createdAt: {
@@ -374,9 +374,9 @@ export const openapi = {
                     },
                 },
             },
-            ContentsJson: {
+            ContentJson: {
                 type: "object",
-                description: "Akashic のビューアーが読み込む contents.json",
+                description: "runner, agvw が読み込む content.json",
                 required: [
                     "content_id",
                     "content_url",

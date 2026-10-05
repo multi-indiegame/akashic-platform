@@ -13,6 +13,7 @@ import {
     Checkbox,
     Container,
     FormControlLabel,
+    Link,
     List,
     ListItem,
     Stack,
@@ -26,6 +27,7 @@ import {
     EditNote,
     FileUpload,
     Image as ImageIcon,
+    OpenInNew,
     Publish,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
@@ -47,11 +49,13 @@ import {
     describeGameJsonEnvironmentWarning,
 } from "@/lib/share/game-json";
 import {
+    ALWAYS_OPTIONAL_EXTERNALS,
     exceedsContentExternalLimits,
     listContentExternals,
     MAX_CONTENT_EXTERNALS,
     MAX_EXTERNAL_NAME_LENGTH,
 } from "@/lib/share/content-external";
+import { externalPluginInfos } from "@/lib/share/external-plugin-info";
 import { registerContent } from "@/lib/server/content-register";
 import { editContent } from "@/lib/server/content-edit";
 import { useAuth } from "@/lib/client/useAuth";
@@ -72,6 +76,136 @@ type GameFormProps = Partial<{
     externalLaunch: boolean;
     externals: ContentExternalInfo[];
 }>;
+
+function ExternalName({ name }: { name: string }) {
+    return (
+        <Typography component="span" sx={{ fontFamily: "monospace" }}>
+            {name}
+        </Typography>
+    );
+}
+
+function ExternalGuide({ name }: { name: string }) {
+    const theme = useTheme();
+    const info = externalPluginInfos[name];
+    if (!info?.description) {
+        return null;
+    }
+    return (
+        <Typography variant="caption" color="textSecondary" component="p">
+            {info.description}
+            {info.url && (
+                <>
+                    <Button
+                        component={Link}
+                        endIcon={<OpenInNew fontSize="small" />}
+                        href={info.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        size="small"
+                        sx={{
+                            color: theme.palette.primary.light,
+                        }}
+                    >
+                        詳細
+                    </Button>
+                </>
+            )}
+        </Typography>
+    );
+}
+
+function ExternalPluginFields({
+    externals,
+    requiredExternals,
+    onToggle,
+}: {
+    externals: string[];
+    requiredExternals: string[];
+    onToggle: (name: string, required: boolean) => void;
+}) {
+    const askedExternals = externals.filter(
+        (name) => !ALWAYS_OPTIONAL_EXTERNALS.includes(name),
+    );
+    const fixedExternals = externals.filter((name) =>
+        ALWAYS_OPTIONAL_EXTERNALS.includes(name),
+    );
+    return (
+        <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+                使用プラグイン
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+                外部のプラットフォームが、このゲームを起動できるかを判断するために使います。本サービスでは、ここでの入力に関わらず、対応しているプラグインはすべて動作します。
+            </Typography>
+            {askedExternals.length > 0 && (
+                <>
+                    <Typography
+                        variant="body2"
+                        color="textSecondary"
+                        sx={{ mt: 1 }}
+                    >
+                        プラグインが無い環境ではゲームが動作しない場合はチェックを入れてください。分からない場合はチェックを入れずにそのままにしてください。
+                    </Typography>
+                    <Stack>
+                        {askedExternals.map((name) => (
+                            <Box key={name}>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={requiredExternals.includes(
+                                                name,
+                                            )}
+                                            onChange={(event) =>
+                                                onToggle(
+                                                    name,
+                                                    event.target.checked,
+                                                )
+                                            }
+                                        />
+                                    }
+                                    label={
+                                        <>
+                                            <ExternalName name={name} /> : 必須
+                                            (ゲームの動作に必要)
+                                        </>
+                                    }
+                                />
+                                <Box sx={{ ml: 4 }}>
+                                    <ExternalGuide name={name} />
+                                </Box>
+                            </Box>
+                        ))}
+                    </Stack>
+                </>
+            )}
+            {fixedExternals.length > 0 && (
+                <>
+                    <Typography
+                        variant="body2"
+                        color="textSecondary"
+                        sx={{ mt: 1 }}
+                    >
+                        次のプラグインは入力不要です。無くても動くものとして登録されます。
+                    </Typography>
+                    <List dense sx={{ listStyleType: "disc", pl: 2 }}>
+                        {fixedExternals.map((name) => (
+                            <ListItem key={name} sx={{ display: "list-item" }}>
+                                <Typography
+                                    variant="body2"
+                                    color="textSecondary"
+                                >
+                                    <ExternalName name={name} />
+                                </Typography>
+                                <ExternalGuide name={name} />
+                            </ListItem>
+                        ))}
+                    </List>
+                </>
+            )}
+        </Box>
+    );
+}
 
 const externalLimitExceededMessage = `不正なゲームデータファイルです。game.json で使用するプラグインは ${MAX_CONTENT_EXTERNALS} 個まで、名前は ${MAX_EXTERNAL_NAME_LENGTH} 文字までにしてください。`;
 
@@ -354,7 +488,11 @@ export function GameForm({
                                 streaming,
                                 externalLaunch,
                                 requiredExternals: requiredExternals.filter(
-                                    (name) => externals.includes(name),
+                                    (name) =>
+                                        externals.includes(name) &&
+                                        !ALWAYS_OPTIONAL_EXTERNALS.includes(
+                                            name,
+                                        ),
                                 ),
                             });
                         } catch (err) {
@@ -383,7 +521,9 @@ export function GameForm({
                             streaming,
                             externalLaunch,
                             requiredExternals: requiredExternals.filter(
-                                (name) => externals.includes(name),
+                                (name) =>
+                                    externals.includes(name) &&
+                                    !ALWAYS_OPTIONAL_EXTERNALS.includes(name),
                             ),
                         });
                     } catch (err) {
@@ -754,61 +894,12 @@ export function GameForm({
                                     )}
                                 </Stack>
                             </Box>
-                            {externals.length > 0 && (
-                                <Box>
-                                    <Typography variant="h6" gutterBottom>
-                                        使用プラグイン
-                                    </Typography>
-                                    <Typography
-                                        variant="body2"
-                                        color="textSecondary"
-                                    >
-                                        プラグインに対応していない環境
-                                        (外部のプラットフォームなど)
-                                        では、ゲームを起動できないことがあります。プラグインが無いとゲームが動かない場合は「必須」にしてください。プラグインの有無で処理を切り替え、無くても動くように作ることを推奨します。
-                                    </Typography>
-                                    <Stack>
-                                        {externals.map((name) => (
-                                            <FormControlLabel
-                                                key={name}
-                                                control={
-                                                    <Checkbox
-                                                        checked={requiredExternals.includes(
-                                                            name,
-                                                        )}
-                                                        onChange={(event) =>
-                                                            handleToggleRequiredExternal(
-                                                                name,
-                                                                event.target
-                                                                    .checked,
-                                                            )
-                                                        }
-                                                    />
-                                                }
-                                                label={
-                                                    <>
-                                                        <Typography
-                                                            component="span"
-                                                            sx={{
-                                                                fontFamily:
-                                                                    "monospace",
-                                                            }}
-                                                        >
-                                                            {name}
-                                                        </Typography>{" "}
-                                                        が無いと動かない (必須)
-                                                    </>
-                                                }
-                                            />
-                                        ))}
-                                    </Stack>
-                                </Box>
-                            )}
                             <Box>
                                 <Typography variant="h6" gutterBottom>
                                     外部プラットフォームでの起動
                                 </Typography>
                                 <FormControlLabel
+                                    sx={{ ml: 0 }}
                                     control={
                                         <Switch
                                             checked={externalLaunch}
@@ -828,6 +919,13 @@ export function GameForm({
                                     許可すると、運営者が連携を認めた外部のプラットフォームで、このゲームを検索・起動できるようになります。ゲームタイトル・ゲーム説明・クレジット・アイコン・投稿者名・投稿者アイコン・使用プラグイン・実況可否とゲームデータが外部のプラットフォームへ提供されます。実況・配信を許可していない場合、外部のプラットフォームでも実況・配信はできません。許可を取り消してから外部に反映されるまで、1
                                     分ほどかかります。
                                 </Typography>
+                                {externalLaunch && externals.length > 0 && (
+                                    <ExternalPluginFields
+                                        externals={externals}
+                                        requiredExternals={requiredExternals}
+                                        onToggle={handleToggleRequiredExternal}
+                                    />
+                                )}
                             </Box>
                             <GameTermsAndConditions />
                             {serverError && (

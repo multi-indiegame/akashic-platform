@@ -9,7 +9,6 @@ import {
     Button,
     Card,
     CardContent,
-    Chip,
     Container,
     Stack,
     Typography,
@@ -130,40 +129,6 @@ export function GameDetail({
                                         {gameInfo.playCount.toLocaleString()} 回
                                     </Typography>
                                 </Stack>
-                                {gameInfo.externals &&
-                                    gameInfo.externals.length > 0 && (
-                                        <Stack
-                                            direction="row"
-                                            spacing={1}
-                                            useFlexGap
-                                            sx={{
-                                                alignItems: "center",
-                                                flexWrap: "wrap",
-                                            }}
-                                        >
-                                            <Typography
-                                                variant="body2"
-                                                color="textSecondary"
-                                            >
-                                                使用プラグイン
-                                            </Typography>
-                                            {gameInfo.externals.map(
-                                                ({ name, required }) => (
-                                                    <Chip
-                                                        key={name}
-                                                        size="small"
-                                                        variant="outlined"
-                                                        color={
-                                                            required
-                                                                ? "warning"
-                                                                : "default"
-                                                        }
-                                                        label={`${name} (${required ? "必須" : "任意"})`}
-                                                    />
-                                                ),
-                                            )}
-                                        </Stack>
-                                    )}
                                 <Typography
                                     variant="body1"
                                     sx={{ whiteSpace: "pre-wrap" }}

@@ -1,6 +1,6 @@
-import type { createPrismaClient } from "@multi-indiegame/persist-schema/dist/client";
+import type { createPrismaClient } from "@multi-indiegame/persist-schema";
 import type {
-    ContentsJson,
+    ContentJson,
     External,
     GameResponse,
     SearchParams,
@@ -80,7 +80,7 @@ function toGameResponse(game: GameRow, urls: UrlConfig): GameResponse | null {
             iconUrl: game.publisher.image,
         },
         contentId: latest.id,
-        contentsJsonUrl: `${urls.publicApiBaseUrl}/v1/games/${game.id}/contents.json`,
+        contentJsonUrl: `${urls.publicApiBaseUrl}/v1/games/${game.id}/content.json`,
         licenseUrl: `${contentBaseUrl}/library_license.txt`,
         externals: latest.externals.map(({ name, required }) => ({
             name,
@@ -169,7 +169,7 @@ export async function getGame(
     return game ? toGameResponse(game, urls) : null;
 }
 
-export function toContentsJson(game: GameResponse, urls: UrlConfig) {
+export function toContentJson(game: GameResponse, urls: UrlConfig) {
     const contentBaseUrl = `${urls.publicContentBaseUrl}/${game.contentId}`;
     return {
         content_id: game.contentId,
@@ -178,5 +178,5 @@ export function toContentsJson(game: GameResponse, urls: UrlConfig) {
         engine_urls: [],
         external: game.externals.map(({ name }) => name),
         untrusted: false,
-    } satisfies ContentsJson;
+    } satisfies ContentJson;
 }

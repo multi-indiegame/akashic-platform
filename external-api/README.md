@@ -2,7 +2,6 @@
 
 外部プラットフォーム向けの読み取り専用 API です。API Gateway (HTTP API) + AWS Lambda で動かし、DB を直接読みます。
 
-- 設計: [docs/external-platform-api.md](../docs/external-platform-api.md)
 - API 仕様: `src/http/openapi.ts` (Swagger UI で公開)
 
 ## 開発
