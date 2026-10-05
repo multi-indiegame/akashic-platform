@@ -3,6 +3,10 @@ import type {
     StopPlayResponse,
 } from "@multi-indiegame/runner-ipc-schema";
 
+// WHY: runner は停止の中で記録とログを送り切るが、それぞれ期限を持つので
+// これを超えて待つのは runner が応答しないときだけ
+const STOP_TIMEOUT_MS = 60000;
+
 export class RunnerClient {
     _baseUrl: string;
     _token: string;
@@ -32,6 +36,7 @@ export class RunnerClient {
         const res = await fetch(`${this._baseUrl}/plays/${playId}/stop`, {
             method: "POST",
             headers: { "x-akashic-internal-token": this._token },
+            signal: AbortSignal.timeout(STOP_TIMEOUT_MS),
         });
         if (res.status !== 200) {
             throw new Error(

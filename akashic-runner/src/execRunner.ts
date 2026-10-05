@@ -41,6 +41,8 @@ const ProtocolType = {
     WebSocket: 0,
 } as const;
 
+const SESSION_OPEN_TIMEOUT_MS = 15000;
+
 export class ExecRunner {
     _param: StartPlayRequest;
     _control: ControlClient;
@@ -188,7 +190,17 @@ export class ExecRunner {
 
     async _createAMFlow(session: SessionLike) {
         return await new Promise<AMFlowClient>((resolve, reject) => {
+            // WHY: storage へつながらない間、socket.io は再接続を繰り返すだけで
+            // open の失敗を返さない
+            const timer = setTimeout(() => {
+                reject(
+                    new Error(
+                        `failed to connect to storage within ${SESSION_OPEN_TIMEOUT_MS}ms`,
+                    ),
+                );
+            }, SESSION_OPEN_TIMEOUT_MS);
             session.open((err) => {
+                clearTimeout(timer);
                 if (err) {
                     reject(err);
                 } else {

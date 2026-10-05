@@ -8,10 +8,15 @@ import { ExecRunner } from "./execRunner";
 export class ExecManager {
     _control: ControlClient;
     _runners: Map<number, ExecRunner>;
+    _onChange?: (playIds: number[]) => void;
 
-    constructor(control: ControlClient) {
+    constructor(
+        control: ControlClient,
+        onChange?: (playIds: number[]) => void,
+    ) {
         this._control = control;
         this._runners = new Map();
+        this._onChange = onChange;
     }
 
     async start(req: StartPlayRequest) {
@@ -19,11 +24,18 @@ export class ExecManager {
             throw new Error(`play ${req.playId} already running`);
         }
         const runner = new ExecRunner(req, this._control);
-        this._runners.set(req.playId, runner);
+        this._set(req.playId, runner);
         try {
             await runner.start();
         } catch (err) {
-            this._runners.delete(req.playId);
+            this._delete(req.playId);
+            // WHY: 開いたままの socket は storage への再接続を繰り返し続ける
+            await runner.stop().catch((e) => {
+                console.warn(
+                    `failed to clean up exec runner (playId = "${req.playId}")`,
+                    e,
+                );
+            });
             throw err;
         }
     }
@@ -39,7 +51,7 @@ export class ExecManager {
                 scoreDelivered: false,
             } as StopPlayResponse;
         }
-        this._runners.delete(playId);
+        this._delete(playId);
         return await runner.stop();
     }
 
@@ -53,5 +65,15 @@ export class ExecManager {
             }),
         );
         this._runners.clear();
+    }
+
+    _set(playId: number, runner: ExecRunner) {
+        this._runners.set(playId, runner);
+        this._onChange?.([...this._runners.keys()]);
+    }
+
+    _delete(playId: number) {
+        this._runners.delete(playId);
+        this._onChange?.([...this._runners.keys()]);
     }
 }

@@ -17,7 +17,7 @@ const origLog = console.log.bind(console);
 const origWarn = console.warn.bind(console);
 const origError = console.error.bind(console);
 
-function formatLine(
+export function formatLine(
     level: "info" | "warn" | "error",
     playId: number | undefined,
     message: string,
