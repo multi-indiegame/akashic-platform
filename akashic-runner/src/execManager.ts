@@ -3,47 +3,51 @@ import type {
     StopPlayResponse,
 } from "@multi-indiegame/runner-ipc-schema";
 import type { ControlClient } from "./controlClient";
-import { ExecRunner } from "./execRunner";
+import { PlayWorker } from "./playWorker";
+
+export interface ExecManagerParameterObject {
+    control: ControlClient;
+    serverUrl: string;
+    serverToken: string;
+    stallTimeoutMs: number;
+    onChange?: (playIds: number[]) => void;
+}
 
 export class ExecManager {
-    _control: ControlClient;
-    _runners: Map<number, ExecRunner>;
-    _onChange?: (playIds: number[]) => void;
+    _param: ExecManagerParameterObject;
+    _workers: Map<number, PlayWorker>;
 
-    constructor(
-        control: ControlClient,
-        onChange?: (playIds: number[]) => void,
-    ) {
-        this._control = control;
-        this._runners = new Map();
-        this._onChange = onChange;
+    constructor(param: ExecManagerParameterObject) {
+        this._param = param;
+        this._workers = new Map();
     }
 
     async start(req: StartPlayRequest) {
-        if (this._runners.has(req.playId)) {
+        if (this._workers.has(req.playId)) {
             throw new Error(`play ${req.playId} already running`);
         }
-        const runner = new ExecRunner(req, this._control);
-        this._set(req.playId, runner);
+        const worker = new PlayWorker({
+            req,
+            control: this._param.control,
+            serverUrl: this._param.serverUrl,
+            serverToken: this._param.serverToken,
+            stallTimeoutMs: this._param.stallTimeoutMs,
+        });
+        this._set(req.playId, worker);
         try {
-            await runner.start();
+            await worker.start();
         } catch (err) {
-            this._delete(req.playId);
-            // WHY: 開いたままの socket は storage への再接続を繰り返し続ける
-            await runner.stop().catch((e) => {
-                console.warn(
-                    "failed to clean up exec runner",
-                    { playId: req.playId },
-                    e,
-                );
-            });
+            // WHY: 起動中に停止要求が来たときは、そちらが先に取り除いている
+            if (this._workers.get(req.playId) === worker) {
+                this._delete(req.playId);
+            }
             throw err;
         }
     }
 
     async stop(playId: number) {
-        const runner = this._runners.get(playId);
-        if (!runner) {
+        const worker = this._workers.get(playId);
+        if (!worker) {
             return {
                 ok: true,
                 crashed: false,
@@ -53,28 +57,28 @@ export class ExecManager {
             } as StopPlayResponse;
         }
         this._delete(playId);
-        return await runner.stop();
+        return await worker.stop();
     }
 
     async destroy() {
         await Promise.all(
-            [...this._runners.entries()].map(async ([playId, runner]) => {
+            [...this._workers.entries()].map(async ([playId, worker]) => {
                 console.log(
                     `exec runner (playId = "${playId}") is destroying.`,
                 );
-                await runner.stop();
+                await worker.stop();
             }),
         );
-        this._runners.clear();
+        this._workers.clear();
     }
 
-    _set(playId: number, runner: ExecRunner) {
-        this._runners.set(playId, runner);
-        this._onChange?.([...this._runners.keys()]);
+    _set(playId: number, worker: PlayWorker) {
+        this._workers.set(playId, worker);
+        this._param.onChange?.([...this._workers.keys()]);
     }
 
     _delete(playId: number) {
-        this._runners.delete(playId);
-        this._onChange?.([...this._runners.keys()]);
+        this._workers.delete(playId);
+        this._param.onChange?.([...this._workers.keys()]);
     }
 }

@@ -5,8 +5,8 @@ import type { PlayEndReason } from "@multi-indiegame/amflow-client-event-schema"
 import type {
     PlayEndOrigin,
     ScoreboardLimits as IpcScoreboardLimits,
+    ScoreboardPatch,
     StartPlayRequest,
-    StopPlayResponse,
 } from "@multi-indiegame/runner-ipc-schema";
 import {
     AMFlowClient,
@@ -15,10 +15,7 @@ import {
 } from "@multi-indiegame/playlog-client";
 import { ScoreboardPlugin } from "@multi-indiegame/akashic-scoreboard-plugin";
 import type { ScoreboardLimits as PluginScoreboardLimits } from "@multi-indiegame/akashic-scoreboard-plugin";
-import type { ControlClient } from "./controlClient";
-import type { LogSender } from "./logSender";
-import type { ScoreSender } from "./scoreSender";
-import { playStorage } from "./logger";
+import { type LogSink, playStorage } from "./logger";
 
 /**
  * IPC で受け取った上限を、そのまま拡張ライブラリへ渡してよいか検める。
@@ -43,32 +40,48 @@ const ProtocolType = {
 
 const SESSION_OPEN_TIMEOUT_MS = 15000;
 
+export interface ScoreSink {
+    updatePlay(patch: ScoreboardPatch): void;
+    updatePlayer(playerId: string, patch: ScoreboardPatch): void;
+}
+
+/** ExecRunner がプレイの外へ出すものの送り先 */
+export interface ExecHost {
+    fetchAsset(
+        url: string,
+        encoding: "utf-8" | "uint8array",
+    ): Promise<string | Uint8Array>;
+    reportPlayEnded(reason: PlayEndReason, origin: PlayEndOrigin): void;
+    logSink: LogSink;
+    /** 記録を受け取るときだけ指定する */
+    scoreSink?: ScoreSink;
+}
+
+export interface ExecResult {
+    crashed: boolean;
+    errorLogged: boolean;
+}
+
 export class ExecRunner {
     _param: StartPlayRequest;
-    _control: ControlClient;
+    _host: ExecHost;
     _runner?: RunnerV3;
     _session?: SessionLike;
     _onPlayEndBound: (reason: PlayEndReason) => void;
-    _logSender?: LogSender;
-    _scoreSender?: ScoreSender;
     _crashing = false;
     _errorLogged = false;
     _reported = false;
 
-    constructor(param: StartPlayRequest, control: ControlClient) {
+    constructor(param: StartPlayRequest, host: ExecHost) {
         this._param = param;
-        this._control = control;
+        this._host = host;
         this._onPlayEndBound = this._onPlayEnd.bind(this);
     }
 
     async start() {
         const playId = this._param.playId;
-        this._logSender = this._control.openLogSender(playId);
-        if (this._param.scoreboard) {
-            this._scoreSender = this._control.openScoreSender(playId);
-        }
         await playStorage.run(
-            { playId, logSink: this._logSender },
+            { playId, logSink: this._host.logSink },
             async () => {
                 const ctx = playStorage.getStore();
                 if (ctx) {
@@ -89,7 +102,7 @@ export class ExecRunner {
         );
     }
 
-    async stop() {
+    async stop(): Promise<ExecResult> {
         if (this._runner) {
             this._unsubscribePlayEnd(this._runner);
             this._runner.stop();
@@ -99,24 +112,10 @@ export class ExecRunner {
             await this._closeSession(this._session);
             this._session = undefined;
         }
-        // 未送出の記録を送り切ってから応答する。送り切れなかったときは
-        // scoreDelivered で伝え、server に古い記録で確定させない。
-        let scoreDelivered = true;
-        if (this._scoreSender) {
-            scoreDelivered = await this._scoreSender.close();
-            this._scoreSender = undefined;
-        }
-        // 未送出のログを送り切ってから応答する。ここまでのログが content-log に載る。
-        if (this._logSender) {
-            await this._logSender.close();
-            this._logSender = undefined;
-        }
         return {
-            ok: true,
             crashed: this._crashing,
             errorLogged: this._errorLogged,
-            scoreDelivered,
-        } as StopPlayResponse;
+        };
     }
 
     /**
@@ -127,8 +126,8 @@ export class ExecRunner {
      * 処理も通信も起きない。
      */
     _createExternalValue() {
-        const scoreSender = this._scoreSender;
-        if (!scoreSender) {
+        const scoreSink = this._host.scoreSink;
+        if (!scoreSink) {
             return {};
         }
         const plugin = new ScoreboardPlugin({
@@ -147,9 +146,9 @@ export class ExecRunner {
                         }
                     }
                     if (subject.kind === "play") {
-                        scoreSender.updatePlay(patch);
+                        scoreSink.updatePlay(patch);
                     } else {
-                        scoreSender.updatePlayer(subject.playerId, patch);
+                        scoreSink.updatePlayer(subject.playerId, patch);
                     }
                 },
             },
@@ -256,8 +255,8 @@ export class ExecRunner {
                     cb(new Error(`unallowed url ${url}`));
                     return;
                 }
-                this._control
-                    .fetchAsset(playId, url, encoding)
+                this._host
+                    .fetchAsset(url, encoding)
                     .then((data) => cb(null, data))
                     .catch((err) => cb(err));
             },
@@ -307,14 +306,6 @@ export class ExecRunner {
             return;
         }
         this._reported = true;
-        this._control
-            .reportPlayEnded({ playId: this._param.playId, reason, origin })
-            .catch((err) => {
-                console.warn(
-                    "failed to notify control of play end",
-                    { playId: this._param.playId },
-                    err,
-                );
-            });
+        this._host.reportPlayEnded(reason, origin);
     }
 }
