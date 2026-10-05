@@ -1,6 +1,6 @@
 {
   "name": "@multi-indiegame/playlog-client",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "playlogClient like implementation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

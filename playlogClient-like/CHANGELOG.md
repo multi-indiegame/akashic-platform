@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.0.1
+
+### Patch Changes
+
+- b06da70: storage との接続が切れたプレイの停止が返らない問題と、storage へつながらないときに起動が返らない問題を修正
+
 ## 2.0.0
 
 - Breaking Change

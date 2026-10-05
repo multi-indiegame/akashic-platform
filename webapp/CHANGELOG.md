@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.3.3
+
+### Patch Changes
+
+- @multi-indiegame/agvw@1.0.7
+
 ## 2.3.2
 
 ### Patch Changes

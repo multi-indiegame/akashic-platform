@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.0.7
+
+### Patch Changes
+
+- Updated dependencies [b06da70]
+  - @multi-indiegame/playlog-client@2.0.1
+
 ## 1.0.6
 
 - Misc

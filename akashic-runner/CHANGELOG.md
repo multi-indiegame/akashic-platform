@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 1.1.1
+
+### Patch Changes
+
+- b06da70: storage との接続が切れたプレイの停止が返らない問題と、storage へつながらないときに起動が返らない問題を修正
+- b06da70: 投稿スクリプトの無限ループなどでメインスレッドが止まったとき、プロセスを強制終了して再起動に任せるようにした
+- Updated dependencies [b06da70]
+  - @multi-indiegame/playlog-client@2.0.1
+
 ## 1.1.0
 
 ### Minor Changes
