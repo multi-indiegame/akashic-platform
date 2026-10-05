@@ -148,6 +148,9 @@ model Content {
   updatedAt DateTime @updatedAt
 
   game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  /// 最新バージョン (gameId ごとの最大の id) を引くため
+  @@index([gameId, id])
 }
 
 /// コンテンツが使う拡張プラグイン (`environment.external` と暗黙の coe) と、その必須 / 任意。

@@ -17,7 +17,7 @@ import type { ErrorReason } from "./types";
 const prisma = createPrismaClient({ maxConnections: 1 });
 
 const gamePathPattern = /^\/v1\/games\/([^/]+)$/;
-const contentJsonPathPattern = /^\/v1\/games\/([^/]+)\/contents\.json$/;
+const contentJsonPathPattern = /^\/v1\/games\/([^/]+)\/content\.json$/;
 
 function json(
     statusCode: number,

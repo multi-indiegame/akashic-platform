@@ -110,15 +110,15 @@ export const openapi = {
                         in: "query",
                         required: false,
                         description:
-                            "タイトル・説明の部分一致 (大文字小文字を区別しない)",
-                        schema: { type: "string" },
+                            "タイトル・説明の部分一致 (大文字小文字を区別しない)。前後の空白を除いて 100 文字まで",
+                        schema: { type: "string", maxLength: 100 },
                     },
                     {
                         name: "supported",
                         in: "query",
                         required: false,
                         description:
-                            "受け入れ側が対応している拡張プラグイン名のカンマ区切り。必須のプラグインがすべてこの中にあるゲームに絞り込む。省略するとプラグインで絞り込まない。空文字は「何にも対応していない」とみなし、必須のプラグインがないゲームだけを返す",
+                            "受け入れ側が対応している拡張プラグイン名のカンマ区切り。必須のプラグインがすべてこの中にあるゲームに絞り込む。省略するとプラグインで絞り込まない。空文字は「何にも対応していない」とみなし、必須のプラグインがないゲームだけを返す。50 個まで",
                         schema: { type: "string" },
                         example: "coe,send",
                     },
@@ -139,7 +139,12 @@ export const openapi = {
                         in: "query",
                         required: false,
                         description: "ページ番号 (0 始まり)",
-                        schema: { type: "integer", minimum: 0, default: 0 },
+                        schema: {
+                            type: "integer",
+                            minimum: 0,
+                            maximum: 1000,
+                            default: 0,
+                        },
                     },
                     {
                         name: "limit",
