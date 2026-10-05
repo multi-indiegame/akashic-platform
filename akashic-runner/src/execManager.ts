@@ -32,7 +32,8 @@ export class ExecManager {
             // WHY: 開いたままの socket は storage への再接続を繰り返し続ける
             await runner.stop().catch((e) => {
                 console.warn(
-                    `failed to clean up exec runner (playId = "${req.playId}")`,
+                    "failed to clean up exec runner",
+                    { playId: req.playId },
                     e,
                 );
             });
