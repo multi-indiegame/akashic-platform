@@ -141,7 +141,8 @@ export async function searchGames(
     `;
     const ids = rows.slice(0, limit).map(({ id }) => id);
     const games = await prisma.game.findMany({
-        where: { id: { in: ids } },
+        // ID を絞った後に許可を取り消されたゲームを、差し替え後のバージョンで返さないよう確かめ直す
+        where: { id: { in: ids }, externalLaunch: true },
         select: gameSelect,
     });
     const gameById = new Map(games.map((game) => [game.id, game]));
