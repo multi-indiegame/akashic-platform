@@ -81,6 +81,14 @@ export class SessionLike {
             return;
         }
         this._socket.io.off("error", this._onErrorBound);
+        // WHY: socket.io は接続していない socket に disconnect() しても
+        // disconnect イベントを出さないため、待つと cb が永久に呼ばれない
+        if (!this._socket.connected) {
+            this._socket.disconnect();
+            this._socket = null;
+            cb("socket was not connected.");
+            return;
+        }
         this._socket.on("disconnect", (reason) => {
             cb(reason);
             this._socket = null;

@@ -51,7 +51,8 @@ export class HttpServer {
         app.post("/plays", async (req, res) => {
             const body = req.body as Partial<StartPlayRequest>;
             if (
-                body.playId == null ||
+                // WHY: playId はログにそのまま出すので、改行などを含められないよう整数に限る
+                !Number.isInteger(body.playId) ||
                 !body.storagePublicUrl ||
                 !body.playToken ||
                 !body.contentUrl ||
