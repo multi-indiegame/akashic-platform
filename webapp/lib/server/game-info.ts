@@ -3,7 +3,10 @@ import { GameInfo } from "../types";
 import { internalContentBaseUrl, publicContentBaseUrl } from "./akashic";
 import { getAuth } from "./auth";
 import { isFavorited } from "./favorite";
-import { recordContentExternals } from "./content-get-external";
+import {
+    ContentExternalLimitError,
+    recordContentExternals,
+} from "./content-get-external";
 
 export async function fetchGameInfo(gameId: number) {
     const game = await prisma.game.findUniqueOrThrow({
@@ -47,7 +50,7 @@ export async function fetchGameInfo(gameId: number) {
     });
     const externals = game.versions[0].externalsRecorded
         ? game.versions[0].externals
-        : await recordExternalsOrEmpty(game.versions[0].id);
+        : await recordExternalsOrUnknown(game.versions[0].id);
     // WHY: 称号の画像に表示が求められる素材が含まれることがある。
     const titleCredits = await prisma.scoreTitleDef.findMany({
         where: { gameId, imageKey: { not: null }, imageCredit: { not: null } },
@@ -83,18 +86,24 @@ export async function fetchGameInfo(gameId: number) {
     } satisfies GameInfo;
 }
 
-async function recordExternalsOrEmpty(contentId: number) {
+async function recordExternalsOrUnknown(contentId: number) {
     try {
         return (await recordContentExternals(contentId))
             .sort()
             .map((name) => ({ name, required: false }));
     } catch (err) {
+        // 上限を超えるものは外部起動の許可をサーバーが弾くため、空で表示して差し支えない
+        if (err instanceof ContentExternalLimitError) {
+            return [];
+        }
+        // WHY: 空配列にすると「プラグインを使っていない」と区別できず、編集画面が
+        // 必須の入力欄を出さないまま外部起動を許可させてしまう
         console.warn(
             "failed to record externals (contentId = %s)",
             contentId,
             err,
         );
-        return [];
+        return undefined;
     }
 }
 
