@@ -58,10 +58,11 @@ export async function recordContentExternals(contentId: number) {
             data: externals.map((name) => ({ contentId, name })),
             skipDuplicates: true,
         });
-        await tx.content.update({
-            data: { externalsRecorded: true },
-            where: { id: contentId },
-        });
+        // WHY: Prisma の update は @updatedAt を進めてしまう。updatedAt はゲームの更新日時として
+        // 表示しているため、ゲームデータを変えないこの記録では動かさない
+        await tx.$executeRaw`
+            UPDATE "Content" SET "externalsRecorded" = true WHERE id = ${contentId}
+        `;
     });
     return externals;
 }
