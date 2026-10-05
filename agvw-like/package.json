@@ -1,6 +1,6 @@
 {
   "name": "@multi-indiegame/agvw",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "agvw like implementation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -37,7 +37,7 @@
     "@akashic/playlog": "^3.4.1",
     "@cross-border-bridge/data-bus": "^2.0.0",
     "@types/node": "^25.6.0",
-    "@multi-indiegame/playlog-client": "^2.0.0",
+    "@multi-indiegame/playlog-client": "^2.0.1",
     "prettier": "^3.8.3",
     "rimraf": "^6.0.1",
     "socket.io-client": "^4.8.3",
@@ -59,7 +59,7 @@
     "@akashic/playlog": "^3.4.1",
     "@cross-border-bridge/data-bus": "^2.0.0",
     "socket.io-client": "^4.8.3",
-    "@multi-indiegame/playlog-client": "^2.0.0"
+    "@multi-indiegame/playlog-client": "^2.0.1"
   },
   "peerDependenciesMeta": {
     "@akashic/akashic-engine": {

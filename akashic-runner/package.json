@@ -1,6 +1,6 @@
 {
   "name": "@multi-indiegame/akashic-runner",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -37,7 +37,7 @@
     "@akashic/headless-driver": "^2.18.1",
     "@akashic/playlog": "^3.4.1",
     "@multi-indiegame/akashic-scoreboard-plugin": "^1.0.0",
-    "@multi-indiegame/playlog-client": "^2.0.0",
+    "@multi-indiegame/playlog-client": "^2.0.1",
     "@multi-indiegame/runner-ipc-schema": "^1.1.0",
     "express": "^5.2.1"
   }
