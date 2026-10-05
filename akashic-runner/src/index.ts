@@ -14,6 +14,7 @@ const stallTimeoutMs = parseInt(process.env.STALL_TIMEOUT_MS ?? "30000");
 const playStallTimeoutMs = parseInt(
     process.env.PLAY_STALL_TIMEOUT_MS ?? "15000",
 );
+const playMaxHeapMb = parseInt(process.env.PLAY_MAX_HEAP_MB ?? "512");
 
 const control = new ControlClient(serverUrl, serverRunnerApiToken);
 const watchdog = new Watchdog(stallTimeoutMs);
@@ -22,6 +23,7 @@ const manager = new ExecManager({
     serverUrl,
     serverToken: serverRunnerApiToken,
     stallTimeoutMs: playStallTimeoutMs,
+    maxHeapMb: playMaxHeapMb,
     onChange: (playIds) => watchdog.setPlays(playIds),
 });
 const http = new HttpServer({ manager, apiToken: runnerServerApiToken });

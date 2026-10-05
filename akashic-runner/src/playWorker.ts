@@ -28,6 +28,7 @@ export interface PlayWorkerParameterObject {
     serverUrl: string;
     serverToken: string;
     stallTimeoutMs: number;
+    maxHeapMb: number;
 }
 
 type State = "idle" | "starting" | "running" | "stopping" | "ended";
@@ -72,6 +73,10 @@ export class PlayWorker {
         const worker = (this._worker = new Worker(
             path.join(__dirname, "playWorkerMain.js"),
             {
+                // WHY: メモリを使い果たすゲームも、そのプレイだけで止める
+                resourceLimits: {
+                    maxOldGenerationSizeMb: this._param.maxHeapMb,
+                },
                 workerData: {
                     req: this._param.req,
                     serverUrl: this._param.serverUrl,

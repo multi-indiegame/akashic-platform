@@ -10,6 +10,7 @@ export interface ExecManagerParameterObject {
     serverUrl: string;
     serverToken: string;
     stallTimeoutMs: number;
+    maxHeapMb: number;
     onChange?: (playIds: number[]) => void;
 }
 
@@ -32,6 +33,7 @@ export class ExecManager {
             serverUrl: this._param.serverUrl,
             serverToken: this._param.serverToken,
             stallTimeoutMs: this._param.stallTimeoutMs,
+            maxHeapMb: this._param.maxHeapMb,
         });
         this._set(req.playId, worker);
         try {
