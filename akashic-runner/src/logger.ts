@@ -46,7 +46,7 @@ export function warnTransport(...args: unknown[]) {
     );
 }
 
-export function installConsoleOverride() {
+export function installConsoleOverride({ echo = true } = {}) {
     const patchedLog = (
         level: "info" | "warn" | "error",
         args: unknown[],
@@ -67,7 +67,9 @@ export function installConsoleOverride() {
         }
         const line = formatLine(level, ctx.playId, message);
         ctx.logSink?.write(line + "\n");
-        output(line);
+        if (echo) {
+            output(line);
+        }
     };
 
     console.log = (...args: unknown[]) => patchedLog("info", args, origLog);

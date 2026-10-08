@@ -11,12 +11,21 @@ const serverUrl = process.env.SERVER_URL ?? "http://localhost:3032";
 const serverRunnerApiToken = process.env.SERVER_RUNNER_API_TOKEN ?? "";
 const runnerServerApiToken = process.env.RUNNER_SERVER_API_TOKEN ?? "";
 const stallTimeoutMs = parseInt(process.env.STALL_TIMEOUT_MS ?? "30000");
+const playStallTimeoutMs = parseInt(
+    process.env.PLAY_STALL_TIMEOUT_MS ?? "15000",
+);
+const playMaxHeapMb = parseInt(process.env.PLAY_MAX_HEAP_MB ?? "512");
 
 const control = new ControlClient(serverUrl, serverRunnerApiToken);
 const watchdog = new Watchdog(stallTimeoutMs);
-const manager = new ExecManager(control, (playIds) =>
-    watchdog.setPlays(playIds),
-);
+const manager = new ExecManager({
+    control,
+    serverUrl,
+    serverToken: serverRunnerApiToken,
+    stallTimeoutMs: playStallTimeoutMs,
+    maxHeapMb: playMaxHeapMb,
+    onChange: (playIds) => watchdog.setPlays(playIds),
+});
 const http = new HttpServer({ manager, apiToken: runnerServerApiToken });
 
 const exit = async () => {
