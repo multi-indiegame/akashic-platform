@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.2.0
+
+### Minor Changes
+
+- 94e5123: 投稿スクリプトをプレイごとの worker thread で動かし、無限ループや異常終了が起きたときはそのプレイだけを打ち切るようにした
+
 ## 1.1.1
 
 ### Patch Changes
