@@ -259,7 +259,8 @@ export default function HelpPage() {
                         </ListItem>
                         <ListItem disableGutters sx={{ display: "list-item" }}>
                             <code>environment.external</code>: "coe"、
-                            "coeLimited" および "playerBan" に対応。
+                            "coeLimited"、"playerBan" および "scoreboard"
+                            に対応。
                             <br />
                             <code>
                                 @akashic-extension/instance-storage
@@ -299,6 +300,34 @@ export default function HelpPage() {
                                 }}
                             >
                                 @multi-indiegame/akashic-player-ban
+                            </Button>
+                        </ListItem>
+                        <ListItem disableGutters sx={{ display: "list-item" }}>
+                            "scoreboard"
+                            は、ゲームからプレイヤーやプレイの記録を送り、サイト上でランキングや称号として表示するための拡張です。
+                            コンテンツに{" "}
+                            <code>@multi-indiegame/akashic-scoreboard</code>{" "}
+                            を組み込むと利用できます。
+                            <code>environment.external</code> に "scoreboard"
+                            を含むゲームには、ゲームページに統計が表示されます。
+                            <br />
+                            記録の見せ方（上位の決め方、集計の仕方、見出しや単位など）は投稿者がゲームページの「見せ方を設定」から変更できます。
+                            <br />
+                            サインインしてゲーム内で名前を使って参加すると、自分の記録と称号を確認できます。
+                            統計への掲載は「自分の記録と称号」ページからいつでもやめられます。
+                            <br />
+                            <Button
+                                component={Link}
+                                endIcon={<OpenInNew />}
+                                href="https://github.com/multi-indiegame/akashic-scoreboard"
+                                target="_blank"
+                                rel="noreferrer"
+                                sx={{
+                                    textTransform: "none",
+                                    color: theme.palette.primary.light,
+                                }}
+                            >
+                                @multi-indiegame/akashic-scoreboard
                             </Button>
                         </ListItem>
                     </List>
