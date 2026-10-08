@@ -1,6 +1,6 @@
 {
   "name": "@multi-indiegame/external-api",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "description": "API for external platforms (AWS Lambda)",
   "files": [
@@ -31,6 +31,6 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@multi-indiegame/persist-schema": "^1.26.5"
+    "@multi-indiegame/persist-schema": "^1.27.0"
   }
 }

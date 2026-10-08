@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.27.0
+
+### Minor Changes
+
+- baf7f24: 外部プラットフォームでの起動の許可と、使用プラグインの必須 / 任意の申告を追加。外部プラットフォーム向け API (Lambda) を追加
+
 ## 1.26.5
 
 ### Minor Changes
