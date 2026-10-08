@@ -1,12 +1,10 @@
-import type { createPrismaClient } from "@multi-indiegame/persist-schema";
+import type { PrismaClient } from "@multi-indiegame/persist-schema/client";
 import type {
     ContentJson,
     External,
     GameResponse,
     SearchParams,
 } from "./types";
-
-type PrismaClient = ReturnType<typeof createPrismaClient>;
 
 export interface UrlConfig {
     publicBaseUrl: string;

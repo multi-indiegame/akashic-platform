@@ -1,8 +1,10 @@
 import process from "node:process";
-import { createPrismaClient } from "@multi-indiegame/persist-schema";
+// WHY: パッケージの入口は読み込んだ時点で webapp 用の既定のクライアントを作るため、それを含まない入口から読む
+import {
+    createPrismaClient,
+    type PrismaClient,
+} from "@multi-indiegame/persist-schema/client";
 import { resolveDatabaseUrl } from "./database-url";
-
-type PrismaClient = ReturnType<typeof createPrismaClient>;
 
 let clientPromise: Promise<PrismaClient> | undefined;
 
@@ -18,7 +20,7 @@ async function connect() {
  * 実行環境ごとに 1 つのクライアントを使い回す。
  * 接続文字列の取得に失敗した場合は、次のリクエストで取り直す
  */
-export function getPrisma() {
+export function getPrisma(): Promise<PrismaClient> {
     clientPromise ??= connect().catch((err) => {
         clientPromise = undefined;
         throw err;
