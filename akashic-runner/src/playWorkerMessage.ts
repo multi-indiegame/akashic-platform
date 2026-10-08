@@ -18,9 +18,12 @@ export type FromPlayWorker =
     | { type: "started" }
     | { type: "startFailed"; message: string }
     | { type: "stopped"; result: ExecResult }
-    | { type: "log"; line: string }
-    | { type: "scorePlay"; patch: ScoreboardPatch }
-    | { type: "scorePlayer"; playerId: string; patch: ScoreboardPatch }
+    | { type: "log"; lines: string[]; dropped: number }
+    | {
+          type: "score";
+          play?: ScoreboardPatch;
+          players: [playerId: string, patch: ScoreboardPatch][];
+      }
     | { type: "playEnded"; reason: PlayEndReason; origin: PlayEndOrigin };
 
 /** メインスレッドから worker へ */

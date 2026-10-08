@@ -77,6 +77,14 @@ export class LogSender {
         return this._pending;
     }
 
+    /** 送り手の側で破棄した行数を、content-log に残す */
+    addDropped(count: number) {
+        if (this._closed || this._givenUp) {
+            return;
+        }
+        this._droppedLines += count;
+    }
+
     async close(): Promise<void> {
         if (this._closed) {
             await this._pending;

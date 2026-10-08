@@ -49,6 +49,7 @@ export class PlayWorker {
     _scoreSender?: ScoreSender;
     _lastBeatAt = 0;
     _checkTimer?: NodeJS.Timeout;
+    _checkingMemory = false;
     _aborted = false;
     _onStarted?: { resolve: () => void; reject: (err: Error) => void };
     _onStopped?: (result: ExecResult | null) => void;
@@ -159,16 +160,21 @@ export class PlayWorker {
                 this._onStopped?.(message.result);
                 break;
             case "log":
-                this._logSender.write(message.line);
+                for (const line of message.lines) {
+                    process.stdout.write(line);
+                    this._logSender.write(line);
+                }
+                if (message.dropped > 0) {
+                    this._logSender.addDropped(message.dropped);
+                }
                 break;
-            case "scorePlay":
-                this._scoreSender?.updatePlay(message.patch);
-                break;
-            case "scorePlayer":
-                this._scoreSender?.updatePlayer(
-                    message.playerId,
-                    message.patch,
-                );
+            case "score":
+                if (message.play) {
+                    this._scoreSender?.updatePlay(message.play);
+                }
+                for (const [playerId, patch] of message.players) {
+                    this._scoreSender?.updatePlayer(playerId, patch);
+                }
                 break;
             case "playEnded":
                 this._reportPlayEnded(message.reason, message.origin);
@@ -182,7 +188,38 @@ export class PlayWorker {
             this._abort(
                 `ゲームが ${Math.floor(stalledMs / 1000)} 秒以上応答しなかったため、実行を打ち切りました。無限ループや重すぎる処理がないか確認してください。`,
             );
+            return;
         }
+        this._checkMemory();
+    }
+
+    /**
+     * WHY: resourceLimits は JS のヒープにしか効かず、ArrayBuffer などの外部メモリを
+     * 抱え込むゲームは止められない。外部メモリは worker が止まっていても測れる
+     */
+    _checkMemory() {
+        if (!this._worker || this._checkingMemory) {
+            return;
+        }
+        this._checkingMemory = true;
+        this._worker
+            .getHeapStatistics()
+            .then((stats) => {
+                if (
+                    stats.external_memory >
+                    this._param.maxHeapMb * 1024 * 1024
+                ) {
+                    this._abort(
+                        `ゲームが ${this._param.maxHeapMb} MB を超えるメモリを使ったため、実行を打ち切りました。`,
+                    );
+                }
+            })
+            .catch(() => {
+                // 打ち切った後の worker は測れない
+            })
+            .finally(() => {
+                this._checkingMemory = false;
+            });
     }
 
     /** worker が止まった・落ちたときに、そのプレイだけを打ち切る */
@@ -202,6 +239,9 @@ export class PlayWorker {
         // WHY: 投稿者が content-log で打ち切られた理由を知れるようにする
         this._logSender.write(formatLine("error", this.playId, message) + "\n");
         if (state === "starting") {
+            // WHY: 起動に失敗したプレイは akashic-server が content-log ごと消す。
+            // ゲームのスクリプトは起動の応答の後に動き始めるので、ここに来るのは
+            // エンジンやアセットの読み込みで止まった・落ちたときに限られる
             this._onStarted?.reject(new Error(message));
         } else if (state === "stopping") {
             this._onStopped?.(null);
