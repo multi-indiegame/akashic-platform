@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.4.1
+
+### Patch Changes
+
+- 03b0df6: ヘルプページに scoreboard 対応の説明を追加
+
 ## 2.4.0
 
 ### Minor Changes
