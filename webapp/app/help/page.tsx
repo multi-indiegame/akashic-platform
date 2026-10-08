@@ -305,6 +305,9 @@ export default function HelpPage() {
                         <ListItem disableGutters sx={{ display: "list-item" }}>
                             "scoreboard"
                             は、ゲームからプレイヤーやプレイの記録を送り、サイト上でランキングや称号として表示するための拡張です。
+                            コンテンツに{" "}
+                            <code>@multi-indiegame/akashic-scoreboard</code>{" "}
+                            を組み込むと利用できます。
                             <code>environment.external</code> に "scoreboard"
                             を含むゲームには、ゲームページに統計が表示されます。
                             <br />
@@ -324,7 +327,7 @@ export default function HelpPage() {
                                     color: theme.palette.primary.light,
                                 }}
                             >
-                                akashic-scoreboard
+                                @multi-indiegame/akashic-scoreboard
                             </Button>
                         </ListItem>
                     </List>
