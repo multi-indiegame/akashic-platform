@@ -23,12 +23,24 @@ IaC は持たず、コンソールで作る。
 - 予約済み同時実行数: 5 程度。1 実行環境あたり DB 接続は 1 本なので、これが DB への最大接続数になる
 - 環境変数
 
-| 名前                      | 内容                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | webapp と同じ DB。証明書は zip に同梱する `postgres.pem` を `sslrootcert=/var/task/postgres.pem` で指す |
-| `PUBLIC_BASE_URL`         | webapp の公開 URL (ゲームページの URL に使う)                                                           |
-| `PUBLIC_CONTENT_BASE_URL` | コンテンツ配信の公開 URL (webapp と同じ値)                                                              |
-| `PUBLIC_API_BASE_URL`     | 本 API の公開 URL。省略時はリクエストのホスト名から組み立てる                                           |
+| 名前                      | 内容                                                                                                                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`            | webapp と同じ DB。証明書は zip に同梱する `postgres.pem` を `sslrootcert=/var/task/postgres.pem` で指す。`DATABASE_URL_PARAMETER` を設定した場合は使わない |
+| `DATABASE_URL_PARAMETER`  | `DATABASE_URL` の値を持つ SSM Parameter Store のパラメータ名 (例: `/akashic/database-url`)。下の「SSM Parameter Store から読む場合」を参照                 |
+| `PUBLIC_BASE_URL`         | webapp の公開 URL (ゲームページの URL に使う)                                                                                                              |
+| `PUBLIC_CONTENT_BASE_URL` | コンテンツ配信の公開 URL (webapp と同じ値)                                                                                                                 |
+| `PUBLIC_API_BASE_URL`     | 本 API の公開 URL。省略時はリクエストのホスト名から組み立てる                                                                                              |
+
+### SSM Parameter Store から読む場合
+
+`DATABASE_URL` を環境変数に直接置かず、SSM Parameter Store から AWS Parameters and Secrets Lambda Extension 経由で読む。
+
+- パラメータ: `DATABASE_URL` と同じ形式の値を SecureString で作り、その名前を `DATABASE_URL_PARAMETER` に設定する
+- レイヤー: AWS Parameters and Secrets Lambda Extension を関数に追加する (ARN はリージョン・アーキテクチャごとに AWS のドキュメントを参照)
+- IAM: 関数の実行ロールに、そのパラメータへの `ssm:GetParameter` を許可する。カスタマー管理の KMS キーで暗号化している場合は、そのキーへの `kms:Decrypt` も許可する
+- ネットワーク: 関数は VPC 内にあるため、拡張機能が SSM に届く経路が要る。SSM のインターフェイス型 VPC エンドポイント (`com.amazonaws.<リージョン>.ssm`) を関数のサブネットに作るか、NAT を通す
+- 取得は実行環境ごとに最初のリクエストで 1 回だけ行う。パラメータの値を変えた場合は、新しい実行環境から反映される (関数の設定を更新すると入れ替わる)
+- 拡張機能のポートを既定 (2773) から変えた場合は、`PARAMETERS_SECRETS_EXTENSION_HTTP_PORT` に同じ値を設定する
 
 ### API Gateway (HTTP API)
 

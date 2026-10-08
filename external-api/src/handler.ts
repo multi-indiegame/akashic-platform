@@ -2,19 +2,15 @@ import type {
     APIGatewayProxyEventV2,
     APIGatewayProxyStructuredResultV2,
 } from "aws-lambda";
-// WHY: パッケージの入口は読み込んだ時点で接続数を絞らない既定のクライアントを作るため、それを含まない入口から読む
-import { createPrismaClient } from "@multi-indiegame/persist-schema";
 import {
     publicApiBaseUrl,
     publicBaseUrl,
     publicContentBaseUrl,
 } from "./config";
+import { getPrisma } from "./db";
 import { getGame, searchGames, toContentJson, UrlConfig } from "./games";
 import { parseGameId, parseSearchParams } from "./params";
 import type { ErrorReason } from "./types";
-
-// WHY: 予約済み同時実行数と掛け合わせた数が DB への最大接続数になるため、1 本に絞る
-const prisma = createPrismaClient({ maxConnections: 1 });
 
 const gamePathPattern = /^\/v1\/games\/([^/]+)$/;
 const contentJsonPathPattern = /^\/v1\/games\/([^/]+)\/content\.json$/;
@@ -53,6 +49,7 @@ async function route(event: APIGatewayProxyEventV2) {
     }
     const path = event.rawPath;
     const urls = urlConfig(event);
+    const prisma = await getPrisma();
 
     if (path === "/v1/games") {
         const params = parseSearchParams(event.queryStringParameters ?? {});
