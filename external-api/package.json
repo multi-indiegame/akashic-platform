@@ -1,0 +1,36 @@
+{
+  "name": "@multi-indiegame/external-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "API for external platforms (AWS Lambda)",
+  "files": [
+    "CHANGELOG.md",
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "keywords": [],
+  "scripts": {
+    "clean": "rimraf ./dist ./bundle",
+    "build": "tsc",
+    "bundle": "esbuild src/handler.ts --bundle --platform=node --target=node22 --format=cjs --outfile=bundle/index.js",
+    "test": "node --test --experimental-strip-types src/**/*.test.ts"
+  },
+  "author": "multi-indiegame",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/multi-indiegame/akashic-platform.git",
+    "directory": "external-api"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.164",
+    "@types/node": "^24.12.2",
+    "esbuild": "^0.28.1",
+    "prettier": "^3.8.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@multi-indiegame/persist-schema": "^1.26.5"
+  }
+}

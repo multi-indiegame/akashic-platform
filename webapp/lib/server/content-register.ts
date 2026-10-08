@@ -8,16 +8,16 @@ import {
     ICON_FILE_MAX_BYTES,
 } from "../types";
 import {
-    createContentRecord,
-    declaresScoreboard,
-    deleteContentRecord,
+    allocateContentId,
     extractGameFile,
     deployGameZip,
     deployIconFile,
     GameForm,
+    toContentCreateData,
     toIconPath,
     validateGameZip,
     deleteContentDir,
+    listGameZipExternals,
     throwIfInvalidContentDir,
 } from "./content-utils";
 import { isWriteBlocked } from "./drain-state";
@@ -54,24 +54,31 @@ function validateParam(param: NewGameForm): ContentErrorResponse | undefined {
     }
 }
 
-async function createGameRecord(param: NewGameForm) {
-    return (
-        await prisma.game.create({
-            data: {
-                publisherId: param.publisherId,
-                title: param.title,
-                description: param.description,
-                credit: param.credit,
-                streaming: param.streaming,
+/**
+ * WHY: S3 に置き終える前のゲームが一覧・外部 API に出ないよう、ゲーム・バージョン・使用プラグインを置いた後にまとめて作る
+ */
+async function createGameRecord(
+    param: NewGameForm,
+    contentId: number,
+    iconPath: string,
+    externals: string[],
+) {
+    await prisma.game.create({
+        data: {
+            publisherId: param.publisherId,
+            title: param.title,
+            description: param.description,
+            credit: param.credit,
+            streaming: param.streaming,
+            externalLaunch: param.externalLaunch === true,
+            versions: {
+                create: toContentCreateData(
+                    contentId,
+                    iconPath,
+                    externals,
+                    param.requiredExternals,
+                ),
             },
-        })
-    ).id;
-}
-
-async function deleteGameRecord(gameId: number) {
-    await prisma.game.delete({
-        where: {
-            id: gameId,
         },
     });
 }
@@ -105,29 +112,20 @@ export async function registerContent(
         if (validationErrGameZip) {
             return validationErrGameZip;
         }
-        const gameId = await createGameRecord(param);
+        const externals = await listGameZipExternals(gameZip);
+        const iconPath = toIconPath(param.iconFile);
+        const contentId = await allocateContentId();
+        await throwIfInvalidContentDir(contentId);
         try {
-            const iconPath = toIconPath(param.iconFile);
-            const contentId = await createContentRecord(
-                gameId,
-                iconPath,
-                await declaresScoreboard(gameZip),
-            );
-            try {
-                await throwIfInvalidContentDir(contentId);
-                await deployGameZip(contentId, gameZip);
-                await deployIconFile(contentId, iconPath, param.iconFile);
-                return {
-                    ok: true,
-                    contentId,
-                };
-            } catch (err) {
-                await deleteContentRecord(contentId);
-                await deleteContentDir(contentId);
-                throw err;
-            }
+            await deployGameZip(contentId, gameZip);
+            await deployIconFile(contentId, iconPath, param.iconFile);
+            await createGameRecord(param, contentId, iconPath, externals);
+            return {
+                ok: true,
+                contentId,
+            };
         } catch (err) {
-            await deleteGameRecord(gameId);
+            await deleteContentDir(contentId);
             throw err;
         }
     } catch (err) {

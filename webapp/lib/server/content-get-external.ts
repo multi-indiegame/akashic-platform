@@ -1,74 +1,68 @@
-"use server";
-
-import type { GameConfiguration } from "@akashic/game-configuration";
+import { prisma } from "@multi-indiegame/persist-schema";
 import { internalContentBaseUrl } from "./akashic";
 import { logSafe } from "./log-safe";
+import {
+    exceedsContentExternalLimits,
+    listContentExternals,
+} from "../share/content-external";
 
-const implicitExternalMapper: { external: string; keywords: string[] }[] = [
-    {
-        external: "coe",
-        keywords: ["@akashic-extension/coe"],
-    },
-];
+export class ContentExternalLimitError extends Error {}
 
 /**
- * coe plugin は game.json に明示的に使われていることが現れないので別途判定
+ * 取得に失敗した場合は例外を投げる。空の一覧と区別が要る場合に使う
  */
-function getImplicitExternal(gameJson: GameConfiguration) {
-    const externals = new Set<string>();
-    for (const { external, keywords } of implicitExternalMapper) {
-        if (
-            Object.keys(gameJson.moduleMainPaths ?? {}).some((main) =>
-                keywords.includes(main),
-            )
-        ) {
-            externals.add(external);
-            continue;
-        }
-        if (
-            Object.keys(gameJson.moduleMainScripts ?? {}).some((main) =>
-                keywords.includes(main),
-            )
-        ) {
-            externals.add(external);
-            continue;
-        }
-        if (
-            gameJson.globalScripts?.some((script) =>
-                // 前方一致によるご判定を防止するため / をつけている
-                keywords.some((keyword) => script.includes(`${keyword}/`)),
-            )
-        ) {
-            externals.add(external);
-            continue;
-        }
+export async function fetchContentExternalOrThrow(contentId: number | string) {
+    // WHY: contentId は URL のパスに埋め込むため、整数以外 (`../` など) で別のパスを指させない
+    const id = Number(contentId);
+    if (!Number.isSafeInteger(id) || id < 0) {
+        throw new Error(
+            `invalid contentId for external fetch (contentId = ${logSafe(contentId)})`,
+        );
     }
-    return [...externals];
-}
-
-export async function getContentExternal(gameJson: GameConfiguration) {
-    const explicitExternal = Object.keys(gameJson.environment?.external ?? {});
-    const implicitExternal = getImplicitExternal(gameJson);
-    return [...new Set([...implicitExternal, ...explicitExternal])];
+    const res = await fetch(`${internalContentBaseUrl}/${id}/game.json`);
+    if (!res.ok) {
+        throw new Error(
+            `failed to fetch game.json (contentId = ${id}, status = ${res.status})`,
+        );
+    }
+    return listContentExternals(await res.json());
 }
 
 export async function fetchContentExternal(contentId: number | string) {
-    const id = Number(contentId);
-    if (!Number.isInteger(id) || id < 0) {
-        console.warn(
-            "invalid contentId for external fetch (contentId = %s)",
-            logSafe(contentId),
-        );
-        return [];
-    }
     try {
-        const res = await fetch(`${internalContentBaseUrl}/${id}/game.json`);
-        return await getContentExternal(await res.json());
+        return await fetchContentExternalOrThrow(contentId);
     } catch (err) {
         console.warn(
             "failed to fetch external in game.json. (contentId = %s)",
-            id,
+            logSafe(contentId),
+            err,
         );
         return [];
     }
+}
+
+/**
+ * 使用プラグインを記録する前に投稿されたバージョンについて、game.json から導出して記録する
+ */
+export async function recordContentExternals(contentId: number) {
+    const externals = await fetchContentExternalOrThrow(contentId);
+    // この記録より前の投稿は、投稿時に上限を確かめていない
+    if (exceedsContentExternalLimits(externals)) {
+        throw new ContentExternalLimitError(
+            `too many or too long externals in game.json (contentId = ${contentId})`,
+        );
+    }
+    await prisma.$transaction(async (tx) => {
+        // 同時に記録されたとき、先に入った必須の申告を任意で上書きしないよう既存の行は残す
+        await tx.contentExternal.createMany({
+            data: externals.map((name) => ({ contentId, name })),
+            skipDuplicates: true,
+        });
+        // WHY: Prisma の update は @updatedAt を進めてしまう。updatedAt はゲームの更新日時として
+        // 表示しているため、ゲームデータを変えないこの記録では動かさない
+        await tx.$executeRaw`
+            UPDATE "Content" SET "externalsRecorded" = true WHERE id = ${contentId}
+        `;
+    });
+    return externals;
 }

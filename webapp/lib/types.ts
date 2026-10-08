@@ -53,8 +53,21 @@ export interface GameInfo {
     titleCredits?: { name: string; credit: string }[];
     /** コンテンツが scoreboard を宣言しているか。統計の入口を出すかを決める。 */
     hasScoreboard: boolean;
+    /** 外部プラットフォームでの起動を許可しているか。ゲーム詳細でのみ設定される */
+    externalLaunch?: boolean;
+    /**
+     * 最新バージョンが使う拡張プラグイン。ゲーム詳細でのみ設定される。
+     * game.json を読めず分からない場合は未設定 (使っていない場合の空配列と区別する)
+     */
+    externals?: ContentExternalInfo[];
     createdAt: Date;
     updatedAt: Date;
+}
+
+export interface ContentExternalInfo {
+    name: string;
+    /** 未対応の実行基盤ではゲームが動かないか */
+    required: boolean;
 }
 
 export const PLAYLIST_LIMITS = 12;
@@ -427,6 +440,7 @@ const contentErrReasons = [
     "UnsupportedVersion",
     "MissingMode",
     "UnsupportedMode",
+    "ExternalLimitExceeded",
     "GameFileTooLarge",
     "IconFileTooLarge",
     "Unauthorized",

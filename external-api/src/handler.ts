@@ -1,0 +1,92 @@
+import type {
+    APIGatewayProxyEventV2,
+    APIGatewayProxyStructuredResultV2,
+} from "aws-lambda";
+import {
+    publicApiBaseUrl,
+    publicBaseUrl,
+    publicContentBaseUrl,
+} from "./config";
+import { getPrisma } from "./db";
+import { getGame, searchGames, toContentJson, UrlConfig } from "./games";
+import { parseGameId, parseSearchParams } from "./params";
+import type { ErrorReason } from "./types";
+
+const gamePathPattern = /^\/v1\/games\/([^/]+)$/;
+const contentJsonPathPattern = /^\/v1\/games\/([^/]+)\/content\.json$/;
+
+function json(
+    statusCode: number,
+    body: unknown,
+    cacheable: boolean,
+): APIGatewayProxyStructuredResultV2 {
+    return {
+        statusCode,
+        headers: {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": cacheable ? "public, max-age=60" : "no-store",
+        },
+        body: JSON.stringify(body),
+    };
+}
+
+function error(statusCode: number, reason: ErrorReason) {
+    return json(statusCode, { reason }, statusCode === 404);
+}
+
+function urlConfig(event: APIGatewayProxyEventV2): UrlConfig {
+    return {
+        publicBaseUrl,
+        publicContentBaseUrl,
+        publicApiBaseUrl:
+            publicApiBaseUrl ?? `https://${event.requestContext.domainName}`,
+    };
+}
+
+async function route(event: APIGatewayProxyEventV2) {
+    if (event.requestContext.http.method !== "GET") {
+        return error(404, "NotFound");
+    }
+    const path = event.rawPath;
+    const urls = urlConfig(event);
+    const prisma = await getPrisma();
+
+    if (path === "/v1/games") {
+        const params = parseSearchParams(event.queryStringParameters ?? {});
+        if (!params) {
+            return error(400, "InvalidParams");
+        }
+        return json(200, await searchGames(prisma, params, urls), true);
+    }
+
+    const gameMatch = gamePathPattern.exec(path);
+    const contentJsonMatch = contentJsonPathPattern.exec(path);
+    const idText = gameMatch?.[1] ?? contentJsonMatch?.[1];
+    if (idText == null) {
+        return error(404, "NotFound");
+    }
+    const gameId = parseGameId(idText);
+    if (gameId == null) {
+        return error(400, "InvalidParams");
+    }
+    const game = await getGame(prisma, gameId, urls);
+    if (!game) {
+        return error(404, "NotFound");
+    }
+    return json(200, contentJsonMatch ? toContentJson(game, urls) : game, true);
+}
+
+export async function handler(
+    event: APIGatewayProxyEventV2,
+): Promise<APIGatewayProxyStructuredResultV2> {
+    try {
+        return await route(event);
+    } catch (err) {
+        console.error(
+            'failed to handle request (path = "%s")',
+            event.rawPath,
+            err,
+        );
+        return error(500, "InternalError");
+    }
+}

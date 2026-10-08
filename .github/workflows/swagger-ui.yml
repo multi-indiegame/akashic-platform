@@ -53,6 +53,7 @@ jobs:
           && npm run build -w @multi-indiegame/akashic-runner \
           && npm run build -w @multi-indiegame/akashic-storage \
           && npm run build -w @multi-indiegame/manager-server \
+          && npm run build -w @multi-indiegame/external-api \
           && npm run build -w @multi-indiegame/http-schema
 
       - name: Upload Pages artifact

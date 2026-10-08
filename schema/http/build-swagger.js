@@ -69,6 +69,16 @@ const specs = [
             "openapi.js",
         ),
     },
+    {
+        name: "external-api",
+        modulePath: path.join(
+            rootDir,
+            "external-api",
+            "dist",
+            "http",
+            "openapi.js",
+        ),
+    },
 ];
 
 await mkdir(outDir, { recursive: true });

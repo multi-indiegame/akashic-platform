@@ -10,8 +10,10 @@ import {
     Button,
     Card,
     CardContent,
+    Checkbox,
     Container,
     FormControlLabel,
+    Link,
     List,
     ListItem,
     Stack,
@@ -25,11 +27,13 @@ import {
     EditNote,
     FileUpload,
     Image as ImageIcon,
+    OpenInNew,
     Publish,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import {
     ContentErrorResponse,
+    ContentExternalInfo,
     ContentResponse,
     GAME_FILE_MAX_BYTES,
     GAME_FILE_MAX_MB,
@@ -44,6 +48,14 @@ import {
     describeGameJsonEnvironmentError,
     describeGameJsonEnvironmentWarning,
 } from "@/lib/share/game-json";
+import {
+    ALWAYS_OPTIONAL_EXTERNALS,
+    exceedsContentExternalLimits,
+    listContentExternals,
+    MAX_CONTENT_EXTERNALS,
+    MAX_EXTERNAL_NAME_LENGTH,
+} from "@/lib/share/content-external";
+import { externalPluginInfos } from "@/lib/share/external-plugin-info";
 import { registerContent } from "@/lib/server/content-register";
 import { editContent } from "@/lib/server/content-edit";
 import { useAuth } from "@/lib/client/useAuth";
@@ -61,7 +73,144 @@ type GameFormProps = Partial<{
     description: string;
     credit: string;
     streaming: boolean;
+    externalLaunch: boolean;
+    externals: ContentExternalInfo[];
 }>;
+
+function ExternalName({ name }: { name: string }) {
+    return (
+        <Typography component="span" sx={{ fontFamily: "monospace" }}>
+            {name}
+        </Typography>
+    );
+}
+
+function ExternalGuide({ name }: { name: string }) {
+    const theme = useTheme();
+    const info = externalPluginInfos[name];
+    if (!info?.description) {
+        return null;
+    }
+    return (
+        <Typography variant="caption" color="textSecondary" component="p">
+            {info.description}
+            {info.url && (
+                <>
+                    <Button
+                        component={Link}
+                        endIcon={<OpenInNew fontSize="small" />}
+                        href={info.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        size="small"
+                        sx={{
+                            color: theme.palette.primary.light,
+                        }}
+                    >
+                        詳細
+                    </Button>
+                </>
+            )}
+        </Typography>
+    );
+}
+
+function ExternalPluginFields({
+    externals,
+    requiredExternals,
+    onToggle,
+}: {
+    externals: string[];
+    requiredExternals: string[];
+    onToggle: (name: string, required: boolean) => void;
+}) {
+    const askedExternals = externals.filter(
+        (name) => !ALWAYS_OPTIONAL_EXTERNALS.includes(name),
+    );
+    const fixedExternals = externals.filter((name) =>
+        ALWAYS_OPTIONAL_EXTERNALS.includes(name),
+    );
+    return (
+        <Box sx={{ mt: 2 }}>
+            <Typography variant="subtitle1" gutterBottom>
+                使用プラグイン
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+                外部のプラットフォームが、このゲームを起動できるかを判断するために使います。本サービスでは、ここでの入力に関わらず、対応しているプラグインはすべて動作します。
+            </Typography>
+            {askedExternals.length > 0 && (
+                <>
+                    <Typography
+                        variant="body2"
+                        color="textSecondary"
+                        sx={{ mt: 1 }}
+                    >
+                        プラグインが無い環境ではゲームが動作しない場合はチェックを入れてください。分からない場合はチェックを入れずにそのままにしてください。
+                    </Typography>
+                    <Stack>
+                        {askedExternals.map((name) => (
+                            <Box key={name}>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={requiredExternals.includes(
+                                                name,
+                                            )}
+                                            onChange={(event) =>
+                                                onToggle(
+                                                    name,
+                                                    event.target.checked,
+                                                )
+                                            }
+                                        />
+                                    }
+                                    label={
+                                        <>
+                                            <ExternalName name={name} /> : 必須
+                                            (ゲームの動作に必要)
+                                        </>
+                                    }
+                                />
+                                <Box sx={{ ml: 4 }}>
+                                    <ExternalGuide name={name} />
+                                </Box>
+                            </Box>
+                        ))}
+                    </Stack>
+                </>
+            )}
+            {fixedExternals.length > 0 && (
+                <>
+                    <Typography
+                        variant="body2"
+                        color="textSecondary"
+                        sx={{ mt: 1 }}
+                    >
+                        次のプラグインは入力不要です。無くても動くものとして登録されます。
+                    </Typography>
+                    <List dense sx={{ listStyleType: "disc", pl: 2 }}>
+                        {fixedExternals.map((name) => (
+                            <ListItem key={name} sx={{ display: "list-item" }}>
+                                <Typography
+                                    variant="body2"
+                                    color="textSecondary"
+                                >
+                                    <ExternalName name={name} />
+                                </Typography>
+                                <ExternalGuide name={name} />
+                            </ListItem>
+                        ))}
+                    </List>
+                </>
+            )}
+        </Box>
+    );
+}
+
+const unknownExternalsMessage =
+    "使用プラグインを確認できませんでした。外部プラットフォームでの起動を許可するには、ページを再読み込みしてください。";
+
+const externalLimitExceededMessage = `不正なゲームデータファイルです。game.json で使用するプラグインは ${MAX_CONTENT_EXTERNALS} 個まで、名前は ${MAX_EXTERNAL_NAME_LENGTH} 文字までにしてください。`;
 
 export function GameForm({
     gameId,
@@ -71,6 +220,8 @@ export function GameForm({
     description: initialDescription,
     credit: initialCredit,
     streaming: initialStreaming,
+    externalLaunch: initialExternalLaunch,
+    externals: initialExternals,
 }: GameFormProps) {
     const [user] = useAuth();
     const theme = useTheme();
@@ -81,6 +232,21 @@ export function GameForm({
     const [description, setDescription] = useState(initialDescription ?? "");
     const [credit, setCredit] = useState(initialCredit ?? "");
     const [streaming, setStreaming] = useState(initialStreaming ?? true);
+    const [externalLaunch, setExternalLaunch] = useState(
+        initialExternalLaunch ?? false,
+    );
+    // 編集時に game.json を読めなかった場合は undefined (分からない) のまま持ち、
+    // 必須の入力を経ずに外部起動を許可させない
+    const [externals, setExternals] = useState<string[] | undefined>(
+        gameId == null ? [] : initialExternals?.map(({ name }) => name),
+    );
+    const [isReadingGameFile, setIsReadingGameFile] = useState(false);
+    // ゲームデータを差し替えても、同じ名前のプラグインは申告を引き継ぐため名前で持つ
+    const [requiredExternals, setRequiredExternals] = useState<string[]>(
+        initialExternals
+            ?.filter(({ required }) => required)
+            .map(({ name }) => name) ?? [],
+    );
     const [license, setLicense] = useState<string>();
     const [isPending, startTransition] = useTransition();
     const [titleError, setTitleError] = useState<string>();
@@ -110,6 +276,7 @@ export function GameForm({
             // 原因の分からない失敗になるため選択時点で弾く
             if (file.size > GAME_FILE_MAX_BYTES) {
                 gameFileSelectionRef.current++;
+                setIsReadingGameFile(false);
                 setGameFile(undefined);
                 setLicense(undefined);
                 setGameFileError(
@@ -119,10 +286,12 @@ export function GameForm({
                 return;
             }
             setGameFile(file);
+            setIsReadingGameFile(true);
             const selection = ++gameFileSelectionRef.current;
             let error: string | undefined;
             let warnings: string[] | undefined;
             let externals: string[] | undefined;
+            let contentExternals: string[] | undefined;
             let licenseText: string | undefined;
             try {
                 const zip = await JSZip.loadAsync(await file.arrayBuffer());
@@ -156,6 +325,13 @@ export function GameForm({
                         if (unsupportedExternalKeys.length > 0) {
                             externals = unsupportedExternalKeys;
                         }
+                        contentExternals = listContentExternals(gameJson);
+                        if (
+                            !error &&
+                            exceedsContentExternalLimits(contentExternals)
+                        ) {
+                            error = externalLimitExceededMessage;
+                        }
                     } catch (err) {
                         console.warn("failed to parse game.json", err);
                         error =
@@ -176,7 +352,11 @@ export function GameForm({
             setGameFileError(error);
             setGameJsonWarnings(warnings);
             setUnsupportedExternals(externals);
+            if (contentExternals) {
+                setExternals(contentExternals);
+            }
             setLicense(licenseText);
+            setIsReadingGameFile(false);
         }
     }
 
@@ -209,6 +389,14 @@ export function GameForm({
         setCredit(event.target.value);
     }
 
+    function handleToggleRequiredExternal(name: string, required: boolean) {
+        setRequiredExternals((prev) =>
+            required
+                ? [...prev.filter((n) => n !== name), name]
+                : prev.filter((n) => n !== name),
+        );
+    }
+
     function handleServerErr(res: ContentErrorResponse) {
         switch (res.reason) {
             case "InvalidParams":
@@ -231,6 +419,9 @@ export function GameForm({
             case "MissingMode":
             case "UnsupportedMode":
                 setServerError(describeGameJsonEnvironmentError(res));
+                break;
+            case "ExternalLimitExceeded":
+                setServerError(externalLimitExceededMessage);
                 break;
             case "GameFileTooLarge":
                 setServerError(
@@ -288,6 +479,14 @@ export function GameForm({
         if (gameFileError || iconFileError) {
             return;
         }
+        // 読み込み中に送ると、使用プラグインが分からないまま必須の申告が送られる
+        if (isReadingGameFile) {
+            return;
+        }
+        if (externalLaunch && externals === undefined) {
+            setServerError(unknownExternalsMessage);
+            return;
+        }
         if (!user) {
             setServerError("サインインしてください。");
         }
@@ -304,6 +503,14 @@ export function GameForm({
                                 description,
                                 credit,
                                 streaming,
+                                externalLaunch,
+                                requiredExternals: requiredExternals.filter(
+                                    (name) =>
+                                        externals?.includes(name) &&
+                                        !ALWAYS_OPTIONAL_EXTERNALS.includes(
+                                            name,
+                                        ),
+                                ),
                             });
                         } catch (err) {
                             handleActionThrown(err);
@@ -329,6 +536,12 @@ export function GameForm({
                             description,
                             credit,
                             streaming,
+                            externalLaunch,
+                            requiredExternals: requiredExternals.filter(
+                                (name) =>
+                                    externals?.includes(name) &&
+                                    !ALWAYS_OPTIONAL_EXTERNALS.includes(name),
+                            ),
                         });
                     } catch (err) {
                         handleActionThrown(err);
@@ -698,6 +911,56 @@ export function GameForm({
                                     )}
                                 </Stack>
                             </Box>
+                            <Box>
+                                <Typography variant="h6" gutterBottom>
+                                    外部プラットフォームでの起動
+                                </Typography>
+                                <FormControlLabel
+                                    sx={{ ml: 0 }}
+                                    control={
+                                        <Switch
+                                            checked={externalLaunch}
+                                            onChange={(event) =>
+                                                setExternalLaunch(
+                                                    event.target.checked,
+                                                )
+                                            }
+                                        />
+                                    }
+                                    label="外部のプラットフォームでの起動を許可する"
+                                />
+                                <Typography
+                                    variant="body2"
+                                    color="textSecondary"
+                                >
+                                    許可すると、外部のプラットフォーム向けの API
+                                    でこのゲームを公開し、外部のプラットフォームでこのゲームを検索・起動できるようになります。API
+                                    は誰でも利用でき、ゲームタイトル・ゲーム説明・クレジット・アイコン・投稿者名・投稿者アイコン・使用プラグイン・実況可否とゲームデータが公開されます。実況・配信を許可していない場合、外部のプラットフォームでも実況・配信はできません。許可を取り消してから外部に反映されるまで、1
+                                    分ほどかかります。
+                                </Typography>
+                                {externalLaunch && externals === undefined && (
+                                    <Alert
+                                        variant="outlined"
+                                        severity="warning"
+                                        sx={{ mt: 2 }}
+                                    >
+                                        {unknownExternalsMessage}
+                                    </Alert>
+                                )}
+                                {externalLaunch &&
+                                    externals &&
+                                    externals.length > 0 && (
+                                        <ExternalPluginFields
+                                            externals={externals}
+                                            requiredExternals={
+                                                requiredExternals
+                                            }
+                                            onToggle={
+                                                handleToggleRequiredExternal
+                                            }
+                                        />
+                                    )}
+                            </Box>
                             <GameTermsAndConditions />
                             {serverError && (
                                 <Alert variant="outlined" severity="error">
@@ -720,8 +983,8 @@ export function GameForm({
                                             ? "inherit"
                                             : "primary"
                                     }
-                                    loading={isPending}
-                                    disabled={isPending}
+                                    loading={isPending || isReadingGameFile}
+                                    disabled={isPending || isReadingGameFile}
                                 >
                                     ゲームを{gameId == null ? "投稿" : "更新"}
                                 </Button>
