@@ -123,10 +123,12 @@ export class PlayWorker {
                 }),
             ]);
             clearTimeout(timer);
+            // WHY: 応答しない worker には、送り切れていない記録が残っているかもしれない。
+            // 打ち切ったプレイとして扱い、その記録を集計に入れさせない
             if (!result && this._state === "stopping") {
-                console.warn("play worker did not stop in time", {
-                    playId: this.playId,
-                });
+                this._abort(
+                    `ゲームが停止の要求に ${STOP_TIMEOUT_MS / 1000} 秒以上応答しなかったため、実行を打ち切りました。`,
+                );
             }
         } else if (this._state === "starting") {
             this._onStarted?.reject(new Error("play was stopped on starting"));
@@ -195,7 +197,8 @@ export class PlayWorker {
 
     /**
      * WHY: resourceLimits は JS のヒープにしか効かず、ArrayBuffer などの外部メモリを
-     * 抱え込むゲームは止められない。外部メモリは worker が止まっていても測れる
+     * 抱え込むゲームは止められない。ヒープと外部メモリの合計で上限を見る。
+     * どちらも worker が止まっていても測れる
      */
     _checkMemory() {
         if (!this._worker || this._checkingMemory) {
@@ -206,7 +209,7 @@ export class PlayWorker {
             .getHeapStatistics()
             .then((stats) => {
                 if (
-                    stats.external_memory >
+                    stats.used_heap_size + stats.external_memory >
                     this._param.maxHeapMb * 1024 * 1024
                 ) {
                     this._abort(
