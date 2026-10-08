@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2.4.0
+
+### Minor Changes
+
+- baf7f24: 外部プラットフォームでの起動の許可と、使用プラグインの必須 / 任意の申告を追加。外部プラットフォーム向け API (Lambda) を追加
+
+### Patch Changes
+
+- 412002a: 新規投稿・新バージョンの投稿時、一時的にゲームデータ置き終える前のバージョンが表示される問題を修正
+- Updated dependencies [baf7f24]
+  - @multi-indiegame/persist-schema@1.27.0
+  - @multi-indiegame/scoreboard-schema@1.1.1
+
 ## 2.3.3
 
 ### Patch Changes
