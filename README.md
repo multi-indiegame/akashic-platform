@@ -27,6 +27,7 @@
       - `"coe"`
       - `"send"`
       - [`"playerBan"`](https://github.com/multi-indiegame/akashic-player-ban)
+      - [`"scoreboard"`](https://github.com/multi-indiegame/akashic-scoreboard)
     - 未対応
       - `@akashic-extension/instance-storage`
 
