@@ -14,6 +14,7 @@ import { gamePlayerId } from "./game-player-id";
 import { grantPlayOwner } from "./play-owner-token";
 import { isWriteBlocked } from "./drain-state";
 import { logSafe } from "./log-safe";
+import { fetchHasScoreboard } from "./content-scoreboard";
 
 interface PlayForm {
     contentId: number;
@@ -118,13 +119,7 @@ export async function registerPlay({
                 gameMasterId,
                 playerUserId: gmUserId,
                 playerName,
-                scoreboard:
-                    (
-                        await prisma.content.findUnique({
-                            where: { id: contentId },
-                            select: { scoreboard: true },
-                        })
-                    )?.scoreboard ?? false,
+                scoreboard: await fetchHasScoreboard(contentId),
                 playName: !!playName
                     ? playName
                     : await fetchDefaultPlayName(contentId),

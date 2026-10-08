@@ -25,6 +25,10 @@ import { fetchTitles } from "@/lib/server/scoreboard-title";
 import { kickViewerFromPlays } from "@/lib/server/play-kick";
 import { sessionViewerId, verifyRoomOwner } from "@/lib/server/viewer-identity";
 import { logSafe } from "@/lib/server/log-safe";
+import {
+    hasScoreboard,
+    scoreboardCountSelect,
+} from "@/lib/server/content-scoreboard";
 
 export async function GET(
     req: NextRequest,
@@ -76,7 +80,7 @@ export async function GET(
                 content: {
                     select: {
                         icon: true,
-                        scoreboard: true,
+                        ...scoreboardCountSelect,
                         game: {
                             select: {
                                 id: true,
@@ -225,7 +229,7 @@ export async function GET(
                             user,
                             play.content.game.id,
                         ),
-                        hasScoreboard: play.content.scoreboard,
+                        hasScoreboard: hasScoreboard(play.content),
                         createdAt: play.content.game.createdAt,
                         updatedAt: play.content.game.updatedAt,
                     },

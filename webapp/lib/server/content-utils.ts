@@ -197,7 +197,6 @@ export function toContentCreateData(
     return {
         id: contentId,
         icon: iconPath,
-        scoreboard: externals.includes("scoreboard"),
         externalsRecorded: true,
         externals: {
             create: externals.map((name) => ({

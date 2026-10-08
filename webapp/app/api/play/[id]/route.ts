@@ -29,6 +29,10 @@ import {
     refreshPlayOwnerCookie,
 } from "@/lib/server/play-owner-token";
 import { logSafe } from "@/lib/server/log-safe";
+import {
+    hasScoreboard,
+    scoreboardCountSelect,
+} from "@/lib/server/content-scoreboard";
 
 const playViewSelect = {
     id: true,
@@ -54,7 +58,7 @@ const playViewSelect = {
     content: {
         select: {
             icon: true,
-            scoreboard: true,
+            ...scoreboardCountSelect,
             game: {
                 select: {
                     id: true,
@@ -118,7 +122,7 @@ async function closedPlayResponse(
                 },
                 contentId: play.contentId,
                 isFavorited: await isFavorited(user, play.content.game.id),
-                hasScoreboard: play.content.scoreboard,
+                hasScoreboard: hasScoreboard(play.content),
                 createdAt: play.content.game.createdAt,
                 updatedAt: play.content.game.updatedAt,
             },
@@ -244,7 +248,7 @@ export async function GET(
                     },
                     contentId: play.contentId,
                     isFavorited: await isFavorited(user, play.content.game.id),
-                    hasScoreboard: play.content.scoreboard,
+                    hasScoreboard: hasScoreboard(play.content),
                     createdAt: play.content.game.createdAt,
                     updatedAt: play.content.game.updatedAt,
                 },

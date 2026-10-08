@@ -5,6 +5,10 @@ import { publicContentBaseUrl } from "@/lib/server/akashic";
 import { fetchLicense } from "@/lib/server/game-info";
 import { getFavoriteList } from "@/lib/server/favorite";
 import { getAuth } from "@/lib/server/auth";
+import {
+    hasScoreboard,
+    scoreboardCountSelect,
+} from "@/lib/server/content-scoreboard";
 
 export async function GET(req: NextRequest) {
     const keyword = req.nextUrl.searchParams.get("keyword") ?? undefined;
@@ -80,7 +84,7 @@ export async function GET(req: NextRequest) {
                 select: {
                     id: true,
                     icon: true,
-                    scoreboard: true,
+                    ...scoreboardCountSelect,
                     updatedAt: true,
                 },
                 orderBy: {
@@ -128,7 +132,7 @@ export async function GET(req: NextRequest) {
                         license: await fetchLicense(versions[0].id),
                         contentId: versions[0].id,
                         isFavorited: favoritedGameIds.has(id),
-                        hasScoreboard: versions[0].scoreboard,
+                        hasScoreboard: hasScoreboard(versions[0]),
                         createdAt,
                         updatedAt: versions[0].updatedAt,
                     }) satisfies GameInfo,

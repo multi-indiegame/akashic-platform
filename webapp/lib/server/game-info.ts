@@ -7,6 +7,7 @@ import {
     ContentExternalLimitError,
     recordContentExternals,
 } from "./content-get-external";
+import { hasScoreboard, scoreboardCountSelect } from "./content-scoreboard";
 
 export async function fetchGameInfo(gameId: number) {
     const game = await prisma.game.findUniqueOrThrow({
@@ -33,7 +34,7 @@ export async function fetchGameInfo(gameId: number) {
                 select: {
                     id: true,
                     icon: true,
-                    scoreboard: true,
+                    ...scoreboardCountSelect,
                     externalsRecorded: true,
                     externals: {
                         select: { name: true, required: true },
@@ -65,7 +66,7 @@ export async function fetchGameInfo(gameId: number) {
             name: def.name,
             credit: def.imageCredit!,
         })),
-        hasScoreboard: game.versions[0].scoreboard,
+        hasScoreboard: hasScoreboard(game.versions[0]),
         externalLaunch: game.externalLaunch,
         externals,
         iconURL: `${publicContentBaseUrl}/${game.versions[0].id}/${game.versions[0].icon}`,
