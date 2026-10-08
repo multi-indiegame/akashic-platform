@@ -91,6 +91,11 @@ export const openapi = {
         version: "1.0.0",
         description,
     },
+    servers: [
+        {
+            url: "https://api.multi-indiegame.net",
+        },
+    ],
     security: [],
     tags: [
         {
