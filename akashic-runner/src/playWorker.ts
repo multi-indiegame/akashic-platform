@@ -198,7 +198,9 @@ export class PlayWorker {
     /**
      * WHY: resourceLimits は JS のヒープにしか効かず、ArrayBuffer などの外部メモリを
      * 抱え込むゲームは止められない。ヒープと外部メモリの合計で上限を見る。
-     * どちらも worker が止まっていても測れる
+     * どちらも worker が止まっていても測れる。
+     * 上限は 1 プレイが runner 全体を落とさないためのもの。プレイの合計は runner に
+     * 割り当てるメモリで見積もる
      */
     _checkMemory() {
         if (!this._worker || this._checkingMemory) {
