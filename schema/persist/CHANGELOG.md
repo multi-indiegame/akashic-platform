@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.28.0
+
+### Minor Changes
+
+- 2f5c97f: `Content.scoreboard` を廃止し、scoreboard を宣言しているかは `ContentExternal` の行から判定するようにした
+
 ## 1.27.0
 
 ### Minor Changes

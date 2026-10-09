@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2.4.2
+
+### Patch Changes
+
+- 2f5c97f: `Content.scoreboard` を廃止し、scoreboard を宣言しているかは `ContentExternal` の行から判定するようにした
+- Updated dependencies [2f5c97f]
+  - @multi-indiegame/persist-schema@1.28.0
+  - @multi-indiegame/scoreboard-schema@1.1.2
+
 ## 2.4.1
 
 ### Patch Changes
