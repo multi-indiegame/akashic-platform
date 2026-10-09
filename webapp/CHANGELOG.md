@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.5.1
+
+### Patch Changes
+
+- 720c547: 脆弱性対応のため next を 16.4.0、sharp を 0.35.5 に更新した
+
 ## 2.5.0
 
 ### Minor Changes
