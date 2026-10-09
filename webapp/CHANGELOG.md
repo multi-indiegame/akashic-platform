@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2.5.0
+
+### Minor Changes
+
+- 9abebb6: マイページに「チャットなどで称号を表示しない」設定を追加し、オンのときはチャットや部屋主の名前に添える称号を、自分の分も含めて返さないようにした。あわせて、チャットなどに出す称号アイコンの段位色の枠を細くした
+
+### Patch Changes
+
+- 9abebb6: ユーザーページの称号を 1 行に収まる分だけ表示して残りを展開できるようにし、統計のカードを名前が折り返さない幅で並べ (狭い画面では余白と棒を詰める)、ゲーム詳細の統計で各カードから全ランキングの順位をまとめて展開できるようにした
+- Updated dependencies [9abebb6]
+  - @multi-indiegame/persist-schema@1.29.0
+  - @multi-indiegame/scoreboard-schema@1.1.3
+
 ## 2.4.2
 
 ### Patch Changes
