@@ -4,6 +4,10 @@ import { FavoriteListResponse } from "@/lib/types";
 import { publicContentBaseUrl } from "@/lib/server/akashic";
 import { fetchLicense } from "@/lib/server/game-info";
 import { getAuth } from "@/lib/server/auth";
+import {
+    hasScoreboard,
+    scoreboardCountSelect,
+} from "@/lib/server/content-scoreboard";
 
 export async function GET(): Promise<NextResponse<FavoriteListResponse>> {
     const user = await getAuth();
@@ -47,7 +51,7 @@ export async function GET(): Promise<NextResponse<FavoriteListResponse>> {
                             select: {
                                 id: true,
                                 icon: true,
-                                scoreboard: true,
+                                ...scoreboardCountSelect,
                                 updatedAt: true,
                             },
                             orderBy: {
@@ -78,7 +82,7 @@ export async function GET(): Promise<NextResponse<FavoriteListResponse>> {
                     license: await fetchLicense(game.versions[0].id),
                     contentId: game.versions[0].id,
                     isFavorited: true,
-                    hasScoreboard: game.versions[0].scoreboard,
+                    hasScoreboard: hasScoreboard(game.versions[0]),
                     createdAt: game.createdAt,
                     updatedAt: game.versions[0].updatedAt,
                 })),

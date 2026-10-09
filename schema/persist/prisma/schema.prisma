@@ -134,12 +134,10 @@ model Content {
   id                Int               @id @default(autoincrement())
   gameId            Int
   icon              String
-  /// game.json で scoreboard を宣言しているか。
-  /// WHY: 参照のたびに game.json を取得すると往復が増えるため、投稿時に判定して持つ
-  scoreboard        Boolean           @default(false)
   /// 使用プラグインを ContentExternal に記録済みか。
   /// WHY: 記録を始める前に投稿されたバージョンは行を持たず、プラグインを使わないバージョン (行が 0 件) と
-  /// 区別できないため。未記録のものは初めて必要になったときに game.json から導出して記録する
+  /// 区別できないため。未記録のものは初めて必要になったときに game.json から導出して記録する。
+  /// ただし scoreboard の行だけは、未記録のバージョンでも投稿時の判定から移して持たせている
   externalsRecorded Boolean           @default(false)
   plays             Play[]
   externals         ContentExternal[]
