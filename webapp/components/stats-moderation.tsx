@@ -192,14 +192,14 @@ export function MutedEntry({
     return (
         <Stack
             direction="row"
-            spacing={2}
+            spacing={{ xs: 1, sm: 2 }}
             sx={{ alignItems: "center", py: 0.75 }}
         >
             <Typography
                 variant="body2"
                 color="textSecondary"
                 sx={{
-                    width: 32,
+                    width: { xs: 24, sm: 32 },
                     flexShrink: 0,
                     fontVariantNumeric: "tabular-nums",
                 }}

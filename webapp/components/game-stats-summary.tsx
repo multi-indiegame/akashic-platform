@@ -1,5 +1,6 @@
 "use client";
 
+import { MouseEvent, useState } from "react";
 import Link from "next/link";
 import {
     Button,
@@ -10,7 +11,7 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
-import { Leaderboard } from "@mui/icons-material";
+import { ExpandLess, ExpandMore, Leaderboard } from "@mui/icons-material";
 import { useGameStats } from "@/lib/client/useGameStats";
 import {
     PlayRecordCard,
@@ -35,6 +36,7 @@ export function GameStatsSummary({
 }) {
     const theme = useTheme();
     const { isLoading, stats, error } = useGameStats(String(gameId), "all");
+    const [expanded, setExpanded] = useState(false);
 
     if (isLoading) {
         return <Skeleton variant="rectangular" height={160} />;
@@ -46,6 +48,19 @@ export function GameStatsSummary({
         stats.sections.length === 0 &&
         stats.playRanking.length === 0 &&
         stats.playRecords.length === 0;
+    const limit = expanded ? undefined : ENTRY_LIMIT;
+
+    function toggleFooter(count: number) {
+        if (count <= ENTRY_LIMIT) {
+            return undefined;
+        }
+        return (
+            <ExpandToggle
+                expanded={expanded}
+                onToggle={() => setExpanded((prev) => !prev)}
+            />
+        );
+    }
     return (
         <Stack spacing={2}>
             {empty ? (
@@ -70,11 +85,10 @@ export function GameStatsSummary({
                             <RankingCard
                                 heading="遊んだ回数"
                                 unit="回"
-                                entries={stats.playRanking.slice(
-                                    0,
-                                    ENTRY_LIMIT,
-                                )}
+                                entries={stats.playRanking}
                                 showChart={!stats.playRankingChartHidden}
+                                limit={limit}
+                                footer={toggleFooter(stats.playRanking.length)}
                             />
                         )}
                         {stats.sections.map((section) => (
@@ -82,13 +96,17 @@ export function GameStatsSummary({
                                 key={section.key}
                                 section={section}
                                 showChart={!section.chartHidden}
-                                limit={ENTRY_LIMIT}
+                                limit={limit}
+                                footer={toggleFooter(section.entries.length)}
                             />
                         ))}
                     </StatsGrid>
                 </StatsModerationProvider>
             )}
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Stack
+                direction="row"
+                sx={{ flexWrap: "wrap", gap: 1, alignItems: "center" }}
+            >
                 <Button
                     variant="outlined"
                     component={Link}
@@ -103,5 +121,47 @@ export function GameStatsSummary({
                 </Button>
             </Stack>
         </Stack>
+    );
+}
+
+/**
+ * 全カードの順位をまとめて開閉する。
+ */
+function ExpandToggle({
+    expanded,
+    onToggle,
+}: {
+    expanded: boolean;
+    onToggle: () => void;
+}) {
+    const theme = useTheme();
+
+    function handleClick(ev: MouseEvent<HTMLButtonElement>) {
+        const card = ev.currentTarget.closest(".MuiCard-root");
+        onToggle();
+        if (expanded && card) {
+            // WHY: 閉じると上のカードも縮み、押したカードが画面の外へ動く。
+            // 上に貼り付いたヘッダーの下に隠れないよう、その分ずらして戻す
+            requestAnimationFrame(() => {
+                const headerBottom =
+                    document.querySelector("header")?.getBoundingClientRect()
+                        .bottom ?? 0;
+                const top = card.getBoundingClientRect().top;
+                if (top < headerBottom) {
+                    window.scrollBy({ top: top - headerBottom - 8 });
+                }
+            });
+        }
+    }
+
+    return (
+        <Button
+            size="small"
+            onClick={handleClick}
+            startIcon={expanded ? <ExpandLess /> : <ExpandMore />}
+            sx={{ mt: 1, color: theme.palette.text.secondary }}
+        >
+            {expanded ? "上位だけ表示" : "すべての順位を表示"}
+        </Button>
     );
 }

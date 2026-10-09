@@ -394,6 +394,8 @@ export interface UserProfile {
     scoreboardPublic?: boolean;
     /** 自分自身の場合のみ値が格納。統計へ掲載しないと決めているか */
     scoreboardOptOut?: boolean;
+    /** 自分自身の場合のみ値が格納。チャットなどで称号を表示しないか (自分の称号も含む) */
+    hideTitles?: boolean;
 }
 
 export type UserNameFormState = {

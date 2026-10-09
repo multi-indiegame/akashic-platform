@@ -26,6 +26,7 @@ import {
 import {
     resumeScoreboardPublication,
     revokeScoreboardPublication,
+    setHideTitles,
     setScoreboardPublic,
 } from "@/lib/server/scoreboard-share-action";
 import { postUserStatsToX, shareUserStats } from "@/lib/client/share-stats";
@@ -35,14 +36,17 @@ export function MyScoreboardSettings({
     userName,
     initialPublic,
     initialOptOut,
+    initialHideTitles,
 }: {
     userId: string;
     userName: string;
     initialPublic: boolean;
     initialOptOut: boolean;
+    initialHideTitles: boolean;
 }) {
     const [isPublic, setIsPublic] = useState(initialPublic);
     const [optOut, setOptOut] = useState(initialOptOut);
+    const [hideTitles, setHideTitlesState] = useState(initialHideTitles);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [message, setMessage] = useState<{
         severity: "success" | "error" | "info";
@@ -54,6 +58,18 @@ export function MyScoreboardSettings({
         const res = await setScoreboardPublic(next);
         if (!res.ok) {
             setIsPublic(!next);
+            setMessage({
+                severity: "error",
+                text: "設定を変更できませんでした。",
+            });
+        }
+    }
+
+    async function handleHideTitles(next: boolean) {
+        setHideTitlesState(next);
+        const res = await setHideTitles(next);
+        if (!res.ok) {
+            setHideTitlesState(!next);
             setMessage({
                 severity: "error",
                 text: "設定を変更できませんでした。",
@@ -196,6 +212,22 @@ export function MyScoreboardSettings({
                             </Button>
                         </>
                     )}
+                    <Stack spacing={0.5}>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={hideTitles}
+                                    onChange={(e) =>
+                                        handleHideTitles(e.target.checked)
+                                    }
+                                />
+                            }
+                            label="チャットなどで称号を表示しない"
+                        />
+                        <Typography variant="caption" color="textSecondary">
+                            オンにすると、チャットや部屋の中で名前と一緒に出る称号が、自分の称号も含めて表示されなくなります。
+                        </Typography>
+                    </Stack>
                     {message && (
                         <Alert variant="outlined" severity={message.severity}>
                             {message.text}

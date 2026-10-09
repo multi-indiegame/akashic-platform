@@ -32,7 +32,11 @@ export function UserInline({
                 <Avatar
                     src={user.image}
                     alt={user.name}
-                    sx={{ width: avatarSize, height: avatarSize }}
+                    sx={{
+                        width: avatarSize,
+                        height: avatarSize,
+                        flexShrink: 0,
+                    }}
                 />
             )}
             <Typography variant={textVariant}>{user.name}</Typography>

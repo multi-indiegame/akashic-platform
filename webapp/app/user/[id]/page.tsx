@@ -553,6 +553,7 @@ export default function UserPage() {
                                             profile.titles.length > 0 && (
                                                 <TitleBadges
                                                     titles={profile.titles}
+                                                    collapsible
                                                 />
                                             )}
                                         <Typography
@@ -586,6 +587,9 @@ export default function UserPage() {
                                             }
                                             initialOptOut={
                                                 !!profile.scoreboardOptOut
+                                            }
+                                            initialHideTitles={
+                                                !!profile.hideTitles
                                             }
                                         />
                                         <Divider />
@@ -622,6 +626,7 @@ export default function UserPage() {
                                                 profile.titles.length > 0 && (
                                                     <TitleBadges
                                                         titles={profile.titles}
+                                                        collapsible
                                                     />
                                                 )}
                                             {profile.scoreboardPublic && (

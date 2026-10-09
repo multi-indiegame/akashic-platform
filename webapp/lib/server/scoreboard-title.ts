@@ -1,6 +1,6 @@
 import { prisma } from "@multi-indiegame/persist-schema";
 import { publicContentBaseUrl } from "./akashic";
-import { TitleBadge } from "../types";
+import { TitleBadge, User } from "../types";
 
 /** 一度に見せる称号の数 */
 const DISPLAY_LIMIT = 4;
@@ -55,6 +55,18 @@ export async function fetchTitles(
         imageURL: toImageURL(row.def.imageKey),
         awardedAt: row.awardedAt,
     }));
+}
+
+/** 見ている人が、チャットなどで称号を表示しない設定にしているか。自分の称号も含む */
+export async function hidesTitles(viewer: User | null): Promise<boolean> {
+    if (viewer?.authType !== "oauth") {
+        return false;
+    }
+    const row = await prisma.user.findUnique({
+        where: { id: viewer.id },
+        select: { hideTitles: true },
+    });
+    return !!row?.hideTitles;
 }
 
 /** 表示中のメッセージの投稿者ぶんをまとめて引く。1 件ずつ引かない */

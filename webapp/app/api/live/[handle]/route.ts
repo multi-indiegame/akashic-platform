@@ -21,7 +21,7 @@ import {
     recordPlaySession,
 } from "@/lib/server/play-session";
 import { recordPlayParticipant } from "@/lib/server/play-participant";
-import { fetchTitles } from "@/lib/server/scoreboard-title";
+import { fetchTitles, hidesTitles } from "@/lib/server/scoreboard-title";
 import { kickViewerFromPlays } from "@/lib/server/play-kick";
 import { sessionViewerId, verifyRoomOwner } from "@/lib/server/viewer-identity";
 import { logSafe } from "@/lib/server/log-safe";
@@ -201,9 +201,11 @@ export async function GET(
                     gameMaster: {
                         // WHY: どのゲームの称号かが伝わるよう、その部屋の
                         // ゲームに絞って出す
-                        titles: await fetchTitles(gmUser.id, {
-                            gameId: play.content.game.id,
-                        }),
+                        titles: (await hidesTitles(user))
+                            ? undefined
+                            : await fetchTitles(gmUser.id, {
+                                  gameId: play.content.game.id,
+                              }),
                         userId: gmUser.id,
                         name: gmUser.name ?? GUEST_NAME,
                         iconURL: gmUser.image ?? undefined,

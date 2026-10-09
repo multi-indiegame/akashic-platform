@@ -26,6 +26,7 @@ export async function GET(
             image: true,
             scoreboardPublic: true,
             scoreboardOptOut: true,
+            hideTitles: true,
         },
     });
     if (!user || !user.name) {
@@ -37,6 +38,7 @@ export async function GET(
     let provider: string | undefined;
     // WHY: 掲載の可否は本人だけが知ればよい。他人には返さない
     let scoreboardOptOut: boolean | undefined;
+    let hideTitles: boolean | undefined;
     const session = await auth();
     if (session?.user?.id === id) {
         provider = (
@@ -50,9 +52,10 @@ export async function GET(
             })
         )?.provider;
         scoreboardOptOut = user.scoreboardOptOut;
+        hideTitles = user.hideTitles;
     }
     // WHY: 称号はチャットなどでも出している公開情報。プロフィールでも見せる
-    const titles = await fetchTitles(user.id, { limit: 3 });
+    const titles = await fetchTitles(user.id, { limit: 100 });
     return NextResponse.json({
         ok: true,
         data: {
@@ -64,6 +67,7 @@ export async function GET(
             provider,
             scoreboardPublic: user.scoreboardPublic,
             scoreboardOptOut,
+            hideTitles,
         },
     });
 }

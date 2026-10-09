@@ -20,7 +20,11 @@ export default async function MyStatsPage() {
         fetchMyScoreboard(auth.user.id),
         prisma.user.findUnique({
             where: { id: auth.user.id },
-            select: { scoreboardPublic: true, scoreboardOptOut: true },
+            select: {
+                scoreboardPublic: true,
+                scoreboardOptOut: true,
+                hideTitles: true,
+            },
         }),
     ]);
     return (
@@ -37,13 +41,14 @@ export default async function MyStatsPage() {
                 </Stack>
                 <Stack spacing={2}>
                     <Typography variant="h5" component="h2">
-                        公開の設定
+                        記録と称号の設定
                     </Typography>
                     <MyScoreboardSettings
                         userId={auth.user.id}
                         userName={auth.user.name}
                         initialPublic={!!profile?.scoreboardPublic}
                         initialOptOut={!!profile?.scoreboardOptOut}
+                        initialHideTitles={!!profile?.hideTitles}
                     />
                 </Stack>
             </Stack>

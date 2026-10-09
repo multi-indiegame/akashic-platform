@@ -22,7 +22,10 @@ import {
     sessionViewerId,
     verifyRoomOwner,
 } from "@/lib/server/viewer-identity";
-import { fetchTitlesForUsers } from "@/lib/server/scoreboard-title";
+import {
+    fetchTitlesForUsers,
+    hidesTitles,
+} from "@/lib/server/scoreboard-title";
 
 type PlayChatRecord = {
     id: number;
@@ -78,7 +81,10 @@ export async function GET(
         if (!auth.ok) {
             return NextResponse.json({ ok: false, reason: auth.reason });
         }
-        const muteSet = await getMuteSet(auth.user);
+        const [muteSet, hideTitles] = await Promise.all([
+            getMuteSet(auth.user),
+            hidesTitles(auth.user),
+        ]);
         const messages = await prisma.playChatMessage.findMany({
             where: {
                 playId,
@@ -102,12 +108,14 @@ export async function GET(
         });
         // WHY: 表示中のメッセージの投稿者分をまとめて 1 回で引く。
         // メッセージごとに引くとポーリングのたびに件数分の問い合わせになる
-        const titles = await fetchTitlesForUsers(
-            messages
-                .map((message) => message.author?.id)
-                .filter((id): id is string => !!id),
-            auth.gameId,
-        );
+        const titles = hideTitles
+            ? new Map<string, TitleBadge[]>()
+            : await fetchTitlesForUsers(
+                  messages
+                      .map((message) => message.author?.id)
+                      .filter((id): id is string => !!id),
+                  auth.gameId,
+              );
         const res = NextResponse.json<PlayChatGetResponse>({
             ok: true,
             data: messages
