@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.3.4
+
+### Patch Changes
+
+- Updated dependencies [9abebb6]
+  - @multi-indiegame/persist-schema@1.29.0
+  - @multi-indiegame/scoreboard-schema@1.1.3
+
 ## 2.3.3
 
 ### Patch Changes
