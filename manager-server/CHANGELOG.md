@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.3.2
+
+### Patch Changes
+
+- Updated dependencies [2f5c97f]
+  - @multi-indiegame/persist-schema@1.28.0
+
 ## 1.3.1
 
 ### Patch Changes

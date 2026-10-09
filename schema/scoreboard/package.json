@@ -1,6 +1,6 @@
 {
   "name": "@multi-indiegame/scoreboard-schema",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "description": "記録の掲載可否を決める突き合わせ。akashic-server と webapp が共有する",
   "main": "dist/index.js",
@@ -29,7 +29,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "@multi-indiegame/persist-schema": "^1.27.0"
+    "@multi-indiegame/persist-schema": "^1.28.0"
   },
   "publishConfig": {
     "access": "public"
