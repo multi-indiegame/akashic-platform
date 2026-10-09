@@ -216,6 +216,8 @@ export function PlayRecordCard({ records }: { records: ScoreTotal[] }) {
     );
 }
 
+const CARD_MIN_WIDTH = 480;
+
 /**
  * 統計のカードを並べる器。
  */
@@ -225,11 +227,9 @@ export function StatsGrid({ children }: { children: ReactNode }) {
             sx={{
                 display: "grid",
                 gap: 2,
-                gridTemplateColumns: {
-                    xs: "1fr",
-                    md: "repeat(2, minmax(0, 1fr))",
-                    xl: "repeat(3, minmax(0, 1fr))",
-                },
+                // WHY: 名前が折り返さない幅を下限にして、入りきらない画面では
+                // 列を減らす
+                gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${CARD_MIN_WIDTH}px), 1fr))`,
                 // WHY: 同じ行のカードの高さをそろえる。ばらばらだと段差が
                 // 目に付いて読みにくい
                 alignItems: "stretch",
@@ -245,11 +245,14 @@ export function SectionCard({
     section,
     showChart,
     limit,
+    footer,
 }: {
     section: ScoreSection;
     showChart: boolean;
     /** 表示する順位の数。省略すると全部 */
     limit?: number;
+    /** 順位の下に添えるもの */
+    footer?: ReactNode;
 }) {
     if (section.kind === "rate" && section.rate) {
         const { achieved, total } = section.rate;
@@ -275,9 +278,11 @@ export function SectionCard({
         <RankingCard
             heading={section.heading}
             unit={section.unit}
-            entries={limit ? section.entries.slice(0, limit) : section.entries}
+            entries={section.entries}
             summary={section.summary}
             showChart={showChart}
+            limit={limit}
+            footer={footer}
         />
     );
 }
@@ -288,12 +293,18 @@ export function RankingCard({
     entries,
     summary,
     showChart,
+    limit,
+    footer,
 }: {
     heading: string;
     unit?: string;
     entries: ScoreEntry[];
     summary?: ScoreSection["summary"];
     showChart: boolean;
+    /** 表示する順位の数。省略すると全部 */
+    limit?: number;
+    /** 順位の下に添えるもの */
+    footer?: ReactNode;
 }) {
     return (
         <Card variant="outlined">
@@ -326,7 +337,7 @@ export function RankingCard({
                     </>
                 )}
                 <Stack divider={<Divider flexItem />}>
-                    {entries.map((entry, index) => (
+                    {entries.slice(0, limit).map((entry, index) => (
                         <RankingEntry
                             // WHY: 非表示にしたユーザーは名前もトークンも同じになり、同順位だと重なる
                             key={`${entry.rank}-${entry.subject ?? index}`}
@@ -340,6 +351,7 @@ export function RankingCard({
                         />
                     ))}
                 </Stack>
+                {footer}
             </CardContent>
         </Card>
     );
@@ -403,15 +415,20 @@ function EntryRow({
 }) {
     const theme = useTheme();
     return (
+        // WHY: 狭い画面では余白と棒を詰めて、名前を 1 行に収める
         <Stack
             direction="row"
-            spacing={2}
+            spacing={{ xs: 1, sm: 2 }}
             sx={{ alignItems: "center", py: 0.75 }}
         >
             <Typography
                 variant="body2"
                 color="textSecondary"
-                sx={{ width: 32, fontVariantNumeric: "tabular-nums" }}
+                sx={{
+                    width: { xs: 24, sm: 32 },
+                    flexShrink: 0,
+                    fontVariantNumeric: "tabular-nums",
+                }}
             >
                 {entry.rank}
             </Typography>
@@ -449,7 +466,7 @@ function EntryRow({
                 <Stack
                     spacing={0.25}
                     sx={{
-                        width: { xs: 96, sm: 160 },
+                        width: { xs: 72, sm: 160 },
                         alignItems: "flex-end",
                         flexShrink: 0,
                     }}

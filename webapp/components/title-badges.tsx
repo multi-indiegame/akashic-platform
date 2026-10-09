@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
     Avatar,
@@ -18,7 +18,7 @@ import {
     Typography,
     useTheme,
 } from "@mui/material";
-import { EmojiEvents } from "@mui/icons-material";
+import { EmojiEvents, ExpandLess, ExpandMore } from "@mui/icons-material";
 import { format } from "date-fns";
 import { TitleBadge } from "@/lib/types";
 import {
@@ -33,6 +33,10 @@ import {
 } from "@/lib/server/scoreboard-title-action";
 
 export const TITLE_TILE_SIZE = 100;
+
+/** TitleTile の左右の余白を含めた幅 */
+const TITLE_TILE_OUTER_WIDTH = TITLE_TILE_SIZE + 8;
+const TITLE_TILE_GAP = 16;
 
 const containImg = {
     img: {
@@ -64,6 +68,7 @@ export function TitleBadges({
     withGameName = true,
     openInNewWindow = false,
     disableDetail = false,
+    collapsible = false,
 }: {
     titles: TitleBadge[];
     /** compact は部屋の中など狭い場所向け。画像の枠の色だけで段位を示す */
@@ -76,23 +81,33 @@ export function TitleBadges({
     openInNewWindow?: boolean;
     /** 流れて消える表示の中では、押しても詳細を開かない */
     disableDetail?: boolean;
+    /** full のとき、1 行に収まる分だけ出して残りは開いて見せる */
+    collapsible?: boolean;
 }) {
+    const theme = useTheme();
     const [selected, setSelected] = useState<TitleBadge>();
+    const [expanded, setExpanded] = useState(false);
+    const [rowRef, perRow] = useTilesPerRow(
+        collapsible && variant === "full" && titles.length > 0,
+    );
     if (titles.length === 0) {
         return null;
     }
+    const collapsed = perRow != null && !expanded && titles.length > perRow;
+    const visibleTitles = collapsed ? titles.slice(0, perRow) : titles;
     return (
         <>
             <Stack
+                ref={rowRef}
                 direction="row"
                 sx={{
                     // WHY: 流れるコメントの中では幅が決まらず、折り返しを許すと 1 つずつ縦に積まれて隠れる
                     flexWrap: variant === "full" ? "wrap" : "nowrap",
-                    gap: variant === "full" ? 2 : 0.5,
+                    gap: variant === "full" ? `${TITLE_TILE_GAP}px` : 0.5,
                     alignItems: variant === "full" ? "flex-start" : "center",
                 }}
             >
-                {titles.map((title) =>
+                {visibleTitles.map((title) =>
                     variant === "full" ? (
                         <TitleTile
                             key={`${title.gameId}-${title.categoryKey}`}
@@ -114,6 +129,21 @@ export function TitleBadges({
                     ),
                 )}
             </Stack>
+            {perRow != null && titles.length > perRow && (
+                <Button
+                    size="small"
+                    startIcon={expanded ? <ExpandLess /> : <ExpandMore />}
+                    onClick={() => setExpanded((prev) => !prev)}
+                    sx={{
+                        alignSelf: "flex-start",
+                        color: theme.palette.primary.light,
+                    }}
+                >
+                    {expanded
+                        ? "折りたたむ"
+                        : `すべて表示（${titles.length} 個）`}
+                </Button>
+            )}
             {selected && (
                 <TitleDetailDialog
                     title={selected}
@@ -123,6 +153,41 @@ export function TitleBadges({
             )}
         </>
     );
+}
+
+/**
+ * 幅から 1 行に並ぶタイルの数を求める。enabled でなければ undefined
+ */
+function useTilesPerRow(enabled: boolean) {
+    const ref = useRef<HTMLDivElement>(null);
+    const [perRow, setPerRow] = useState<number>();
+
+    useLayoutEffect(() => {
+        const el = ref.current;
+        if (!enabled || !el) {
+            setPerRow(undefined);
+            return;
+        }
+        function measure() {
+            if (el) {
+                setPerRow(
+                    Math.max(
+                        1,
+                        Math.floor(
+                            (el.clientWidth + TITLE_TILE_GAP) /
+                                (TITLE_TILE_OUTER_WIDTH + TITLE_TILE_GAP),
+                        ),
+                    ),
+                );
+            }
+        }
+        measure();
+        const observer = new ResizeObserver(measure);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [enabled]);
+
+    return [ref, perRow] as const;
 }
 
 export function TitleArt({
@@ -231,7 +296,7 @@ function TitleIcon({
                 height: size,
                 flexShrink: 0,
                 boxSizing: "border-box",
-                border: `2px solid ${color ?? theme.palette.divider}`,
+                border: `1px solid ${color ?? theme.palette.divider}`,
             }}
             slotProps={containImg}
         >

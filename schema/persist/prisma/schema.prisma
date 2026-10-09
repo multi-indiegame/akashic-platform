@@ -44,6 +44,8 @@ model User {
   /// いる分を消すだけだと、次に名前を使って参加した時点でまた載ってしまう。
   /// 突き合わせの段でこの印を見て、以後は掲載用へ入れない。
   scoreboardOptOut Boolean           @default(false)
+  /// チャットなどで名前に添えて出る称号を表示しないか。自分の称号も含めて隠す。
+  hideTitles       Boolean           @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

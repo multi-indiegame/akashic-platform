@@ -21,7 +21,7 @@ import {
     recordPlaySession,
 } from "@/lib/server/play-session";
 import { recordPlayParticipant } from "@/lib/server/play-participant";
-import { fetchTitles } from "@/lib/server/scoreboard-title";
+import { fetchTitles, hidesTitles } from "@/lib/server/scoreboard-title";
 import { kickViewerFromPlays } from "@/lib/server/play-kick";
 import { sessionViewerId, verifyRoomOwner } from "@/lib/server/viewer-identity";
 import {
@@ -222,11 +222,12 @@ export async function GET(
                 isGameMaster: isOwner,
                 gameMaster: {
                     // WHY: この部屋のゲームの称号のみ取得
-                    titles: play.gmUser?.id
-                        ? await fetchTitles(play.gmUser.id, {
-                              gameId: play.content.game.id,
-                          })
-                        : undefined,
+                    titles:
+                        play.gmUser?.id && !(await hidesTitles(user))
+                            ? await fetchTitles(play.gmUser.id, {
+                                  gameId: play.content.game.id,
+                              })
+                            : undefined,
                     userId: play.gmUser?.id ?? undefined,
                     name: play.gmUser?.name ?? GUEST_NAME,
                     iconURL: play.gmUser?.image ?? undefined,

@@ -46,6 +46,35 @@ export async function setScoreboardPublic(
 }
 
 /**
+ * チャットなどで称号を表示しないかを切り替える。自分の称号も含めて隠す。
+ */
+export async function setHideTitles(
+    hide: boolean,
+): Promise<ScoreboardSettingResponse> {
+    if (isWriteBlocked()) {
+        return { ok: false, reason: "Drain" };
+    }
+    const auth = await getSignedInUser();
+    if (!auth.ok) {
+        return { ok: false, reason: auth.reason };
+    }
+    try {
+        await prisma.user.update({
+            where: { id: auth.user.id },
+            data: { hideTitles: hide },
+        });
+        return { ok: true };
+    } catch (err) {
+        console.warn(
+            "failed to update title visibility (userId = %s)",
+            logSafe(auth.user.id),
+            err,
+        );
+        return { ok: false, reason: "InternalError" };
+    }
+}
+
+/**
  * 統計への掲載をやめる。
  *
  * 記録そのものは消さず、掲載用から外して名前が出ない状態へ戻す。称号も消える。
