@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 1.3.0
+
+### Minor Changes
+
+- 446122a: Swagger UI を外部プラットフォーム向け API (`index.html`、Try it out 可) と内部 API (`internal.html`) のページに分ける
+
 ## 1.2.0
 
 ### Minor Changes
