@@ -6,13 +6,7 @@ import { createRequire } from "node:module";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "..", "..");
 const outDir = path.join(scriptDir, "dist");
-const templatePath = path.join(
-    rootDir,
-    "schema",
-    "http",
-    "swagger-ui",
-    "index.html",
-);
+const templateDir = path.join(rootDir, "schema", "http", "swagger-ui");
 const require = createRequire(import.meta.url);
 const swaggerDistDir = path.dirname(
     require.resolve("swagger-ui-dist/package.json"),
@@ -82,7 +76,14 @@ const specs = [
 ];
 
 await mkdir(outDir, { recursive: true });
-await copyFile(templatePath, path.join(outDir, "index.html"));
+await copyFile(
+    path.join(templateDir, "index.html"),
+    path.join(outDir, "index.html"),
+);
+await copyFile(
+    path.join(templateDir, "internal.html"),
+    path.join(outDir, "internal.html"),
+);
 await copyFile(
     path.join(swaggerDistDir, "swagger-ui.css"),
     path.join(outDir, "swagger-ui.css"),

@@ -46,7 +46,10 @@
 
 ![アーキテクチャ図](./architecture.png)
 
-Web API 仕様: https://multi-indiegame.github.io/akashic-platform/
+Web API 仕様:
+
+- 外部公開 API: https://multi-indiegame.github.io/akashic-platform/
+- 内部 API: https://multi-indiegame.github.io/akashic-platform/internal.html
 
 ## リポジトリ構成
 
