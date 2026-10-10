@@ -2,7 +2,7 @@
 
 外部プラットフォーム向けの読み取り専用 API です。API Gateway (HTTP API) + AWS Lambda で動かし、DB を直接読みます。
 
-- API 仕様: `src/http/openapi.ts` (Swagger UI で公開)
+- API 仕様: `src/http/openapi.ts` (Swagger UI で公開。https://multi-indiegame.github.io/akashic-platform/)
 
 ## 開発
 
@@ -46,7 +46,7 @@ IaC は持たず、コンソールで作る。
 
 - ルート: `GET /v1/{proxy+}` を Lambda に統合する (パスの振り分けは Lambda で行う)
 - ステージ: `$default` (パスにステージ名を含めないため)
-- CORS: 外部プラットフォームの Origin を許可する。メソッドは `GET`。S3 のコンテンツの CORS と同じ一覧にする
+- CORS: 外部プラットフォームの Origin を許可する。メソッドは `GET`。S3 のコンテンツの CORS と同じ一覧にする。Swagger UI の Try it out 用に `https://multi-indiegame.github.io` も許可する
 - スロットリング: ステージの既定ルートに上限 (例: 20 req/s、バースト 40) を設定する
 - 独自ドメイン `api.multi-indiegame.net` を当てる。証明書は API と同じリージョンの ACM で発行する (Swagger の `servers` もこのドメイン)
 
