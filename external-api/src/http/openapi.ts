@@ -1,5 +1,5 @@
 const description = `
-みんなでゲーム! に投稿されたゲームを、外部のプラットフォームで起動するための読み取り専用 API です。
+[みんなでゲーム!](https://multi-indiegame.net) に投稿されたゲームを、外部のプラットフォームで起動するための読み取り専用 API です。
 
 ## 対象となるゲーム
 
@@ -11,7 +11,7 @@ const description = `
 2. 起動のたびに \`contentJsonUrl\` (\`GET /v1/games/{gameId}/content.json\`) を取得し、ビューアーへ渡します。
    - \`content.json\` は常に最新バージョンを指します。\`contentId\` を控えて古いバージョンを起動し続けないでください。
    - 投稿者が許可を取り消した場合に起動できなくなるよう、取得した \`content.json\` は応答のキャッシュ期間を超えて使い回さないでください。
-3. \`content.json\` の \`engine_urls\` は空配列です。Akashic Engine と playlog client は、\`game.json\` の \`environment["sandbox-runtime"]\` を見て受け入れ側で用意してください。
+3. \`content.json\` の \`engine_urls\` は空配列です。[\`engine-files\`](https://github.com/akashic-games/engine-files)のバージョンは \`game.json\` の \`environment["sandbox-runtime"]\` を参照し、受け入れ側で用意してください。[\`playlogClient\`](https://github.com/akashic-games/akashic-system/tree/main/packages/playlog-client)のバンドルファイルは受け入れ側で用意してください。
 
 ゲームのデータ (\`game.json\` やアセット) は、\`content_url\` / \`asset_base_url\` から直接読み込みます。ブラウザから読み込むには、後述の Origin の登録が必要です。
 
@@ -33,7 +33,7 @@ const description = `
 投稿者はゲームごとに、実況動画・ライブ配信・動画投稿 (以下「配信等」) を許可するかを設定しています。設定は \`streaming\` で返します。
 
 - \`streaming: false\`: 配信等が禁止されています。受け入れ側は、プレイ画面などで配信等ができないことを利用者に表示し、利用者に守らせてください。
-- \`streaming: true\`: みんなでゲーム! の利用規約「実況・配信・動画投稿」の条件の範囲で配信等ができます。
+- \`streaming: true\`: みんなでゲーム! の[利用規約「実況・配信・動画投稿」](https://multi-indiegame.net/terms/) の条件の範囲で配信等ができます。
 
 投稿者は設定を変更することがあります。起動のたびに最新の値を確認してください。
 
